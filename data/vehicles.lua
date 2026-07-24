@@ -36,59 +36,58 @@ return {
 	},
 
 	-- slots, maxWeight (gram)
-	-- Bitirim: TUM araclarda torpido = 5 slot / 50 KG (50000 g).
+	-- Bitirim: TUM araclarda torpido = 6 slot / 50 KG (50000 g).
 	glovebox = {
-		[0] = {5, 50000},		-- Compact
-		[1] = {5, 50000},		-- Sedan
-		[2] = {5, 50000},		-- SUV
-		[3] = {5, 50000},		-- Coupe
-		[4] = {5, 50000},		-- Muscle
-		[5] = {5, 50000},		-- Sports Classic
-		[6] = {5, 50000},		-- Sports
-		[7] = {5, 50000},		-- Super
-		[8] = {5, 50000},		-- Motorcycle
-		[9] = {5, 50000},		-- Offroad
-		[10] = {5, 50000},		-- Industrial
-		[11] = {5, 50000},		-- Utility
-		[12] = {5, 50000},		-- Van
-		[14] = {5, 50000},		-- Boat
-		[15] = {5, 50000},		-- Helicopter
-		[16] = {5, 50000},		-- Plane
-		[17] = {5, 50000},		-- Service
-		[18] = {5, 50000},		-- Emergency
-		[19] = {5, 50000},		-- Military
-		[20] = {5, 50000},		-- Commercial (trucks)
+		[0] = {6, 50000},		-- Compact
+		[1] = {6, 50000},		-- Sedan
+		[2] = {6, 50000},		-- SUV
+		[3] = {6, 50000},		-- Coupe
+		[4] = {6, 50000},		-- Muscle
+		[5] = {6, 50000},		-- Sports Classic
+		[6] = {6, 50000},		-- Sports
+		[7] = {6, 50000},		-- Super
+		[8] = {6, 50000},		-- Motorcycle
+		[9] = {6, 50000},		-- Offroad
+		[10] = {6, 50000},		-- Industrial
+		[11] = {6, 50000},		-- Utility
+		[12] = {6, 50000},		-- Van
+		[14] = {6, 50000},		-- Boat
+		[15] = {6, 50000},		-- Helicopter
+		[16] = {6, 50000},		-- Plane
+		[17] = {6, 50000},		-- Service
+		[18] = {6, 50000},		-- Emergency
+		[19] = {6, 50000},		-- Military
+		[20] = {6, 50000},		-- Commercial (trucks)
 		models = {
-			[`xa21`] = {5, 50000}
+			[`xa21`] = {6, 50000}
 		}
 	},
 
-	-- Bitirim: TUM araclarda bagaj = 6x6 = 36 slot. Kilit acma/kapama (arac
-	-- seviyesi/modeli) sonraki adim. Agirlik simdilik 288 KG (36 * 8 KG),
-	-- daha sonra ayarlanabilir.
+	-- Bitirim: TUM araclarda bagaj = 6x6 = 36 slot. Agirlik siniri pratikte
+	-- KALDIRILDI (10.000 KG). Kilit acma/kapama (arac seviyesi/modeli) sonraki adim.
 	trunk = {
-		[0] = {36, 288000},		-- Compact
-		[1] = {36, 288000},		-- Sedan
-		[2] = {36, 288000},		-- SUV
-		[3] = {36, 288000},		-- Coupe
-		[4] = {36, 288000},		-- Muscle
-		[5] = {36, 288000},		-- Sports Classic
-		[6] = {36, 288000},		-- Sports
-		[7] = {36, 288000},		-- Super
-		[8] = {36, 288000},		-- Motorcycle
-		[9] = {36, 288000},		-- Offroad
-		[10] = {36, 288000},	-- Industrial
-		[11] = {36, 288000},	-- Utility
-		[12] = {36, 288000},	-- Van
-		[14] = {36, 288000},	-- Boat
-		[15] = {36, 288000},	-- Helicopter
-		[16] = {36, 288000},	-- Plane
-		[17] = {36, 288000},	-- Service
-		[18] = {36, 288000},	-- Emergency
-		[19] = {36, 288000},	-- Military
-		[20] = {36, 288000},	-- Commercial
+		[0] = {36, 10000000},		-- Compact
+		[1] = {36, 10000000},		-- Sedan
+		[2] = {36, 10000000},		-- SUV
+		[3] = {36, 10000000},		-- Coupe
+		[4] = {36, 10000000},		-- Muscle
+		[5] = {36, 10000000},		-- Sports Classic
+		[6] = {36, 10000000},		-- Sports
+		[7] = {36, 10000000},		-- Super
+		[8] = {36, 10000000},		-- Motorcycle
+		[9] = {36, 10000000},		-- Offroad
+		[10] = {36, 10000000},	-- Industrial
+		[11] = {36, 10000000},	-- Utility
+		[12] = {36, 10000000},	-- Van
+		[14] = {36, 10000000},	-- Boat
+		[15] = {36, 10000000},	-- Helicopter
+		[16] = {36, 10000000},	-- Plane
+		[17] = {36, 10000000},	-- Service
+		[18] = {36, 10000000},	-- Emergency
+		[19] = {36, 10000000},	-- Military
+		[20] = {36, 10000000},	-- Commercial
 		models = {
-			[`xa21`] = {36, 288000}
+			[`xa21`] = {36, 10000000}
 		},
 	}
 }

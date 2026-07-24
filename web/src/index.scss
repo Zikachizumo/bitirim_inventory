@@ -469,9 +469,10 @@ body.inv-dragging {
     box-shadow: inset 0 0 26px -14px var(--accent);
   }
 
+  /* Hover'da yukari kaldirma YOK: ust sirada slotun ust kenari grid kirpma
+     sinirina tasiyordu. Geri bildirim border rengiyle verilir. */
   &:hover {
     border-color: var(--slot-hover);
-    transform: translateY(-1px);
   }
 }
 
