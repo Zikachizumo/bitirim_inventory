@@ -33,12 +33,15 @@ Resource adı `bitirim_inventory` olarak değişti. Güvenli, çünkü:
 - Değiştirilen tek gerçek kod: `modules/inventory/client.lua`'daki kendi export self-call'u
   (`exports.ox_inventory:openInventory` → `exports.bitirim_inventory:openInventory`).
 
-### ⚠️ Dağıtımdan önce: export uyumluluk köprüsü (TODO)
+### Export uyumluluk köprüsü ✅
 
-qbx_core ve diğer resource'lar hâlâ `exports.ox_inventory:...` çağırıyor. Sunucuda test
-etmeden önce, tüm export çağrılarını `bitirim_inventory`'e yönlendiren küçük bir
-`ox_inventory` shim resource'u eklenecek (veya qbx tarafı yapılandırılacak). Repo kurulumunu
-engellemez; ilk sunucu testinden önce halledilecek.
+qbx_core ve diğer kaynaklar hâlâ `exports.ox_inventory:...` çağırıyor. Bunun için
+[`compat/ox_inventory/`](compat/ox_inventory/) altında **27 client + 52 server** export'u
+`bitirim_inventory`'e devreden minik bir köprü kaynağı var. Kurulum ve `server.cfg`
+sırası için o klasördeki README'ye bak.
+
+Ayrıca `init.lua`'daki sabit `nui://ox_inventory/web/images` yolu dinamik hale getirildi
+(`GetCurrentResourceName()`), aksi halde rename tüm item ikonlarını kırıyordu.
 
 ## Derleme (UI)
 
@@ -50,7 +53,10 @@ bun install
 bun run build      # web/build/ üretir — fxmanifest bunu servis eder
 ```
 
-> Not: `web/build/` henüz yok (kaynak fork). Lokal geliştirme için Bun kurulu olmalı.
+> **`web/build/` bilerek repoya dahildir.** `init.lua` açılışta `web/build/index.html`
+> arar; yoksa kaynak hiç başlamaz. Sunucuda (Ubuntu) Bun/Node kurulu olmadığı için
+> derleme orada yapılamaz — UI'de değişiklik yaptıktan sonra **lokalde build alıp
+> çıktısıyla birlikte commit et**, sunucuda sadece `git pull` + `restart` yeterli olsun.
 
 ## Yol haritası
 

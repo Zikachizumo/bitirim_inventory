@@ -94,7 +94,9 @@ else
         weaponanims = GetConvarBool('inventory:weaponanims', true),
         itemnotify = GetConvarBool('inventory:itemnotify', true),
         weaponnotify = GetConvarBool('inventory:weaponnotify', true),
-        imagepath = GetConvar('inventory:imagepath', 'nui://ox_inventory/web/images'),
+        -- Bitirim: kaynak adi artik bitirim_inventory. Sabit 'ox_inventory' yolu tum item
+        -- ikonlarini kirardi; dogru kaynak adini calisma aninda kullaniyoruz.
+        imagepath = GetConvar('inventory:imagepath', ('nui://%s/web/images'):format(shared.resource)),
         dropprops = GetConvarBool('inventory:dropprops', false),
         dropmodel = joaat(GetConvar('inventory:dropmodel', 'prop_med_bag_01b')),
         weaponmismatch = GetConvarBool('inventory:weaponmismatch', true),

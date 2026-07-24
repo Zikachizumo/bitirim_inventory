@@ -4,5 +4,7 @@ node_modules
 .idea
 .luarc.jsonc
 
-# Bitirim: web derleme ciktisi gelistirme sirasinda commit edilmez (deploy'da ayrica ele alinir)
-web/build/
+# Bitirim: web/build BILEREK commit edilir.
+# init.lua acilista 'web/build/index.html' arar; yoksa kaynak hic baslamaz.
+# Sunucuda (Ubuntu) Bun/Node kurulu olmadigi icin derleme orada yapilamaz —
+# lokalde 'cd web && bun run build' calistirip cikti ile birlikte commit ediyoruz.
