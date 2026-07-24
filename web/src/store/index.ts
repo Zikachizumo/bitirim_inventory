@@ -4,6 +4,7 @@ import inventoryReducer from './inventory';
 import tooltipReducer from './tooltip';
 import contextMenuReducer from './contextMenu';
 import playerStatusReducer from './playerStatus';
+import equipmentReducer from './equipment';
 
 export const store = configureStore({
   reducer: {
@@ -11,6 +12,7 @@ export const store = configureStore({
     tooltip: tooltipReducer,
     contextMenu: contextMenuReducer,
     playerStatus: playerStatusReducer,
+    equipment: equipmentReducer,
   },
 });
 

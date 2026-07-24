@@ -40,8 +40,21 @@ local function survivalStats()
     return tonumber(metadata.hunger), tonumber(metadata.thirst)
 end
 
+--- O an kusanili silahin slotunu dondurur (yoksa nil).
+--- ox client'inin getCurrentWeapon export'unu kullanir (kendi kaynagimiz).
+local function equippedWeaponSlot()
+    local ok, weapon = pcall(function()
+        return exports[GetCurrentResourceName()]:getCurrentWeapon()
+    end)
+
+    if not ok or type(weapon) ~= 'table' then return nil end
+
+    return weapon.slot
+end
+
 CreateThread(function()
     local last
+    local lastEquipped = false -- 'false' = henuz gonderilmedi (nil'den ayirt icin)
 
     while true do
         local wait = IDLE_INTERVAL
@@ -49,6 +62,14 @@ CreateThread(function()
         -- Envanter acikken NUI odakli olur; sadece o zaman gonderiyoruz.
         if IsNuiFocused() then
             wait = SEND_INTERVAL
+
+            -- Kusanili slot (sag tik menusunde Use/Unequip etiketi icin)
+            local equipped = equippedWeaponSlot()
+
+            if equipped ~= lastEquipped then
+                lastEquipped = equipped
+                SendNUIMessage({ action = 'setEquippedSlot', data = equipped })
+            end
 
             local ped = PlayerPedId()
             local hunger, thirst = survivalStats()
@@ -74,6 +95,7 @@ CreateThread(function()
             end
         else
             last = nil
+            lastEquipped = false
         end
 
         Wait(wait)

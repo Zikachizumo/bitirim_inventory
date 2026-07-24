@@ -1,18 +1,16 @@
 import React from 'react';
 
 /**
- * Bitirim — karakter panelinin altindaki kullanim talimatlari.
+ * Bitirim — karakter panelinin altindaki kullanim talimatlari (2x2 duzen).
  * Eski "adet / Use / Give / Close" kontrol panelinin yerini alir.
  *
- * Not: eski adet kutusunun kaldirilmasi guvenli — sunucu 'ver/al/at'
- * miktarini math.max(1,...) ile kirpiyor (ver=1, at=tum yigin), yarim
- * bolme SHIFT ile calismaya devam ediyor.
+ * Not: yarim bolme SHIFT+surukle ile hala calisir; talimat listesinden
+ * kullanicinin istegiyle cikarildi.
  */
 const HINTS: { key: string; text: string }[] = [
   { key: 'Sağ Tık', text: 'Giy / Çıkar' },
   { key: 'Sol Tık', text: 'Kullan / Ayır / At' },
   { key: 'Sürükle', text: 'Taşı' },
-  { key: 'Shift + Sürükle', text: 'Yarısını Ayır' },
   { key: 'ESC', text: 'Kapat' },
 ];
 
