@@ -11,7 +11,6 @@ import {
   IconGloves,
   IconHeadphones,
   IconHeart,
-  IconInfo,
   IconJacket,
   IconMask,
   IconNecklace,
@@ -101,23 +100,22 @@ const CharacterPanel: React.FC = () => {
         ))}
       </div>
 
-      <div className="bx-eq-caption">
-        <IconInfo size={14} />
-        <span>Ekipman slotları yakında — giyme/çıkarma sistemi bağlanıyor</span>
+      {/* Alt bolge: statlar dikeyde ortalanir. Karsi panelde (envanter) canta
+          karti da ayni sekilde ortalanir -> ikisinin ortasi hizali olur. */}
+      <div className="bx-char-bottom">
+        {status && (
+          <div className="bx-stats">
+            <Stat kind="can" label="Can" value={status.health} Icon={IconHeart} />
+            <Stat kind="zirh" label="Zırh" value={status.armour} Icon={IconShield} />
+            {status.hunger !== undefined && (
+              <Stat kind="aclik" label="Açlık" value={status.hunger} Icon={IconFood} />
+            )}
+            {status.thirst !== undefined && (
+              <Stat kind="susuzluk" label="Susuzluk" value={status.thirst} Icon={IconDrop} />
+            )}
+          </div>
+        )}
       </div>
-
-      {status && (
-        <div className="bx-stats">
-          <Stat kind="can" label="Can" value={status.health} Icon={IconHeart} />
-          <Stat kind="zirh" label="Zırh" value={status.armour} Icon={IconShield} />
-          {status.hunger !== undefined && (
-            <Stat kind="aclik" label="Açlık" value={status.hunger} Icon={IconFood} />
-          )}
-          {status.thirst !== undefined && (
-            <Stat kind="susuzluk" label="Susuzluk" value={status.thirst} Icon={IconDrop} />
-          )}
-        </div>
-      )}
     </div>
   );
 };

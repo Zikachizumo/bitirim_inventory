@@ -75,25 +75,20 @@ const Inventory: React.FC = () => {
           <div className="bx-window">
             <BitirimTopBar />
 
-            {/* Iki bagimsiz sutun: her sutun kendi icerigini ustten yigar,
-                boylece panel altinda bosluk kalmaz (alt bar dogrudan panelin
-                altinda durur). */}
+            {/* 2x2 grid: satir1 = ana kutular (esit yukseklik),
+                satir2 = alt barlar (esit yukseklik). align-items:stretch her
+                hucreyi satir yuksekligine ceker. */}
             <div className="bx-body">
-              <div className="bx-col bx-col-left">
-                {hasContainer ? (
-                  <div className="bx-panel bx-container">
-                    <RightInventory />
-                  </div>
-                ) : (
-                  <CharacterPanel />
-                )}
-                <BitirimHints />
-              </div>
-
-              <div className="bx-col bx-col-right">
-                <PlayerPanel />
-                <GiveBar />
-              </div>
+              {hasContainer ? (
+                <div className="bx-panel bx-container">
+                  <RightInventory />
+                </div>
+              ) : (
+                <CharacterPanel />
+              )}
+              <PlayerPanel />
+              <BitirimHints />
+              <GiveBar />
             </div>
           </div>
 
