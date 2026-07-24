@@ -3,3 +3,6 @@ modules/logs/**/
 node_modules
 .idea
 .luarc.jsonc
+
+# Bitirim: web derleme ciktisi gelistirme sirasinda commit edilmez (deploy'da ayrica ele alinir)
+web/build/
