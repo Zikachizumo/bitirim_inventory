@@ -127,7 +127,8 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
       ref={refs}
       onContextMenu={handleContext}
       onClick={handleClick}
-      className="inventory-slot"
+      // Bitirim: dolu slotlarin seviye renginde parlamasi icin stil kancasi.
+      className={isSlotWithItem(item) ? 'inventory-slot has-item' : 'inventory-slot'}
       style={{
         filter:
           !canPurchaseItem(item, { type: inventoryType, groups: inventoryGroups }) || !canCraftItem(item, inventoryType)
