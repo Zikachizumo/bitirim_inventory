@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from '../../store';
 import { refreshSlots, selectRightInventory, setAdditionalMetadata, setupInventory } from '../../store/inventory';
 import { setPlayerStatus, PlayerStatus } from '../../store/playerStatus';
 import { setEquippedSlot } from '../../store/equipment';
+import { setBagLevel } from '../../store/backpack';
 import { useExitListener } from '../../hooks/useExitListener';
 import type { Inventory as InventoryProps } from '../../typings';
 import RightInventory from './RightInventory';
@@ -67,6 +68,12 @@ const Inventory: React.FC = () => {
 
   // Bitirim: o an kusanili slot (sag tik menusunde Use/Unequip etiketi icin)
   useNuiEvent<number | null>('setEquippedSlot', (data) => dispatch(setEquippedSlot(data)));
+
+  // Bitirim: canta seviyesi -> tema rengi (<html data-lv>) + acik/kilitli slotlar
+  useNuiEvent<number>('setBagLevel', (level) => {
+    dispatch(setBagLevel(level));
+    document.documentElement.dataset.lv = String(Math.max(1, Math.min(5, Math.floor(level || 1))));
+  });
 
   return (
     <>

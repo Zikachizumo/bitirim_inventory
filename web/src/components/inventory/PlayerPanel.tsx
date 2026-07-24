@@ -4,6 +4,7 @@ import InventorySlot from './InventorySlot';
 import WeightBar from '../utils/WeightBar';
 import { useAppSelector } from '../../store';
 import { selectLeftInventory } from '../../store/inventory';
+import { selectBagLevel, unlockedGridSlots, BAG_CAP_KG } from '../../store/backpack';
 import { getTotalWeight } from '../../helpers';
 import { IconBackpack, IconWeight } from './BitirimIcons';
 
@@ -23,6 +24,8 @@ const GRID_SLOTS = 40; // 8 sutun x 5 satir
  */
 const PlayerPanel: React.FC = () => {
   const inventory = useAppSelector(selectLeftInventory);
+  const bagLevel = useAppSelector(selectBagLevel);
+  const unlocked = unlockedGridSlots(bagLevel); // acik grid slotu (kilitli olanlar bundan sonra)
 
   const hotbarItems = useMemo(() => inventory.items.slice(0, HOTBAR_SLOTS), [inventory.items]);
   const usedSlots = useMemo(() => inventory.items.filter((item) => !!item?.name).length, [inventory.items]);
@@ -47,7 +50,13 @@ const PlayerPanel: React.FC = () => {
       </div>
 
       <div className="bx-inv-main">
-        <InventoryGrid inventory={inventory} skipSlots={HOTBAR_SLOTS} maxSlots={GRID_SLOTS} hideHeader />
+        <InventoryGrid
+          inventory={inventory}
+          skipSlots={HOTBAR_SLOTS}
+          maxSlots={GRID_SLOTS}
+          hideHeader
+          lockedFrom={unlocked}
+        />
 
         <div className="bx-hotcol" title="Makro slotları (1-5)">
           {hotbarItems.map((item) => (
@@ -75,6 +84,7 @@ const PlayerPanel: React.FC = () => {
         <div className="bx-bp-main">
           <div className="bx-bp-title">
             <b>Backpack</b>
+            <span className="bx-bp-lv">Level {bagLevel}</span>
           </div>
           <p className="bx-bp-desc">
             Carry more as you level up — locked slots unlock each level. Keep carrying to reach the next tier.
@@ -84,13 +94,13 @@ const PlayerPanel: React.FC = () => {
           <div className="bx-bp-stat">
             <span className="bx-bp-n">
               {usedSlots}
-              <span className="bx-bp-u"> / {inventory.slots}</span>
+              <span className="bx-bp-u"> / {HOTBAR_SLOTS + unlocked}</span>
             </span>
             <span className="bx-bp-k">Used</span>
           </div>
           <div className="bx-bp-stat">
             <span className="bx-bp-n">
-              {Math.floor((inventory.maxWeight ?? 0) / 1000)}
+              {BAG_CAP_KG[bagLevel]}
               <span className="bx-bp-u"> KG</span>
             </span>
             <span className="bx-bp-k">Capacity</span>

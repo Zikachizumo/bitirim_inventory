@@ -459,6 +459,25 @@ body.inv-dragging {
   }
 }
 
+/* canta seviyesiyle kilitli slot */
+.bx-slot-locked {
+  display: grid;
+  place-items: center;
+  color: #3b3446;
+  cursor: default;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(19, 16, 25, 0.72),
+    rgba(19, 16, 25, 0.72) 7px,
+    rgba(23, 16, 33, 0.72) 7px,
+    rgba(23, 16, 33, 0.72) 14px
+  );
+  &:hover {
+    transform: none;
+    border-color: var(--slot-border);
+  }
+}
+
 .inventory-slot-label-box {
   background: rgba(9, 8, 14, 0.72);
   color: var(--text);
@@ -1080,9 +1099,28 @@ body.inv-dragging {
   min-width: 0;
 }
 
+.bx-bp-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .bx-bp-title b {
   font-size: 14px;
   letter-spacing: 0.04em;
+}
+
+/* seviye rozeti — tema (seviye) renginde */
+.bx-bp-lv {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-line);
+  padding: 2px 8px;
+  border-radius: 99px;
 }
 
 .bx-bp-desc {

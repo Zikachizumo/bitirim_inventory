@@ -12,6 +12,27 @@
 local SEND_INTERVAL = 500 -- ms, yalnizca arayuz acikken
 local IDLE_INTERVAL = 1000
 
+--[[ ---------------------------------------------------------------------------
+    GECICI TEST — canta seviyesi
+    Gercek seviye markette satin alma / kraft ile belirlenecek ve DB'de
+    saklanacak (sonraki adim). Su an tasarimi oyunda gormek icin client
+    komutu: /cantatest <1-5>. NUI'ye setBagLevel gonderir (renk + kilitli
+    slotlar). Backend baglaninca bu komut kaldirilacak.
+-------------------------------------------------------------------------------]]
+local testBagLevel = 1
+
+RegisterCommand('cantatest', function(_, args)
+    local lvl = tonumber(args[1])
+
+    if not lvl or lvl < 1 or lvl > 5 then
+        return lib.notify({ type = 'error', description = 'Kullanim: /cantatest <1-5>' })
+    end
+
+    testBagLevel = math.floor(lvl)
+    SendNUIMessage({ action = 'setBagLevel', data = testBagLevel })
+    lib.notify({ type = 'success', description = ('Canta seviyesi (test): %d'):format(testBagLevel) })
+end, false)
+
 --- Oyuncu canini 0-100 araligina cevirir (GTA'da 100 = olu, 200 = tam).
 local function healthPercent(ped)
     local hp = GetEntityHealth(ped)
@@ -55,6 +76,7 @@ end
 CreateThread(function()
     local last
     local lastEquipped = false -- 'false' = henuz gonderilmedi (nil'den ayirt icin)
+    local lastBagSent
 
     while true do
         local wait = IDLE_INTERVAL
@@ -62,6 +84,12 @@ CreateThread(function()
         -- Envanter acikken NUI odakli olur; sadece o zaman gonderiyoruz.
         if IsNuiFocused() then
             wait = SEND_INTERVAL
+
+            -- Canta seviyesi (test) — envanter her acildiginda tekrar gonderilir.
+            if testBagLevel ~= lastBagSent then
+                lastBagSent = testBagLevel
+                SendNUIMessage({ action = 'setBagLevel', data = testBagLevel })
+            end
 
             -- Kusanili slot (sag tik menusunde Use/Unequip etiketi icin)
             local equipped = equippedWeaponSlot()
@@ -96,6 +124,7 @@ CreateThread(function()
         else
             last = nil
             lastEquipped = false
+            lastBagSent = nil
         end
 
         Wait(wait)
