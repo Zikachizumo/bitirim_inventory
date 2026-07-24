@@ -34,7 +34,9 @@
   --money: #3ddc84;
 
   /* --- olcu --- */
-  --slot-sz: 11.1vh; /* mockup'taki 120px ~ 1080p */
+  /* Ekranda toplam 14 slot genisligi var (sol 5 + sag 8 + makro 1).
+     10.4vh, 1080p'de ~112px eder ve 1366x768'e kadar tasmadan sigar. */
+  --slot-sz: 10.4vh;
   --grid-cols: 8;
   --grid-rows: 5;
   --gap: 6px;
@@ -231,15 +233,29 @@ body.inv-dragging {
 }
 
 /* ---------------------------------------------------------------- controls */
+/* Bitirim: alt satirda kompakt yatay serit (adet kutusu islevsel olarak gerekli) */
 .inventory-control {
   display: flex;
+  width: 100%;
 
   .inventory-control-wrapper {
     display: flex;
-    flex-direction: column;
-    gap: 14px;
-    justify-content: center;
+    flex-direction: row;
+    gap: 8px;
+    justify-content: flex-start;
     align-items: center;
+    width: 100%;
+    background: var(--panel);
+    backdrop-filter: blur(16px) saturate(120%);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 10px 12px;
+  }
+
+  .inventory-control-input {
+    max-width: 92px;
+    flex: none;
   }
 
   .inventory-control-input {
@@ -381,17 +397,11 @@ body.inv-dragging {
 }
 
 /* ---------------------------------------------------------------- grids */
+/* Cam panel artik .bx-panel'de — bu sadece yerlesim. */
 .inventory-grid-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: var(--panel);
-  backdrop-filter: blur(16px) saturate(120%);
-  -webkit-backdrop-filter: blur(16px) saturate(120%);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  padding: 16px;
-  box-shadow: 0 40px 120px -30px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  gap: 10px;
 }
 
 .inventory-grid-header-wrapper {
@@ -705,6 +715,420 @@ body.inv-dragging {
   height: 8px;
   border-radius: 99px;
   overflow: hidden;
+}
+
+/* =============================================================================
+   BITIRIM YERLESIM — pencere, ust bar, karakter paneli, makro sutunu,
+   canta karti, ver bari. Sinif oneki: bx-
+   ========================================================================== */
+
+.inventory-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.bx-window {
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  max-width: 99vw;
+  background: linear-gradient(180deg, var(--panel), rgba(11, 8, 18, 0.75));
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: 0 40px 120px -30px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+/* ---- ust bar ---- */
+.bx-topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--accent-dim), transparent);
+}
+
+.bx-brandmark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  flex: none;
+  background: var(--accent-dim);
+  color: var(--accent-2);
+  border: 1px solid var(--accent-line);
+}
+
+.bx-brand {
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 15px;
+}
+
+.bx-topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bx-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+.bx-pill-value {
+  font-weight: 750;
+  font-size: 14px;
+}
+
+.bx-pill-money {
+  color: var(--money);
+  .bx-pill-value {
+    color: var(--money);
+  }
+}
+
+.bx-close {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: 160ms;
+  &:hover {
+    border-color: var(--accent-line);
+    color: var(--accent-2);
+    box-shadow: var(--accent-glow);
+  }
+}
+
+/* ---- govde: 2 sutun x 2 satir ---- */
+.bx-body {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 18px;
+  padding: 18px;
+  align-items: stretch;
+}
+
+.bx-col-side,
+.bx-col-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bx-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 16px;
+}
+
+.bx-panel-title {
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  font-weight: 700;
+  margin: 0;
+}
+
+/* ---- karakter paneli ---- */
+.bx-character {
+  justify-content: space-between;
+}
+
+.bx-eq-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bx-eq-row {
+  display: flex;
+  gap: 10px;
+}
+
+.bx-eq-slot {
+  width: var(--slot-sz);
+  height: var(--slot-sz);
+  border-radius: var(--r-s);
+  background: var(--slot);
+  border: 1px solid var(--slot-border);
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  transition: 140ms;
+  &:hover {
+    border-color: var(--slot-hover);
+    color: var(--text-2);
+  }
+}
+
+.bx-eq-caption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+
+/* ---- statlar ---- */
+.bx-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.bx-stat {
+  background: var(--slot);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  padding: 12px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bx-stat-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.bx-stat-label {
+  font-size: 11px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  font-weight: 700;
+}
+
+.bx-stat-pct {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.bx-bar {
+  height: 7px;
+  border-radius: 99px;
+  background: rgba(9, 8, 14, 0.65);
+  overflow: hidden;
+  > i {
+    display: block;
+    height: 100%;
+    border-radius: 99px;
+    transition: width 300ms;
+  }
+}
+
+.bx-stat-can {
+  .bx-stat-pct,
+  svg {
+    color: var(--can);
+  }
+  .bx-bar > i {
+    background: linear-gradient(90deg, #ff2450, var(--can));
+  }
+}
+.bx-stat-zirh {
+  .bx-stat-pct,
+  svg {
+    color: var(--zirh);
+  }
+  .bx-bar > i {
+    background: linear-gradient(90deg, #2b7ff0, var(--zirh));
+  }
+}
+.bx-stat-aclik {
+  .bx-stat-pct,
+  svg {
+    color: var(--aclik);
+  }
+  .bx-bar > i {
+    background: linear-gradient(90deg, #ff9500, var(--aclik));
+  }
+}
+.bx-stat-susuzluk {
+  .bx-stat-pct,
+  svg {
+    color: var(--susuzluk);
+  }
+  .bx-bar > i {
+    background: linear-gradient(90deg, #14b8d6, var(--susuzluk));
+  }
+}
+
+/* ---- envanter paneli ---- */
+.bx-inv-main {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.bx-hotcol {
+  display: grid;
+  grid-template-rows: repeat(5, var(--slot-sz));
+  gap: var(--gap);
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+  flex: none;
+
+  .inventory-slot {
+    width: var(--slot-sz);
+    height: var(--slot-sz);
+  }
+}
+
+/* ---- canta karti ---- */
+.bx-bpcard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(120deg, var(--surface-2), var(--surface));
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 14px 16px;
+}
+
+.bx-bp-avatar {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  flex: none;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-line);
+  color: var(--accent-2);
+}
+
+.bx-bp-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.bx-bp-title b {
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+
+.bx-bp-desc {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.45;
+  max-width: 52ch;
+}
+
+.bx-bp-stats {
+  display: flex;
+  gap: 24px;
+  flex: none;
+  padding: 0 8px;
+}
+
+.bx-bp-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.bx-bp-n {
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.bx-bp-u {
+  color: var(--text-3);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.bx-bp-k {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* ---- ver bari ---- */
+.bx-givebar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 11px 14px;
+  border-radius: var(--r);
+  background: linear-gradient(120deg, var(--accent-dim), var(--surface));
+  border: 1px solid var(--accent-line);
+  transition: 140ms;
+
+  &.is-over {
+    box-shadow: var(--accent-glow);
+    transform: translateY(-1px);
+  }
+}
+
+.bx-give-drop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 16px 7px 7px;
+  border-radius: 13px;
+  border: 1.5px dashed var(--accent-line);
+  background: var(--accent-dim);
+}
+
+.bx-give-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  flex: none;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-line);
+  color: var(--accent-2);
+}
+
+.bx-give-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  b {
+    font-size: 13px;
+  }
+  span {
+    font-size: 11.5px;
+    color: var(--text-2);
+  }
 }
 
 /* ---------------------------------------------------------------- transitions */
