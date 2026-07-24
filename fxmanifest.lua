@@ -2,10 +2,29 @@ fx_version 'cerulean'
 use_experimental_fxv2_oal 'yes'
 lua54 'yes'
 game 'gta5'
-name 'bitirim_inventory'
+--[[
+    DIKKAT — 'name' ve 'version' DEGISTIRILMEMELI.
+
+    Bu kaynak Bitirim'in ozel envanteridir ama resource adi 'ox_inventory'
+    OLMAK ZORUNDA. 'bitirim_inventory' olarak yeniden adlandirip yerine
+    export yonlendiren bir kopru koymayi denedik ve sunucu acilmadi:
+
+      1) ox_lib, 'ox_inventory' adli kaynagin fxmanifest'inden SURUM okur.
+         qbx_core >= 2.42.1, ox_fuel >= 2.30.0 sarti koyuyor. Koprunun
+         surumu (1.0.0) bu kontrolu gecemedi -> qbx_core sunucuyu kapatti.
+      2) qbx_core envanterin DOSYALARINI dogrudan okuyor:
+         require '@ox_inventory.data.items'. Bu bir export degil, dosya
+         seviyesinde bagimlilik — kopru ile tasinamaz.
+
+    Yani ismi degistirmek mumkun degil. GitHub reposu 'bitirim_inventory'
+    olarak kalir; sunucuda dagitilan klasor adi 'ox_inventory' olur.
+    Surum de bagimlilik kontrolleri gecsin diye duz '2.47.9' kalmali
+    (on-surum eki semver siralamasini bozar).
+]]
+name 'ox_inventory'
 author 'Bitirim (fork of Overextended ox_inventory)'
-version '2.47.9-bitirim.1'
-repository 'https://github.com/Zikachizumo/inventory'
+version '2.47.9'
+repository 'https://github.com/Zikachizumo/bitirim_inventory'
 description 'Bitirim envanteri — ox_inventory 2.47.9 tabanli fork (Qbox)'
 
 dependencies {
