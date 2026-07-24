@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import useNuiEvent from '../../hooks/useNuiEvent';
-import InventoryControl from './InventoryControl';
 import InventoryHotbar from './InventoryHotbar';
+import BitirimHints from './BitirimHints';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { refreshSlots, selectRightInventory, setAdditionalMetadata, setupInventory } from '../../store/inventory';
 import { setPlayerStatus, PlayerStatus } from '../../store/playerStatus';
@@ -25,10 +25,11 @@ import GiveBar from './GiveBar';
  *   ust bar
  *   sol sutun : Karakter paneli — bir kap acikken yerini o kap alir (A secenegi)
  *   sag sutun : oyuncunun envanteri (grid + dikey makro sutunu + canta karti)
- *   alt satir : kontroller (adet/kullan/ver/kapat) + "Surukle & Ver" bari
+ *   alt satir : kullanim talimatlari + "Surukle & Ver" bari
  *
- * InventoryControl bilerek korundu: icindeki adet kutusu stack bolmek icin
- * islevsel olarak gerekli, kaldirmak ozellik kaybi olurdu.
+ * Eski InventoryControl (adet/Use/Give/Close) kaldirildi; yerine kullanim
+ * talimatlari (BitirimHints) kondu. Kaldirmak guvenli: sunucu ver/al/at
+ * miktarini math.max(1,...) ile kirpiyor, yarim bolme SHIFT ile calisiyor.
  */
 const Inventory: React.FC = () => {
   const [inventoryVisible, setInventoryVisible] = useState(false);
@@ -86,7 +87,7 @@ const Inventory: React.FC = () => {
               </div>
 
               <div className="bx-col-side">
-                <InventoryControl />
+                <BitirimHints />
               </div>
 
               <div className="bx-col-main">
