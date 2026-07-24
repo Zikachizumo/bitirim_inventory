@@ -441,6 +441,14 @@ body.inv-dragging {
   overflow-y: scroll;
 }
 
+/* Kap (bagaj/torpido/stash) paneli: 6 sutun -> bagaj 36 slot = 6x6.
+   Yukseklik icerige gore, en fazla 6 sira (torpido 5 slotu tek sirada kalir). */
+.bx-container .inventory-grid-container {
+  grid-template-columns: repeat(6, var(--slot-sz));
+  height: auto;
+  max-height: calc(6 * var(--slot-sz) + 5 * var(--gap));
+}
+
 /* ---------------------------------------------------------------- slots */
 .inventory-slot {
   background-color: var(--slot);

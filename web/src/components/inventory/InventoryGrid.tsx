@@ -7,7 +7,9 @@ import { useAppSelector } from '../../store';
 import { useIntersection } from '../../hooks/useIntersection';
 import { IconLock } from './BitirimIcons';
 
-const PAGE_SIZE = 30;
+// Bitirim: kaplar (bagaj 36, torpido 5) ilk sayfada tamamen gorunsun diye
+// buyutuldu; daha buyuk stash'ler hala kaydirmayla sayfalanir.
+const PAGE_SIZE = 48;
 
 /**
  * Bitirim eklentileri:
