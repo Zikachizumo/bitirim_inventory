@@ -5,6 +5,7 @@ import InventorySlot from './InventorySlot';
 import { getTotalWeight } from '../../helpers';
 import { useAppSelector } from '../../store';
 import { useIntersection } from '../../hooks/useIntersection';
+import { IconLock } from './BitirimIcons';
 
 const PAGE_SIZE = 30;
 
@@ -23,7 +24,10 @@ const InventoryGrid: React.FC<{
   skipSlots?: number;
   maxSlots?: number;
   hideHeader?: boolean;
-}> = ({ inventory, skipSlots = 0, maxSlots, hideHeader = false }) => {
+  /** Bu pozisyondan itibaren (0-based, gridde) slotlar KILITLI gosterilir
+   *  (canta seviyesi). undefined = hicbiri kilitli degil. */
+  lockedFrom?: number;
+}> = ({ inventory, skipSlots = 0, maxSlots, hideHeader = false, lockedFrom }) => {
   const weight = useMemo(
     () => (inventory.maxWeight !== undefined ? Math.floor(getTotalWeight(inventory.items) * 1000) / 1000 : 0),
     [inventory.maxWeight, inventory.items]
@@ -62,16 +66,23 @@ const InventoryGrid: React.FC<{
         )}
         <div className="inventory-grid-container" ref={containerRef}>
           <>
-            {inventory.items.slice(skipSlots, end).map((item, index) => (
-              <InventorySlot
-                key={`${inventory.type}-${inventory.id}-${item.slot}`}
-                item={item}
-                ref={paginated && index === end - skipSlots - 1 ? ref : null}
-                inventoryType={inventory.type}
-                inventoryGroups={inventory.groups}
-                inventoryId={inventory.id}
-              />
-            ))}
+            {inventory.items.slice(skipSlots, end).map((item, index) =>
+              lockedFrom !== undefined && index >= lockedFrom ? (
+                // Canta seviyesiyle kilitli slot — asma kilit, etkilesimsiz.
+                <div className="inventory-slot bx-slot-locked" key={`locked-${inventory.id}-${item.slot}`}>
+                  <IconLock size={22} />
+                </div>
+              ) : (
+                <InventorySlot
+                  key={`${inventory.type}-${inventory.id}-${item.slot}`}
+                  item={item}
+                  ref={paginated && index === end - skipSlots - 1 ? ref : null}
+                  inventoryType={inventory.type}
+                  inventoryGroups={inventory.groups}
+                  inventoryId={inventory.id}
+                />
+              )
+            )}
           </>
         </div>
       </div>

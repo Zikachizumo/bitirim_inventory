@@ -5,6 +5,7 @@ import tooltipReducer from './tooltip';
 import contextMenuReducer from './contextMenu';
 import playerStatusReducer from './playerStatus';
 import equipmentReducer from './equipment';
+import backpackReducer from './backpack';
 
 export const store = configureStore({
   reducer: {
@@ -13,6 +14,7 @@ export const store = configureStore({
     contextMenu: contextMenuReducer,
     playerStatus: playerStatusReducer,
     equipment: equipmentReducer,
+    backpack: backpackReducer,
   },
 });
 
