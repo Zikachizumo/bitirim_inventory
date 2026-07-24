@@ -26,6 +26,7 @@ const PlayerPanel: React.FC = () => {
   const inventory = useAppSelector(selectLeftInventory);
   const bagLevel = useAppSelector(selectBagLevel);
   const unlocked = unlockedGridSlots(bagLevel); // acik grid slotu (kilitli olanlar bundan sonra)
+  const capKg = BAG_CAP_KG[bagLevel]; // seviye KG kapasitesi (agirlik bari + kart)
 
   const hotbarItems = useMemo(() => inventory.items.slice(0, HOTBAR_SLOTS), [inventory.items]);
   const usedSlots = useMemo(() => inventory.items.filter((item) => !!item?.name).length, [inventory.items]);
@@ -38,15 +39,15 @@ const PlayerPanel: React.FC = () => {
     <div className="bx-panel bx-inventory">
       <div className="bx-inv-head">
         <p className="bx-panel-title">Envanter</p>
-        {inventory.maxWeight ? (
-          <div className="bx-weight">
-            <span className="bx-weight-lab">
-              <IconWeight size={16} />
-              {weight / 1000} / {inventory.maxWeight / 1000} KG
-            </span>
-            <WeightBar percent={(weight / inventory.maxWeight) * 100} />
-          </div>
-        ) : null}
+        {/* Agirlik bari, kullanilan canta seviyesinin KG kapasitesine gore.
+            (Sunucu tarafi SetMaxWeight backend'de baglaninca gercek sinir da bu olur.) */}
+        <div className="bx-weight">
+          <span className="bx-weight-lab">
+            <IconWeight size={16} />
+            {(weight / 1000).toLocaleString('en-us', { minimumFractionDigits: 2 })} / {capKg} KG
+          </span>
+          <WeightBar percent={Math.min(100, (weight / (capKg * 1000)) * 100)} />
+        </div>
       </div>
 
       <div className="bx-inv-main">
