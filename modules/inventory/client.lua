@@ -378,7 +378,7 @@ Inventory.Stashes = setmetatable(lib.load('data.stashes'), {
                                 label = stash.target.label or locale('open_stash'),
                                 groups = stash.groups,
                                 onSelect = function()
-                                    exports.ox_inventory:openInventory('stash', stash.name)
+                                    exports.bitirim_inventory:openInventory('stash', stash.name)
                                 end,
                                 iconColor = stash.target.iconColor,
                             },
