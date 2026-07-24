@@ -84,7 +84,7 @@ const PlayerPanel: React.FC = () => {
         <div className="bx-bp-main">
           <div className="bx-bp-title">
             <b>Backpack</b>
-            <span className="bx-bp-lv">Level {bagLevel}</span>
+            <span className="bx-bp-lv">{bagLevel > 0 ? `Level ${bagLevel}` : 'No Backpack'}</span>
           </div>
           <p className="bx-bp-desc">
             Carry more as you level up — locked slots unlock each level. Keep carrying to reach the next tier.

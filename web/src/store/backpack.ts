@@ -2,27 +2,29 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '.';
 
 /**
- * Bitirim — canta seviyesi (1-5).
+ * Bitirim — canta seviyesi (0-5).
+ *
+ * Seviye 0 = CANTASIZ: sadece 5 makro slotu kullanilir, tum grid kilitli.
+ * Yeni oyuncu boyle baslar. 1-5 markette satin alma / kraft ile acilir.
  *
  * Her seviye: acik grid slotu, agirlik kapasitesi ve tema rengi belirler.
- * Renkler CSS'te :root[data-lv='1'..'5'] olarak hazir; seviye degisince
- * index.tsx <html data-lv> yazar.
- *
- * Veri client Lua'dan `setBagLevel` NUI mesajiyla gelir.
+ * Renkler CSS'te :root[data-lv='0'..'5']; seviye degisince index.tsx
+ * <html data-lv> yazar. Veri client Lua'dan `setBagLevel` ile gelir.
  */
 
 export const BAG_LEVELS = 5;
-export const SLOTS_PER_LEVEL = 8; // grid: L1=8 ... L5=40
-export const BAG_CAP_KG = [0, 20, 35, 50, 70, 90]; // 1..5 (index 0 kullanilmaz)
+export const SLOTS_PER_LEVEL = 8; // grid: L1=8 ... L5=40 (L0=0)
+// index = seviye. L0 (cantasiz) icin taban kapasite — degeri sonra ayarlanacak.
+export const BAG_CAP_KG = [10, 20, 35, 50, 70, 90];
 
-const initialState: { level: number } = { level: 1 };
+const initialState: { level: number } = { level: 0 };
 
 export const backpackSlice = createSlice({
   name: 'backpack',
   initialState,
   reducers: {
     setBagLevel: (state, action: PayloadAction<number>) => {
-      const n = Math.max(1, Math.min(BAG_LEVELS, Math.floor(action.payload || 1)));
+      const n = Math.max(0, Math.min(BAG_LEVELS, Math.floor(action.payload || 0)));
       state.level = n;
     },
   },
@@ -31,7 +33,8 @@ export const backpackSlice = createSlice({
 export const { setBagLevel } = backpackSlice.actions;
 export const selectBagLevel = (state: RootState) => state.backpack.level;
 
-/** O seviyede acik grid slotu sayisi (0-based sinir: bu indexten itibaren kilitli). */
-export const unlockedGridSlots = (level: number) => Math.min(40, level * SLOTS_PER_LEVEL);
+/** O seviyede acik grid slotu sayisi (0-based sinir: bu indexten itibaren kilitli).
+ *  L0 -> 0 (hepsi kilitli), L5 -> 40 (hicbiri kilitli degil). */
+export const unlockedGridSlots = (level: number) => Math.max(0, Math.min(40, level * SLOTS_PER_LEVEL));
 
 export default backpackSlice.reducer;

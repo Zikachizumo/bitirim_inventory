@@ -46,16 +46,24 @@
 
   --font: ui-sans-serif, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 
-  /* --- varsayilan vurgu (seviye 2 / mavi) --- */
-  --accent: #2f9bff;
-  --accent-2: #6ab8ff;
-  --accent-ink: #eaf5ff;
-  --accent-dim: rgba(47, 155, 255, 0.15);
-  --accent-line: rgba(47, 155, 255, 0.55);
-  --accent-glow: 0 0 0 1px rgba(47, 155, 255, 0.5), 0 0 20px -3px rgba(47, 155, 255, 0.5);
+  /* --- varsayilan vurgu = seviye 0 (cantasiz / notr gri) --- */
+  --accent: #8b93a7;
+  --accent-2: #aab2c4;
+  --accent-ink: #12131a;
+  --accent-dim: rgba(139, 147, 167, 0.14);
+  --accent-line: rgba(139, 147, 167, 0.5);
+  --accent-glow: 0 0 0 1px rgba(139, 147, 167, 0.45), 0 0 16px -4px rgba(139, 147, 167, 0.4);
 }
 
-/* --- canta seviyesine gore tema (henuz baglanmadi, hazir duruyor) --- */
+/* --- canta seviyesine gore tema --- */
+:root[data-lv='0'] {
+  --accent: #8b93a7;
+  --accent-2: #aab2c4;
+  --accent-ink: #12131a;
+  --accent-dim: rgba(139, 147, 167, 0.14);
+  --accent-line: rgba(139, 147, 167, 0.5);
+  --accent-glow: 0 0 0 1px rgba(139, 147, 167, 0.45), 0 0 16px -4px rgba(139, 147, 167, 0.4);
+}
 :root[data-lv='1'] {
   --accent: #dfe2ee;
   --accent-2: #ffffff;

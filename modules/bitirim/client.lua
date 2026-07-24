@@ -19,13 +19,13 @@ local IDLE_INTERVAL = 1000
     komutu: /cantatest <1-5>. NUI'ye setBagLevel gonderir (renk + kilitli
     slotlar). Backend baglaninca bu komut kaldirilacak.
 -------------------------------------------------------------------------------]]
-local testBagLevel = 1
+local testBagLevel = 0 -- 0 = cantasiz (yeni oyuncu varsayilani)
 
 RegisterCommand('cantatest', function(_, args)
     local lvl = tonumber(args[1])
 
-    if not lvl or lvl < 1 or lvl > 5 then
-        return lib.notify({ type = 'error', description = 'Kullanim: /cantatest <1-5>' })
+    if not lvl or lvl < 0 or lvl > 5 then
+        return lib.notify({ type = 'error', description = 'Kullanim: /cantatest <0-5> (0 = cantasiz)' })
     end
 
     testBagLevel = math.floor(lvl)
