@@ -62,6 +62,10 @@ const PlayerPanel: React.FC = () => {
         </div>
       </div>
 
+      {/* Alt bolge: canta karti dikeyde ortalanir; karsi paneldeki statlarla
+          ortadan hizali olsun diye (envanter paneli, karakter paneliyle esit
+          yukseklikte oldugundan iki alt bolge ayni banda denk gelir). */}
+      <div className="bx-inv-bottom">
       {/* Canta karti — gercek slot/agirlik verisi.
           Seviye rozeti, canta seviye sistemi baglanana kadar gosterilmiyor. */}
       <div className="bx-bpcard">
@@ -92,6 +96,7 @@ const PlayerPanel: React.FC = () => {
             <span className="bx-bp-k">Capacity</span>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

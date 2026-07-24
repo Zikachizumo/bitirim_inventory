@@ -821,18 +821,15 @@ body.inv-dragging {
 }
 
 /* ---- govde: 2 sutun x 2 satir ---- */
+/* 2x2 grid: satir1 ana kutular, satir2 alt barlar. align-items:stretch her
+   hucreyi satir yuksekligine ceker -> ana kutular esit, alt barlar esit. */
 .bx-body {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto;
   gap: 14px;
   padding: 16px;
-  align-items: stretch; /* iki sutun esit yukseklik */
-}
-
-.bx-col {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-width: 0;
+  align-items: stretch;
+  justify-content: center;
 }
 
 
@@ -856,19 +853,35 @@ body.inv-dragging {
 }
 
 /* ---- karakter paneli ---- */
-.bx-character {
-  justify-content: space-between;
-}
-
 .bx-eq-grid {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--gap); /* envanter grid'iyle ayni -> alt bolgeler hizali */
 }
 
 .bx-eq-row {
   display: flex;
-  gap: 10px;
+  gap: var(--gap);
+}
+
+/* eq grid altindaki bolge: statlar dikeyde ortalanir */
+.bx-char-bottom {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+.bx-char-bottom .bx-stats {
+  width: 100%;
+}
+
+/* grid altindaki bolge: canta karti dikeyde ortalanir (statlarla ortadan hizali) */
+.bx-inv-bottom {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+.bx-inv-bottom .bx-bpcard {
+  flex: 1;
 }
 
 .bx-eq-slot {
@@ -1115,7 +1128,6 @@ body.inv-dragging {
 
 /* ---- kullanim talimatlari (kontrol panelinin yerine) ---- */
 .bx-hints {
-  flex: 1 1 auto; /* kalan sutun bosluğunu doldur -> panel altinda bosluk kalmaz */
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1162,10 +1174,9 @@ body.inv-dragging {
 
 /* ---- ver bari ---- */
 .bx-givebar {
-  flex: 1 1 auto; /* kalan sutun bosluğunu doldur -> buyuk birakma alani, bosluk kalmaz */
   display: flex;
   align-items: center;
-  justify-content: center; /* icerik buyuk zonun ortasinda */
+  justify-content: center; /* hucreye gerilir (talimat kutusuyla esit yukseklik), icerik ortada */
   gap: 16px;
   padding: 11px 14px;
   border-radius: var(--r);
