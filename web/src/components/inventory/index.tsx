@@ -2,21 +2,41 @@ import React, { useState } from 'react';
 import useNuiEvent from '../../hooks/useNuiEvent';
 import InventoryControl from './InventoryControl';
 import InventoryHotbar from './InventoryHotbar';
-import { useAppDispatch } from '../../store';
-import { refreshSlots, setAdditionalMetadata, setupInventory } from '../../store/inventory';
+import { useAppDispatch, useAppSelector } from '../../store';
+import { refreshSlots, selectRightInventory, setAdditionalMetadata, setupInventory } from '../../store/inventory';
+import { setPlayerStatus, PlayerStatus } from '../../store/playerStatus';
 import { useExitListener } from '../../hooks/useExitListener';
 import type { Inventory as InventoryProps } from '../../typings';
 import RightInventory from './RightInventory';
-import LeftInventory from './LeftInventory';
 import Tooltip from '../utils/Tooltip';
 import { closeTooltip } from '../../store/tooltip';
 import InventoryContext from './InventoryContext';
 import { closeContextMenu } from '../../store/contextMenu';
 import Fade from '../utils/transitions/Fade';
+import BitirimTopBar from './BitirimTopBar';
+import CharacterPanel from './CharacterPanel';
+import PlayerPanel from './PlayerPanel';
+import GiveBar from './GiveBar';
 
+/**
+ * Bitirim envanter penceresi.
+ *
+ * Yerlesim (onaylanmis mockup):
+ *   ust bar
+ *   sol sutun : Karakter paneli — bir kap acikken yerini o kap alir (A secenegi)
+ *   sag sutun : oyuncunun envanteri (grid + dikey makro sutunu + canta karti)
+ *   alt satir : kontroller (adet/kullan/ver/kapat) + "Surukle & Ver" bari
+ *
+ * InventoryControl bilerek korundu: icindeki adet kutusu stack bolmek icin
+ * islevsel olarak gerekli, kaldirmak ozellik kaybi olurdu.
+ */
 const Inventory: React.FC = () => {
   const [inventoryVisible, setInventoryVisible] = useState(false);
   const dispatch = useAppDispatch();
+  const rightInventory = useAppSelector(selectRightInventory);
+
+  // Bir kap (stash / bagaj / market / yer) acik mi? Acik degilken id bos string.
+  const hasContainer = !!rightInventory.id;
 
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
@@ -40,13 +60,41 @@ const Inventory: React.FC = () => {
     dispatch(setAdditionalMetadata(data));
   });
 
+  // Bitirim: karakter panelindeki durum barlari (client Lua'dan gercek veri)
+  useNuiEvent<PlayerStatus>('setPlayerStatus', (data) => dispatch(setPlayerStatus(data)));
+
   return (
     <>
       <Fade in={inventoryVisible}>
         <div className="inventory-wrapper">
-          <LeftInventory />
-          <InventoryControl />
-          <RightInventory />
+          <div className="bx-window">
+            <BitirimTopBar />
+
+            <div className="bx-body">
+              <div className="bx-col-side">
+                {hasContainer ? (
+                  <div className="bx-panel bx-container">
+                    <RightInventory />
+                  </div>
+                ) : (
+                  <CharacterPanel />
+                )}
+              </div>
+
+              <div className="bx-col-main">
+                <PlayerPanel />
+              </div>
+
+              <div className="bx-col-side">
+                <InventoryControl />
+              </div>
+
+              <div className="bx-col-main">
+                <GiveBar />
+              </div>
+            </div>
+          </div>
+
           <Tooltip />
           <InventoryContext />
         </div>

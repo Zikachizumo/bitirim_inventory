@@ -8,7 +8,12 @@ import { useIntersection } from '../../hooks/useIntersection';
 
 const PAGE_SIZE = 30;
 
-const InventoryGrid: React.FC<{ inventory: Inventory }> = ({ inventory }) => {
+/**
+ * Bitirim: `skipSlots` ile bastaki N slot atlanabilir. Oyuncu envanterinde
+ * 1-5 makro slotlari sagdaki dikey sutunda gosterildigi icin gridde tekrar
+ * edilmemeleri gerekiyor.
+ */
+const InventoryGrid: React.FC<{ inventory: Inventory; skipSlots?: number }> = ({ inventory, skipSlots = 0 }) => {
   const weight = useMemo(
     () => (inventory.maxWeight !== undefined ? Math.floor(getTotalWeight(inventory.items) * 1000) / 1000 : 0),
     [inventory.maxWeight, inventory.items]
@@ -39,7 +44,7 @@ const InventoryGrid: React.FC<{ inventory: Inventory }> = ({ inventory }) => {
         </div>
         <div className="inventory-grid-container" ref={containerRef}>
           <>
-            {inventory.items.slice(0, (page + 1) * PAGE_SIZE).map((item, index) => (
+            {inventory.items.slice(skipSlots, skipSlots + (page + 1) * PAGE_SIZE).map((item, index) => (
               <InventorySlot
                 key={`${inventory.type}-${inventory.id}-${item.slot}`}
                 item={item}

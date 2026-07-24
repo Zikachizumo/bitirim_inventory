@@ -47,7 +47,11 @@ server_scripts {
     'init.lua'
 }
 
-client_script 'init.lua'
+client_scripts {
+    'init.lua',
+    -- Bitirim: karakter panelindeki durum barlarini besler (bagimsiz calisir)
+    'modules/bitirim/client.lua',
+}
 
 ui_page 'web/build/index.html'
 
