@@ -72,7 +72,7 @@ const Inventory: React.FC = () => {
   // Bitirim: canta seviyesi -> tema rengi (<html data-lv>) + acik/kilitli slotlar
   useNuiEvent<number>('setBagLevel', (level) => {
     dispatch(setBagLevel(level));
-    document.documentElement.dataset.lv = String(Math.max(1, Math.min(5, Math.floor(level || 1))));
+    document.documentElement.dataset.lv = String(Math.max(0, Math.min(5, Math.floor(level || 0))));
   });
 
   return (
