@@ -37,7 +37,13 @@ interface GroupedButtons extends Array<Group> {}
 
 const InventoryContext: React.FC = () => {
   const contextMenu = useAppSelector((state) => state.contextMenu);
+  const equippedSlot = useAppSelector((state) => state.equipment.equippedSlot);
   const item = contextMenu.item;
+
+  // Bitirim: item su an kusaniliysa (giyili), "Use" yerine "Unequip" goster —
+  // ayni buton hem giyer hem cikarir, etiket duruma gore degisir.
+  const isEquipped = !!item && item.slot === equippedSlot;
+  const useLabel = isEquipped ? Locale.ui_unequip || 'Unequip' : Locale.ui_use || 'Use';
 
   const handleClick = (data: DataProps) => {
     if (!item) return;
@@ -92,7 +98,7 @@ const InventoryContext: React.FC = () => {
   return (
     <>
       <Menu>
-        <MenuItem onClick={() => handleClick({ action: 'use' })} label={Locale.ui_use || 'Use'} />
+        <MenuItem onClick={() => handleClick({ action: 'use' })} label={useLabel} />
         <MenuItem onClick={() => handleClick({ action: 'give' })} label={Locale.ui_give || 'Give'} />
         <MenuItem onClick={() => handleClick({ action: 'drop' })} label={Locale.ui_drop || 'Drop'} />
         {item && item.metadata?.ammo > 0 && (

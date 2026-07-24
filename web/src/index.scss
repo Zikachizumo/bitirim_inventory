@@ -822,22 +822,21 @@ body.inv-dragging {
 
 /* ---- govde: 2 sutun x 2 satir ---- */
 .bx-body {
-  display: grid;
-  grid-template-columns: auto auto;
+  display: flex;
   gap: 14px;
   padding: 16px;
-  align-items: stretch;
+  align-items: stretch; /* iki sutun esit yukseklik */
 }
 
-.bx-col-side,
-.bx-col-main {
+.bx-col {
   display: flex;
   flex-direction: column;
+  gap: 14px;
   min-width: 0;
 }
 
+
 .bx-panel {
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -1040,23 +1039,27 @@ body.inv-dragging {
 .bx-bpcard {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   background: linear-gradient(120deg, var(--surface-2), var(--surface));
   border: 1px solid var(--line);
   border-radius: var(--r);
-  padding: 14px 16px;
+  padding: 11px 14px;
 }
 
 .bx-bp-avatar {
   display: grid;
   place-items: center;
-  width: 54px;
-  height: 54px;
-  border-radius: 14px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   flex: none;
   background: var(--accent-dim);
   border: 1px solid var(--accent-line);
   color: var(--accent-2);
+  svg {
+    width: 24px;
+    height: 24px;
+  }
 }
 
 .bx-bp-main {
@@ -1070,11 +1073,11 @@ body.inv-dragging {
 }
 
 .bx-bp-desc {
-  margin: 5px 0 0;
-  font-size: 12px;
+  margin: 3px 0 0;
+  font-size: 11.5px;
   color: var(--text-2);
-  line-height: 1.45;
-  max-width: 52ch;
+  line-height: 1.4;
+  max-width: 56ch;
 }
 
 .bx-bp-stats {
@@ -1112,7 +1115,7 @@ body.inv-dragging {
 
 /* ---- kullanim talimatlari (kontrol panelinin yerine) ---- */
 .bx-hints {
-  flex: 1;
+  flex: 1 1 auto; /* kalan sutun bosluğunu doldur -> panel altinda bosluk kalmaz */
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1122,10 +1125,11 @@ body.inv-dragging {
   padding: 16px;
 }
 
+/* 2x2 duzen */
 .bx-hint-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 18px;
 }
 
 .bx-hint {
@@ -1158,8 +1162,10 @@ body.inv-dragging {
 
 /* ---- ver bari ---- */
 .bx-givebar {
+  flex: 1 1 auto; /* kalan sutun bosluğunu doldur -> buyuk birakma alani, bosluk kalmaz */
   display: flex;
   align-items: center;
+  justify-content: center; /* icerik buyuk zonun ortasinda */
   gap: 16px;
   padding: 11px 14px;
   border-radius: var(--r);

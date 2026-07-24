@@ -5,6 +5,7 @@ import BitirimHints from './BitirimHints';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { refreshSlots, selectRightInventory, setAdditionalMetadata, setupInventory } from '../../store/inventory';
 import { setPlayerStatus, PlayerStatus } from '../../store/playerStatus';
+import { setEquippedSlot } from '../../store/equipment';
 import { useExitListener } from '../../hooks/useExitListener';
 import type { Inventory as InventoryProps } from '../../typings';
 import RightInventory from './RightInventory';
@@ -64,6 +65,9 @@ const Inventory: React.FC = () => {
   // Bitirim: karakter panelindeki durum barlari (client Lua'dan gercek veri)
   useNuiEvent<PlayerStatus>('setPlayerStatus', (data) => dispatch(setPlayerStatus(data)));
 
+  // Bitirim: o an kusanili slot (sag tik menusunde Use/Unequip etiketi icin)
+  useNuiEvent<number | null>('setEquippedSlot', (data) => dispatch(setEquippedSlot(data)));
+
   return (
     <>
       <Fade in={inventoryVisible}>
@@ -71,8 +75,11 @@ const Inventory: React.FC = () => {
           <div className="bx-window">
             <BitirimTopBar />
 
+            {/* Iki bagimsiz sutun: her sutun kendi icerigini ustten yigar,
+                boylece panel altinda bosluk kalmaz (alt bar dogrudan panelin
+                altinda durur). */}
             <div className="bx-body">
-              <div className="bx-col-side">
+              <div className="bx-col bx-col-left">
                 {hasContainer ? (
                   <div className="bx-panel bx-container">
                     <RightInventory />
@@ -80,17 +87,11 @@ const Inventory: React.FC = () => {
                 ) : (
                   <CharacterPanel />
                 )}
-              </div>
-
-              <div className="bx-col-main">
-                <PlayerPanel />
-              </div>
-
-              <div className="bx-col-side">
                 <BitirimHints />
               </div>
 
-              <div className="bx-col-main">
+              <div className="bx-col bx-col-right">
+                <PlayerPanel />
                 <GiveBar />
               </div>
             </div>
