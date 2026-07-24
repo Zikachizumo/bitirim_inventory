@@ -584,7 +584,7 @@ end, true)
 ---@param dbId? string | number
 ---@return OxInventory?
 --- This should only be utilised internally!
---- To create a stash, please use `exports.bitirim_inventory:RegisterStash` instead.
+--- To create a stash, please use `exports.ox_inventory:RegisterStash` instead.
 function Inventory.Create(id, label, invType, slots, weight, maxWeight, owner, items, groups, dbId)
 	if invType == 'player' and hasActiveInventory(id, owner) then return end
 
