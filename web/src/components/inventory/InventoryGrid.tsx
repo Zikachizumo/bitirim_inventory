@@ -9,11 +9,21 @@ import { useIntersection } from '../../hooks/useIntersection';
 const PAGE_SIZE = 30;
 
 /**
- * Bitirim: `skipSlots` ile bastaki N slot atlanabilir. Oyuncu envanterinde
- * 1-5 makro slotlari sagdaki dikey sutunda gosterildigi icin gridde tekrar
- * edilmemeleri gerekiyor.
+ * Bitirim eklentileri:
+ *  - skipSlots : bastaki N slotu atla (oyuncu envanterinde 1-5 makro sutununda
+ *    gosterildigi icin gridde tekrar edilmezler).
+ *  - maxSlots  : gridde gosterilecek AZAMI slot sayisi. Oyuncu gridi 8x5=40 ile
+ *    sinirli olmali; fazlasi ('5 fazladan kutu') gosterilmez.
+ *  - hideHeader: baslik + agirlik barini gizler. Oyuncu panelinde bunlar tam
+ *    genislikte ust satirda ayri gosterilir ki makro sutunu grid SATIRLARIYLA
+ *    hizalansin (makro 1 <-> satir 1).
  */
-const InventoryGrid: React.FC<{ inventory: Inventory; skipSlots?: number }> = ({ inventory, skipSlots = 0 }) => {
+const InventoryGrid: React.FC<{
+  inventory: Inventory;
+  skipSlots?: number;
+  maxSlots?: number;
+  hideHeader?: boolean;
+}> = ({ inventory, skipSlots = 0, maxSlots, hideHeader = false }) => {
   const weight = useMemo(
     () => (inventory.maxWeight !== undefined ? Math.floor(getTotalWeight(inventory.items) * 1000) / 1000 : 0),
     [inventory.maxWeight, inventory.items]
@@ -28,27 +38,35 @@ const InventoryGrid: React.FC<{ inventory: Inventory; skipSlots?: number }> = ({
       setPage((prev) => ++prev);
     }
   }, [entry]);
+
+  // maxSlots verildiginde (oyuncu gridi = 40) hepsini tek seferde goster;
+  // sayfalama sadece buyuk kaplar (stash vb.) icin gereklidir.
+  const paginated = maxSlots === undefined;
+  const end = paginated ? skipSlots + (page + 1) * PAGE_SIZE : skipSlots + maxSlots;
+
   return (
     <>
       <div className="inventory-grid-wrapper" style={{ pointerEvents: isBusy ? 'none' : 'auto' }}>
-        <div>
-          <div className="inventory-grid-header-wrapper">
-            <p>{inventory.label}</p>
-            {inventory.maxWeight && (
-              <p>
-                {weight / 1000}/{inventory.maxWeight / 1000}kg
-              </p>
-            )}
+        {!hideHeader && (
+          <div>
+            <div className="inventory-grid-header-wrapper">
+              <p>{inventory.label}</p>
+              {inventory.maxWeight && (
+                <p>
+                  {weight / 1000}/{inventory.maxWeight / 1000}kg
+                </p>
+              )}
+            </div>
+            <WeightBar percent={inventory.maxWeight ? (weight / inventory.maxWeight) * 100 : 0} />
           </div>
-          <WeightBar percent={inventory.maxWeight ? (weight / inventory.maxWeight) * 100 : 0} />
-        </div>
+        )}
         <div className="inventory-grid-container" ref={containerRef}>
           <>
-            {inventory.items.slice(skipSlots, skipSlots + (page + 1) * PAGE_SIZE).map((item, index) => (
+            {inventory.items.slice(skipSlots, end).map((item, index) => (
               <InventorySlot
                 key={`${inventory.type}-${inventory.id}-${item.slot}`}
                 item={item}
-                ref={index === (page + 1) * PAGE_SIZE - 1 ? ref : null}
+                ref={paginated && index === end - skipSlots - 1 ? ref : null}
                 inventoryType={inventory.type}
                 inventoryGroups={inventory.groups}
                 inventoryId={inventory.id}
