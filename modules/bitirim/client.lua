@@ -19,18 +19,30 @@ local IDLE_INTERVAL = 1000
     komutu: /cantatest <1-5>. NUI'ye setBagLevel gonderir (renk + kilitli
     slotlar). Backend baglaninca bu komut kaldirilacak.
 -------------------------------------------------------------------------------]]
-local testBagLevel = 0 -- 0 = cantasiz (yeni oyuncu varsayilani)
+-- Gercek seviye: server 'bitirim:client:bagLevel' ile gonderir (DB'den).
+-- Varsayilan 0 (cantasiz). /cantatest sadece GORSEL testtir (sunucuyu degistirmez).
+local currentBagLevel = 0
+local requestedFromServer = false
 
+RegisterNetEvent('bitirim:client:bagLevel', function(level)
+    level = tonumber(level) or 0
+    currentBagLevel = level
+    if IsNuiFocused() then
+        SendNUIMessage({ action = 'setBagLevel', data = level })
+    end
+end)
+
+-- Sadece gorsel test — gercek seviyeyi/agirligi degistirmez. Gercek icin /setcanta (server).
 RegisterCommand('cantatest', function(_, args)
     local lvl = tonumber(args[1])
 
     if not lvl or lvl < 0 or lvl > 5 then
-        return lib.notify({ type = 'error', description = 'Kullanim: /cantatest <0-5> (0 = cantasiz)' })
+        return lib.notify({ type = 'error', description = 'Kullanim: /cantatest <0-5> (sadece gorsel test)' })
     end
 
-    testBagLevel = math.floor(lvl)
-    SendNUIMessage({ action = 'setBagLevel', data = testBagLevel })
-    lib.notify({ type = 'success', description = ('Canta seviyesi (test): %d'):format(testBagLevel) })
+    currentBagLevel = math.floor(lvl)
+    SendNUIMessage({ action = 'setBagLevel', data = currentBagLevel })
+    lib.notify({ type = 'inform', description = ('Canta seviyesi (GORSEL test): %d'):format(currentBagLevel) })
 end, false)
 
 --- Oyuncu canini 0-100 araligina cevirir (GTA'da 100 = olu, 200 = tam).
@@ -85,10 +97,19 @@ CreateThread(function()
         if IsNuiFocused() then
             wait = SEND_INTERVAL
 
-            -- Canta seviyesi (test) — envanter her acildiginda tekrar gonderilir.
-            if testBagLevel ~= lastBagSent then
-                lastBagSent = testBagLevel
-                SendNUIMessage({ action = 'setBagLevel', data = testBagLevel })
+            -- Ilk acilista sunucudan gercek seviyeyi iste (push kacmis olabilir).
+            if not requestedFromServer then
+                requestedFromServer = true
+                CreateThread(function()
+                    local lvl = lib.callback.await('bitirim:server:getBagLevel', false)
+                    if type(lvl) == 'number' then currentBagLevel = lvl end
+                end)
+            end
+
+            -- Canta seviyesi — envanter her acildiginda tekrar gonderilir.
+            if currentBagLevel ~= lastBagSent then
+                lastBagSent = currentBagLevel
+                SendNUIMessage({ action = 'setBagLevel', data = currentBagLevel })
             end
 
             -- Kusanili slot (sag tik menusunde Use/Unequip etiketi icin)

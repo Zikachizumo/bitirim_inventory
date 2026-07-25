@@ -44,7 +44,9 @@ ox_libs {
 
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
-    'init.lua'
+    'init.lua',
+    -- Bitirim: canta seviyesi backend (kalici seviye + agirlik siniri)
+    'modules/bitirim/server.lua',
 }
 
 client_scripts {
