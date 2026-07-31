@@ -10,6 +10,11 @@ import CharacterStats from './CharacterStats';
  */
 const DropPanel: React.FC = () => (
   <div className="bx-panel bx-drop">
+    {/* Temiz baslik (plaka/ID + KG YOK). Envanter panelinin basligiyla ayni
+        yukseklikte -> drop gridi ile envanter gridinin siralari hizali olur. */}
+    <div className="bx-inv-head">
+      <p className="bx-panel-title">Yere Atılanlar</p>
+    </div>
     <RightInventory />
     <div className="bx-drop-stats">
       <CharacterStats />
