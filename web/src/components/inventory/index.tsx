@@ -19,6 +19,7 @@ import BitirimTopBar from './BitirimTopBar';
 import CharacterPanel from './CharacterPanel';
 import PlayerPanel from './PlayerPanel';
 import GiveBar from './GiveBar';
+import DropPanel from './DropPanel';
 
 /**
  * Bitirim envanter penceresi.
@@ -38,8 +39,11 @@ const Inventory: React.FC = () => {
   const dispatch = useAppDispatch();
   const rightInventory = useAppSelector(selectRightInventory);
 
-  // Bir kap (stash / bagaj / market / yer) acik mi? Acik degilken id bos string.
-  const hasContainer = !!rightInventory.id;
+  // Sag envanterin durumu. Bos id = hicbir sey acik degil.
+  // 'drop' (yerdeki item) ayri ele alinir: 5x5 grid + altta karakter statlari.
+  // Diger kaplar (stash/bagaj/torpido/market) karakter panelinin yerini alir.
+  const isDrop = !!rightInventory.id && rightInventory.type === 'drop';
+  const hasContainer = !!rightInventory.id && rightInventory.type !== 'drop';
 
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
@@ -86,7 +90,9 @@ const Inventory: React.FC = () => {
                 satir2 = alt barlar (esit yukseklik). align-items:stretch her
                 hucreyi satir yuksekligine ceker. */}
             <div className="bx-body">
-              {hasContainer ? (
+              {isDrop ? (
+                <DropPanel />
+              ) : hasContainer ? (
                 <div className="bx-panel bx-container">
                   <RightInventory />
                 </div>

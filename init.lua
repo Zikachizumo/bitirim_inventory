@@ -25,7 +25,8 @@ shared = {
     networkdumpsters = GetConvarBool('inventory:networkdumpsters', false)
 }
 
-shared.dropslots = GetConvarInt('inventory:dropslots', shared.playerslots)
+-- Bitirim: yere dusen item (drop) 5x5 = 25 slot (arayuzde 5 sutun).
+shared.dropslots = GetConvarInt('inventory:dropslots', 25)
 shared.dropweight = GetConvarInt('inventory:dropweight', shared.playerweight)
 
 do
