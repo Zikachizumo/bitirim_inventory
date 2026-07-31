@@ -20,6 +20,7 @@ import CharacterPanel from './CharacterPanel';
 import PlayerPanel from './PlayerPanel';
 import GiveBar from './GiveBar';
 import DropPanel from './DropPanel';
+import SplitDialog from './SplitDialog';
 
 /**
  * Bitirim envanter penceresi.
@@ -107,6 +108,7 @@ const Inventory: React.FC = () => {
 
           <Tooltip />
           <InventoryContext />
+          <SplitDialog />
         </div>
       </Fade>
       <InventoryHotbar />
