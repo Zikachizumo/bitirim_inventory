@@ -38,11 +38,8 @@ const Inventory: React.FC = () => {
   const dispatch = useAppDispatch();
   const rightInventory = useAppSelector(selectRightInventory);
 
-  // Bir kap (stash / bagaj / market) acik mi? Acik degilken id bos string.
-  // 'drop' (yere dusen item) HARIC — kullanici istegi: yerdeki itemler envanter
-  // ekraninda gorunmesin, TAB'da sadece Envanter + Karakter kalsin. Drop yine
-  // sunucuda olusur; dunyada uzerine gelerek/target ile alinir.
-  const hasContainer = !!rightInventory.id && rightInventory.type !== 'drop';
+  // Bir kap (stash / bagaj / market / yer) acik mi? Acik degilken id bos string.
+  const hasContainer = !!rightInventory.id;
 
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
