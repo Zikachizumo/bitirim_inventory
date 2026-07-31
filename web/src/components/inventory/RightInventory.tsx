@@ -2,9 +2,11 @@ import InventoryGrid from './InventoryGrid';
 import { useAppSelector } from '../../store';
 import { selectRightInventory } from '../../store/inventory';
 
-// Bu tiplerde ust baslik (etiket/plaka + KG bari) gizlenir — kullanici istegi:
-// araba bagajinda plaka+KG, yerdeki drop'ta "DROP #id + KG" gorunmesin.
-const HIDE_HEADER_TYPES = ['trunk', 'glovebox', 'drop'];
+// Bu tiplerde ust baslik (etiket/plaka + KG bari) gizlenir:
+//  - trunk (bagaj): agirlik siniri pratikte yok, plaka+KG istenmiyor
+//  - drop (yerdeki): "DROP #id + KG" istenmiyor (DropPanel kendi temiz basligini koyar)
+// Torpido (glovebox) HARIC: 50 KG siniri oldugu icin agirlik bari GORUNUR kalir.
+const HIDE_HEADER_TYPES = ['trunk', 'drop'];
 
 const RightInventory: React.FC = () => {
   const rightInventory = useAppSelector(selectRightInventory);
