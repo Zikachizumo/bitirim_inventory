@@ -63,31 +63,31 @@ return {
 		}
 	},
 
-	-- Bitirim: TUM araclarda bagaj = 6x6 = 36 slot. Agirlik siniri pratikte
-	-- KALDIRILDI (10.000 KG). Kilit acma/kapama (arac seviyesi/modeli) sonraki adim.
+	-- Bitirim: TUM araclarda bagaj = 6x6 = 36 slot. Agirlik siniri 999.999 KG
+	-- (pratikte sinirsiz). Kilit acma/kapama (arac seviyesi/modeli) sonraki adim.
 	trunk = {
-		[0] = {36, 10000000},		-- Compact
-		[1] = {36, 10000000},		-- Sedan
-		[2] = {36, 10000000},		-- SUV
-		[3] = {36, 10000000},		-- Coupe
-		[4] = {36, 10000000},		-- Muscle
-		[5] = {36, 10000000},		-- Sports Classic
-		[6] = {36, 10000000},		-- Sports
-		[7] = {36, 10000000},		-- Super
-		[8] = {36, 10000000},		-- Motorcycle
-		[9] = {36, 10000000},		-- Offroad
-		[10] = {36, 10000000},	-- Industrial
-		[11] = {36, 10000000},	-- Utility
-		[12] = {36, 10000000},	-- Van
-		[14] = {36, 10000000},	-- Boat
-		[15] = {36, 10000000},	-- Helicopter
-		[16] = {36, 10000000},	-- Plane
-		[17] = {36, 10000000},	-- Service
-		[18] = {36, 10000000},	-- Emergency
-		[19] = {36, 10000000},	-- Military
-		[20] = {36, 10000000},	-- Commercial
+		[0] = {36, 999999000},		-- Compact
+		[1] = {36, 999999000},		-- Sedan
+		[2] = {36, 999999000},		-- SUV
+		[3] = {36, 999999000},		-- Coupe
+		[4] = {36, 999999000},		-- Muscle
+		[5] = {36, 999999000},		-- Sports Classic
+		[6] = {36, 999999000},		-- Sports
+		[7] = {36, 999999000},		-- Super
+		[8] = {36, 999999000},		-- Motorcycle
+		[9] = {36, 999999000},		-- Offroad
+		[10] = {36, 999999000},	-- Industrial
+		[11] = {36, 999999000},	-- Utility
+		[12] = {36, 999999000},	-- Van
+		[14] = {36, 999999000},	-- Boat
+		[15] = {36, 999999000},	-- Helicopter
+		[16] = {36, 999999000},	-- Plane
+		[17] = {36, 999999000},	-- Service
+		[18] = {36, 999999000},	-- Emergency
+		[19] = {36, 999999000},	-- Military
+		[20] = {36, 999999000},	-- Commercial
 		models = {
-			[`xa21`] = {36, 10000000}
+			[`xa21`] = {36, 999999000}
 		},
 	}
 }

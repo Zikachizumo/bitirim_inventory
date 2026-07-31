@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import useNuiEvent from '../../hooks/useNuiEvent';
 import InventoryHotbar from './InventoryHotbar';
 import BitirimHints from './BitirimHints';
@@ -14,6 +14,7 @@ import Tooltip from '../utils/Tooltip';
 import { closeTooltip } from '../../store/tooltip';
 import InventoryContext from './InventoryContext';
 import { closeContextMenu } from '../../store/contextMenu';
+import { closeSplit } from '../../store/split';
 import Fade from '../utils/transitions/Fade';
 import BitirimTopBar from './BitirimTopBar';
 import CharacterPanel from './CharacterPanel';
@@ -45,6 +46,11 @@ const Inventory: React.FC = () => {
   // Diger kaplar (stash/bagaj/torpido/market) karakter panelinin yerini alir.
   const isDrop = !!rightInventory.id && rightInventory.type === 'drop';
   const hasContainer = !!rightInventory.id && rightInventory.type !== 'drop';
+
+  // Envanter kapaninca (ESC dahil, tum yollar) Divide diyalogu da kapansin.
+  useEffect(() => {
+    if (!inventoryVisible) dispatch(closeSplit());
+  }, [inventoryVisible, dispatch]);
 
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {

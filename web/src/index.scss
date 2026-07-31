@@ -1331,10 +1331,13 @@ body.inv-dragging {
 }
 
 .bx-split-input {
+  display: block;
+  box-sizing: border-box;
   width: 100%;
-  padding: 12px;
+  max-width: 100%;
+  padding: 6px 8px; /* %50 kucultuldu (kutu disina tasmiyor) */
   text-align: center;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 750;
   font-family: var(--font);
   font-variant-numeric: tabular-nums;
