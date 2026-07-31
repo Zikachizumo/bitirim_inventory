@@ -27,7 +27,8 @@ shared = {
 
 -- Bitirim: yere dusen item (drop) 5x5 = 25 slot (arayuzde 5 sutun).
 shared.dropslots = GetConvarInt('inventory:dropslots', 25)
-shared.dropweight = GetConvarInt('inventory:dropweight', shared.playerweight)
+-- Bitirim: yere atma agirlik siniri 999.999 KG (pratikte sinirsiz).
+shared.dropweight = GetConvarInt('inventory:dropweight', 999999000)
 
 do
     if type(shared.police) == 'string' then

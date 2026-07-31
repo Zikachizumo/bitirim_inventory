@@ -29,11 +29,12 @@ const doDivide = (name: string, slot: number, count: number): boolean => {
 const SplitDialog: React.FC = () => {
   const item = useAppSelector(selectSplitItem);
   const dispatch = useAppDispatch();
-  const [amount, setAmount] = useState(1);
+  // String tutulur -> kullanici default '1'i SILEBILIR ve yeni sayi yazabilir.
+  const [amount, setAmount] = useState('1');
 
   // Diyalog acildiginda adet DIREKT 1 gelir.
   useEffect(() => {
-    if (item) setAmount(1);
+    if (item) setAmount('1');
   }, [item]);
 
   if (!item) return null;
@@ -41,11 +42,13 @@ const SplitDialog: React.FC = () => {
   const max = Math.max(1, item.count - 1); // tum yigin bolunemez, en az 1 kalir
   const label = item.metadata?.label || Items[item.name]?.label || item.name;
 
-  const clamp = (n: number) => Math.max(1, Math.min(max, Math.floor(n) || 1));
-  const close = () => dispatch(closeSplit());
+  const clampNum = (n: number) => Math.max(1, Math.min(max, n));
+  // Bos/gecersizken 1 varsayilir (bolme yaparken); kutu bos gorunebilir.
+  const effective = clampNum(parseInt(amount, 10) || 1);
 
+  const close = () => dispatch(closeSplit());
   const confirm = () => {
-    doDivide(item.name, item.slot, clamp(amount));
+    doDivide(item.name, item.slot, effective);
     close();
   };
 
@@ -59,25 +62,25 @@ const SplitDialog: React.FC = () => {
 
         <input
           className="bx-split-input"
-          type="number"
-          min={1}
-          max={max}
+          type="text"
+          inputMode="numeric"
           value={amount}
           autoFocus
-          onChange={(e) => setAmount(clamp(Number(e.target.value)))}
+          onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))}
+          onBlur={() => setAmount(String(effective))}
           onKeyDown={(e) => e.key === 'Enter' && confirm()}
         />
 
         <div className="bx-split-pcts">
           {PCTS.map((p) => (
-            <button key={p} className="bx-split-pct" onClick={() => setAmount(clamp(item.count * p))}>
+            <button key={p} className="bx-split-pct" onClick={() => setAmount(String(clampNum(Math.round(item.count * p))))}>
               %{Math.round(p * 100)}
             </button>
           ))}
         </div>
 
         <button className="bx-split-confirm" onClick={confirm}>
-          Böl ({clamp(amount)})
+          Böl ({effective})
         </button>
       </div>
     </div>
