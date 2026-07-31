@@ -449,6 +449,19 @@ body.inv-dragging {
   max-height: calc(6 * var(--slot-sz) + 5 * var(--gap));
 }
 
+/* Drop paneli: 5 sutun -> 25 slot = 5x5; altta karakter statlari. */
+.bx-drop .inventory-grid-container {
+  grid-template-columns: repeat(5, var(--slot-sz));
+  height: auto;
+  max-height: calc(5 * var(--slot-sz) + 4 * var(--gap));
+}
+.bx-drop-stats {
+  margin-top: auto; /* statlari panelin altina it */
+}
+.bx-drop-stats .bx-stats {
+  width: 100%;
+}
+
 /* ---------------------------------------------------------------- slots */
 .inventory-slot {
   background-color: var(--slot);
