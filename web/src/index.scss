@@ -1293,6 +1293,104 @@ body.inv-dragging {
   }
 }
 
+/* ---------------------------------------------------------------- split (Divide) */
+.bx-split-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.bx-split {
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  background: #100b17;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r);
+  box-shadow: 0 24px 60px -18px #000, var(--accent-glow);
+}
+
+.bx-split-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  b {
+    font-size: 14px;
+  }
+  span {
+    font-size: 11px;
+    color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.bx-split-input {
+  width: 100%;
+  padding: 12px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 750;
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: var(--slot);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  outline: none;
+  &:focus {
+    border-color: var(--accent-line);
+    box-shadow: var(--accent-glow);
+  }
+}
+
+.bx-split-pcts {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.bx-split-pct {
+  padding: 9px 0;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  cursor: pointer;
+  transition: 140ms;
+  &:hover {
+    border-color: var(--accent-line);
+    color: var(--accent-ink);
+    background: var(--accent-dim);
+  }
+}
+
+.bx-split-confirm {
+  padding: 11px 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-family: var(--font);
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--r-s);
+  cursor: pointer;
+  transition: 140ms;
+  font-variant-numeric: tabular-nums;
+  &:hover {
+    background: var(--accent-2);
+  }
+}
+
 /* ---------------------------------------------------------------- transitions */
 .transition-fade-enter {
   opacity: 0;

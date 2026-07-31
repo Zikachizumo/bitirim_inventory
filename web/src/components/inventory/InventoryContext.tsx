@@ -6,7 +6,9 @@ import { fetchNui } from '../../utils/fetchNui';
 import { Locale } from '../../store/locale';
 import { isSlotWithItem } from '../../helpers';
 import { setClipboard } from '../../utils/setClipboard';
-import { useAppSelector } from '../../store';
+import { useAppDispatch, useAppSelector } from '../../store';
+import { openSplit } from '../../store/split';
+import { closeContextMenu } from '../../store/contextMenu';
 import React from 'react';
 import { Menu, MenuItem } from '../utils/menu/Menu';
 
@@ -38,6 +40,7 @@ interface GroupedButtons extends Array<Group> {}
 const InventoryContext: React.FC = () => {
   const contextMenu = useAppSelector((state) => state.contextMenu);
   const equippedSlot = useAppSelector((state) => state.equipment.equippedSlot);
+  const dispatch = useAppDispatch();
   const item = contextMenu.item;
 
   // Bitirim: item su an kusaniliysa (giyili), "Use" yerine "Unequip" goster —
@@ -99,7 +102,16 @@ const InventoryContext: React.FC = () => {
     <>
       <Menu>
         <MenuItem onClick={() => handleClick({ action: 'use' })} label={useLabel} />
-        <MenuItem onClick={() => handleClick({ action: 'give' })} label={Locale.ui_give || 'Give'} />
+        {/* Bitirim: 'Give' yerine 'Divide' — yalnizca stack'li (count>1) itemlerde. */}
+        {item && isSlotWithItem(item) && item.count > 1 && (
+          <MenuItem
+            onClick={() => {
+              dispatch(openSplit(item));
+              dispatch(closeContextMenu());
+            }}
+            label="Divide"
+          />
+        )}
         <MenuItem onClick={() => handleClick({ action: 'drop' })} label={Locale.ui_drop || 'Drop'} />
         {item && item.metadata?.ammo > 0 && (
           <MenuItem onClick={() => handleClick({ action: 'removeAmmo' })} label={Locale.ui_remove_ammo} />
