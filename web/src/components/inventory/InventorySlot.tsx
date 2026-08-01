@@ -31,9 +31,17 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
   const dispatch = useAppDispatch();
   const timerRef = useRef<number | null>(null);
 
+  // Bitirim: nakit ve telefon oyuncu envanterinde GIZLENIR. Item durur (ust bar
+  // nakit + shop odemesi + npwd calismaya devam eder); slot bos gorunur ve
+  // etkilesimsizdir (surukleme yok, ustune birakilamaz, kullanilamaz).
+  const isHidden =
+    inventoryType === 'player' && isSlotWithItem(item) && (item.name === 'money' || item.name === 'phone');
+
   const canDrag = useCallback(() => {
-    return canPurchaseItem(item, { type: inventoryType, groups: inventoryGroups }) && canCraftItem(item, inventoryType);
-  }, [item, inventoryType, inventoryGroups]);
+    return (
+      !isHidden && canPurchaseItem(item, { type: inventoryType, groups: inventoryGroups }) && canCraftItem(item, inventoryType)
+    );
+  }, [item, inventoryType, inventoryGroups, isHidden]);
 
   const [{ isDragging }, drag] = useDrag<DragSource, void, { isDragging: boolean }>(
     () => ({
@@ -78,11 +86,12 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
         }
       },
       canDrop: (source) =>
+        !isHidden &&
         (source.item.slot !== item.slot || source.inventory !== inventoryType) &&
         inventoryType !== InventoryType.SHOP &&
         inventoryType !== InventoryType.CRAFTING,
     }),
-    [inventoryType, item]
+    [inventoryType, item, isHidden]
   );
 
   useNuiEvent('refreshSlots', (data: { items?: ItemsPayload | ItemsPayload[] }) => {
@@ -105,13 +114,14 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
 
   const handleContext = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
-    if (inventoryType !== 'player' || !isSlotWithItem(item)) return;
+    if (inventoryType !== 'player' || !isSlotWithItem(item) || isHidden) return;
 
     dispatch(openContextMenu({ item, coords: { x: event.clientX, y: event.clientY } }));
   };
 
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
     dispatch(closeTooltip());
+    if (isHidden) return;
     if (timerRef.current) clearTimeout(timerRef.current);
     if (event.ctrlKey && isSlotWithItem(item) && inventoryType !== 'shop' && inventoryType !== 'crafting') {
       onDrop({ item: item, inventory: inventoryType });
@@ -124,7 +134,7 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
   // envanterindeki dolu slotlarda; sag tik menusundeki "Kullan" ile ayni islev.
   const handleDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
-    if (inventoryType !== 'player' || !isSlotWithItem(item)) return;
+    if (inventoryType !== 'player' || !isSlotWithItem(item) || isHidden) return;
     dispatch(closeTooltip());
     if (timerRef.current) clearTimeout(timerRef.current);
     onUse(item);
@@ -139,18 +149,19 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       // Bitirim: dolu slotlarin seviye renginde parlamasi icin stil kancasi.
-      className={isSlotWithItem(item) ? 'inventory-slot has-item' : 'inventory-slot'}
+      // isHidden (nakit/telefon) -> bos slot gibi gorunur (has-item yok, gorsel yok).
+      className={isSlotWithItem(item) && !isHidden ? 'inventory-slot has-item' : 'inventory-slot'}
       style={{
         filter:
           !canPurchaseItem(item, { type: inventoryType, groups: inventoryGroups }) || !canCraftItem(item, inventoryType)
             ? 'brightness(80%) grayscale(100%)'
             : undefined,
         opacity: isDragging ? 0.4 : 1.0,
-        backgroundImage: `url(${item?.name ? getItemUrl(item as SlotWithItem) : 'none'}`,
+        backgroundImage: `url(${item?.name && !isHidden ? getItemUrl(item as SlotWithItem) : 'none'}`,
         border: isOver ? '1px dashed rgba(255,255,255,0.4)' : '',
       }}
     >
-      {isSlotWithItem(item) && (
+      {isSlotWithItem(item) && !isHidden && (
         <div
           className="item-slot-wrapper"
           onMouseEnter={() => {
