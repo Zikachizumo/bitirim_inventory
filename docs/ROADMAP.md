@@ -38,10 +38,13 @@ Durum: 🟢 tamamlandı · 🟡 kısmen · 🔴 planlandı
 
 ---
 
-## 🔴 v0.5 — Kilitli Slot Koruması  *(sıradaki)*  🔴
-- Sunucu tarafı `swapItems` hook'u: çanta seviyesinin üstündeki (kilitli) slotlara item
-  konmasını reddet. Savunmacı yaz (hata → varsayılan İZİN VER, item hareketi kilitlenmesin).
-- Bununla çanta sistemi "görsel"den **tam işlevsel**e geçer.
+## 🟢 v0.5 — Kilitli Slot Koruması  *(tamamlandı)*  🟢
+- ✅ Sunucu tarafı `swapItems` hook'u: çanta seviyesinin üstündeki (kilitli) slotlara item
+  taşı/değiştir/yığın **reddedilir**. Fail-open (seviye bilinemezse İZİN — item hareketi asla
+  kilitlenmez). Client `cb(success or false)` ile iyimser hareketi geri alır.
+- Bununla çanta sistemi (drag/drop yolu için) "görsel"den **tam işlevsel**e geçti.
+- Kalan: `AddItem` yolları (market/kraft/give) `GetSlotForItem` ile kilitli slot seçebiliyor —
+  seviye-farkında slot seçimi ayrı iş olarak bırakıldı.
 
 ## 🔴 v0.6 — Çanta Ekonomisi: Market  *(Faz — market)*  🔴
 - 724 Market'te **L1/L2 çanta item'i** satışı. Giyince kalıcı seviye (`BitirimSetBagLevel`).
