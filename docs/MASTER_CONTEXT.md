@@ -92,7 +92,8 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
 1. **Tema + layout reskin** (`web/src/index.scss`, `components/inventory/*`) — cam panel, 2×2
    hizalı düzen, seviye renkleri.
 2. **Çanta seviye sistemi (Bag Level 0-5)** — görsel (renk/kilit/kapasite) + backend
-   (DB persistans + gerçek ağırlık sınırı). Bkz. bölüm 6.
+   (DB persistans + gerçek ağırlık sınırı + kilitli slot koruması). Çanta = **item** (`bag_1..5`),
+   **use ile giyilir** (yalnız yükseltme, çıkarılamaz). Bkz. bölüm 6.
 3. **Karakter panel + statlar** — CAN/ZIRH/AÇLIK/SUSUZLUK, `modules/bitirim/client.lua`'dan.
 4. **Divide (yığın bölme) diyaloğu** — sağ tık menüsünde "Give" yerine; %25/%50/%75.
 5. **Ver barı (Sürükle & Ver)** — şimdilik ox `onGive`; ileride `bitirim_stranger` seçici.
@@ -140,11 +141,17 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
 
 - **Açık grid slotu = seviye × 8.** Kilitli slotlar arayüzde **asma kilit** ile gösterilir.
 - **Yeni oyuncu 0 (çantasız):** sadece 5 makro/hotbar slotu kullanılabilir, tüm 40 grid kilitli.
-- **Çanta giyilince kalıcı** (çıkarılamaz — planlı mekanik).
-- **Leveling modeli (onaylanmış, henüz tam kodlanmadı):**
-  - L1 & L2 → **724 Market**'te satılır (fiyatlar kullanıcıdan bekleniyor).
-  - L3/L4/L5 → **%30 başarı şanslı kraft**: elde yedek (kullanılmayan) bir çanta + malzemeler;
-    başarılı → üst seviye çanta, **başarısız → çanta + malzemeler kaybolur** (tarifler bekleniyor).
+- **Çanta giyilince kalıcı** (çıkarılamaz — DB seviyesi, geri alma mekanizması yok).
+- **Leveling modeli — çanta = ITEM, use ile giyilir (KODLANDI):**
+  - `bag_1..bag_5` itemleri (`data/items.lua`). **Otomatik giyme YOK.** Market itemi verir,
+    oyuncu **use** (Kullan / çift sol tık / sağ tık) ile takar.
+  - **Sadece YÜKSELTME:** item seviyesi > mevcut → item tükenir + seviye kalıcı yükselir;
+    ≤ mevcut → reddedilir, **item kalır** (düşürme yok, aynı seviye takma yok).
+  - Use handler: `modules/bitirim/server.lua` → qbx `CreateUseableItem` (`equipBag`). Item
+    `consume`'suz tanımlı → ox use akışı `server.UseItem` → `QBX:CanUseItem`'a düşer.
+  - **724 Market'te 1-5 satışı:** fiyatlar kullanıcıdan bekleniyor (item + use hazır; sadece
+    `data/shops.lua` listesi + fiyat kaldı). Kraft (L3-5) opsiyonel/ileride (tarifler bekleniyor).
+  - Görseller placeholder: `web/images/bag_1.png..bag_5.png` (sanat gelince değiştirilecek).
 - **Backend (kodlandı):** seviye `bitirim_backpack(citizenid, level)` MySQL tablosunda kalıcı;
   onbellekli. `modules/bitirim/server.lua`.
   - Uygulanış: `loadInventory` state bag'inde (ox ile aynı sinyal, +1.5s) + `lib.callback
@@ -171,8 +178,9 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
   reddedilir**; client `cb(success or false)` ile iyimser hareketi geri alır. **FAIL-OPEN:**
   seviye kesin bilinemezse (oyuncu çözülemedi / seviye önbelleğe alınmadı) izin verilir —
   meşru item hareketi asla kesilmez. Kilit formülü: `slot > 5 + level*8` (frontend ile aynı).
-  ⚠️ **Kalan açık:** `AddItem` yolları (724 market alımı / kraft / oyuncu verme) hâlâ
-  `GetSlotForItem` ile ilk boş slotu (kilitli olabilir) seçebilir. Bkz. bölüm 13.
+  ✅ **`AddItem` yolları da korunuyor:** market/kraft/give/pickup, core `usableSlots(inv)` ile
+  oyuncunun `bitirimUsableSlots` sınırına kadar slot seçer — kilitli slota item gitmez, açık
+  slot dolunca eklenmez. `inv.slots` 45 kalır (client görseli). Bkz. bölüm 13.
 - **Araç depolama** (`data/vehicles.lua`):
   - **Bagaj (trunk):** tüm araçlarda **36 slot (6×6)**, ağırlık 999.999 KG (sınırsız). 6 sütun render.
   - **Torpido (glovebox):** tüm araçlarda **6 slot**, ağırlık **50 KG** (sınır aktif, barı görünür).
@@ -258,8 +266,11 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
 - ✅ Çanta 5 seviye **görsel** (renk + kilitli slot + rozet + kapasite) — 0-5, çantasız dahil.
 - ✅ Çanta **backend**: DB'de kalıcı seviye + gerçek ağırlık sınırı (`SetMaxWeight`) +
   `/setcanta` admin + `BitirimGet/SetBagLevel` exports.
-- ✅ **Kilitli slot sunucu koruması** (swapItems hook): kendi envanterine kilitli slota
-  taşı/değiştir/yığın sunucuda reddedilir (fail-open). `AddItem` yolları hariç (bkz. bölüm 13).
+- ✅ **Kilitli slot sunucu koruması** — iki katman: (1) swapItems hook (manuel sürükle-bırak),
+  (2) core `usableSlots` ile otomatik yerleştirme (market/kraft/give/pickup) kilitli slota gitmez.
+  İkisi de fail-open (seviye bilinemezse izin). Açık slot dolunca item eklenmez.
+- ✅ **Çanta = item + use ile giyme** (`bag_1..bag_5`): use → yalnız yükseltme (düşürme/aynı yok),
+  item tükenir, seviye kalıcı yükselir, çıkarılamaz. qbx `CreateUseableItem`. Otomatik giyme yok.
 - ✅ Use↔Unequip (kuşanılı silah).
 - ✅ Araç: bagaj 6×6 / 999.999 KG, torpido 6 slot / 50 KG (bar görünür), drop 5×5 (temiz başlık +
   statlar), bagaj/drop başlığı (plaka/ID+KG) gizli.
@@ -273,14 +284,19 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
 - ✅ **Kilitli slot sunucu koruması (swapItems)** — YAPILDI. Bkz. bölüm 7/12. Not: `registerHook`
   export'u ref'i indeksliyor; ox içinden self-export'ta ham fonksiyon sarılmayabildiği için ref
   olarak metatable'lı **callable table** (`__call`) verildi.
-- ❌ **Kilitli slota `AddItem` yolları** — 724 market alımı / kraft / oyuncu verme (`giveItem`)
-  `swapItems`'ten geçmez; `Inventory.GetSlotForItem` kilitli slotu seçebilir. Tam koruma için
-  `GetSlotForItem`/`CanCarryItem`'ı seviye-farkında yapmak gerekir (ox core, ayrı dikkatli iş).
-- ❌ **724 Market'te L1/L2 satışı** + çanta giyme (kalıcı seviye) — **fiyatlar** kullanıcıdan bekleniyor.
-- ❌ **L3-5 kraft** (%30, başarısız = kayıp) — **tarifler** kullanıcıdan bekleniyor.
+- ✅ **Kilitli slota `AddItem` yolları** — YAPILDI. Core'a `usableSlots(inv)` yardımcısı eklendi;
+  `AddItem` / `GetItemSlots` / `GetSlotForItem` / `GetEmptySlot` otomatik yerleştirme döngüleri
+  oyuncuda `inv.bitirimUsableSlots` (=5+seviye*8) ile sınırlanır. `inv.slots` 45 KALIR (client
+  görseli); item market/kraft/give/pickup ile artık kilitli slota gitmez, açık slot dolunca
+  eklenmez. Alanı `applyLevel` yazar. Downgrade (admin) edge'i: yüksek slottaki item gizlenir.
+- ✅ **Çanta giyme (item + use)** — YAPILDI (`bag_1..5` + qbx `CreateUseableItem`, yalnız yükseltme).
+- ❌ **724 Market'te 1-5 çanta satışı** — item + use hazır; sadece `data/shops.lua` listesi +
+  **fiyatlar** kullanıcıdan bekleniyor. (Market itemi verir, oyuncu use ile takar.)
+- ❌ **Çanta görselleri** — `web/images/bag_1.png..bag_5.png` placeholder; **sanat** bekleniyor.
+- ❌ **L3-5 kraft** (%30, başarısız = kayıp) — opsiyonel/ileride; **tarifler** kullanıcıdan bekleniyor.
 - ❌ **L0 (çantasız) ağırlık kapasitesi** 10 KG placeholder — onay bekliyor.
-- ❌ **Ekipman giyme sistemi** (zırh/silah/çanta/maske, illenium-appearance köprüsü) — sol
-  paneldeki equip slotları şu an **görsel**. Use↔Unequip altyapısı silah için hazır.
+- ❌ **Ekipman giyme sistemi** (zırh/silah/maske, illenium-appearance köprüsü) — sol paneldeki
+  equip slotları şu an **görsel**. (Çanta artık item+use ile işlevsel; görsel-çanta-slotu bu işle gelir.)
 - ❌ **Ver barı yakın-oyuncu seçici** (`bitirim_stranger` ile ID+isim / Stranger) — şu an
   sadece ox `onGive`.
 - ❌ **Araç bagaj kilitleri** (araç seviyesi/modeline göre slot aç/kapa).
@@ -290,13 +306,13 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
 
 ## 14. Bundan Sonra Geliştirilecek Özellikler (öncelik sırası)
 
-1. ✅ **Kilitli slot koruması** (swapItems hook) — YAPILDI. Kalan: `AddItem` yolları (market/kraft/
-   give) kilitli slotu seçebiliyor; `GetSlotForItem` seviye-farkında yapılınca kapanır.
-2. **724 Market + çanta giyme** (L1/L2) — fiyatlar gelince.
-3. **Kraft L3-5** — tarifler gelince.
+1. ✅ **Kilitli slot koruması** — YAPILDI (swapItems hook + core `usableSlots` add-path guard).
+2. ✅ **Çanta giyme (item + use)** — YAPILDI (`bag_1..5`, yalnız yükseltme). Kalan: **724 Market
+   listesi + fiyatlar** (kullanıcıdan) ve **çanta görselleri** (sanat).
+3. **Kraft L3-5** — opsiyonel; tarifler gelince.
 4. **Araç bagaj kilitleri** — seviye/modele göre.
 5. **Ver barı + bitirim_stranger** yakın-oyuncu seçici.
-6. **Ekipman giyme** (illenium köprüsü, C yaklaşımı: zırh+silah+çanta+maske).
+6. **Ekipman giyme** (illenium köprüsü: zırh+silah+maske; görsel çanta slotu).
 7. **Kozmetik kıyafet-as-item.**
 
 Detaylı sürüm planı: [`ROADMAP.md`](./ROADMAP.md).

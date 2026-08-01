@@ -1,4 +1,58 @@
 return {
+	--[[ BITIRIM: Sirt cantasi itemleri (Seviye 1-5).
+	     Kullaninca (Kullan / cift sol tik / sag tik) canta TAKILIR: seviye kalici
+	     yukselir (DB) ve item TUKENIR. Mantik modules/bitirim/server.lua'da
+	     qbx CreateUseableItem ile.
+	     - consume/client.status/usetime/export YOK -> item server.UseItem yoluna
+	       duser (qbx). client.image sadece envanter ikonu (routing'i bozmaz).
+	     - Sadece YUKSELTME: mevcut seviyeden dusuk/esit canta kullanilamaz (item kalir).
+	     - Takildiktan sonra cikarilmaz (seviye DB'de; geri alma mekanigi yok).
+	     Gorseller: web/images/bag_1.png .. bag_5.png (sanat gelince degistirilir). ]]
+	['bag_1'] = {
+		label = 'Sirt Cantasi (Sv.1)',
+		weight = 500,
+		stack = false,
+		close = true,
+		description = 'Kullaninca Seviye 1 sirt cantasi takilir. Takilinca cikarilamaz; ust seviye canta ile yukseltilir.',
+		client = { image = 'bag_1.png' },
+	},
+
+	['bag_2'] = {
+		label = 'Sirt Cantasi (Sv.2)',
+		weight = 700,
+		stack = false,
+		close = true,
+		description = 'Kullaninca Seviye 2 sirt cantasi takilir. Takilinca cikarilamaz; ust seviye canta ile yukseltilir.',
+		client = { image = 'bag_2.png' },
+	},
+
+	['bag_3'] = {
+		label = 'Sirt Cantasi (Sv.3)',
+		weight = 900,
+		stack = false,
+		close = true,
+		description = 'Kullaninca Seviye 3 sirt cantasi takilir. Takilinca cikarilamaz; ust seviye canta ile yukseltilir.',
+		client = { image = 'bag_3.png' },
+	},
+
+	['bag_4'] = {
+		label = 'Sirt Cantasi (Sv.4)',
+		weight = 1100,
+		stack = false,
+		close = true,
+		description = 'Kullaninca Seviye 4 sirt cantasi takilir. Takilinca cikarilamaz; ust seviye canta ile yukseltilir.',
+		client = { image = 'bag_4.png' },
+	},
+
+	['bag_5'] = {
+		label = 'Sirt Cantasi (Sv.5)',
+		weight = 1300,
+		stack = false,
+		close = true,
+		description = 'Kullaninca Seviye 5 sirt cantasi takilir. Takilinca cikarilamaz (en ust seviye).',
+		client = { image = 'bag_5.png' },
+	},
+
 	['testburger'] = {
 		label = 'Test Burger',
 		weight = 220,

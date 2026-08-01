@@ -86,6 +86,16 @@ local function applyLevel(source, level)
         Inventory.SetMaxWeight(source, (CAP_KG[level] or 10) * 1000)
     end)
 
+    -- KULLANILABILIR slot ust siniri: 5 makro + seviye*8 grid. Otomatik yerlestirme
+    -- (AddItem/give/kraft/pickup) bu sinirin ustune (kilitli slota) item koymaz.
+    -- inv.slots 45 kalir (client gorseli); yalniz bu alan sinirlar. Bkz. core usableSlots().
+    pcall(function()
+        local inv = Inventory(source)
+        if inv then
+            inv.bitirimUsableSlots = HOTBAR_SLOTS + clampLevel(level) * SLOTS_PER_LEVEL
+        end
+    end)
+
     -- Client: NUI'ye setBagLevel gitsin (renk + kilitli slotlar).
     TriggerClientEvent('bitirim:client:bagLevel', source, level)
 end
@@ -123,6 +133,63 @@ end
 
 exports('BitirimGetBagLevel', function(source) return loadLevel(source) end)
 exports('BitirimSetBagLevel', function(source, level) return setLevel(source, level) end)
+
+--- Kisa bildirim yardimcisi (ox_lib).
+local function notify(source, ntype, description)
+    TriggerClientEvent('ox_lib:notify', source, { type = ntype, description = description })
+end
+
+--[[
+    CANTA ITEMI KULLANIMI (bag_1..bag_5) — "use edince tak, yalniz YUKSELTME".
+    -------------------------------------------------------------------------
+    - level > mevcut : item TUKENIR + seviye kalici yukselir (setLevel).
+    - level <= mevcut: reddedilir, item KALIR (dusurme/ayni seviye takma yok).
+    - Takildiktan sonra cikarilmaz (seviye DB'de; geri alma mekanigi yok).
+
+    Item consume'suz tanimli -> ox use akisi server.UseItem'a duser ->
+    QBX:CanUseItem -> asagida CreateUseableItem ile kaydedilen cb. cb(src, data);
+    data.name = 'bag_N', data.slot = slot.
+]]
+--- @param item table qbx use data ({ name, slot, ... })
+local function equipBag(source, level, item)
+    level = clampLevel(level)
+    local current = loadLevel(source)
+
+    if level <= current then
+        notify(source, 'error', current == level
+            and 'Zaten bu seviye sirt cantasini takiyorsun.'
+            or  'Daha ust seviye sirt cantan var; alt seviye canta takilmaz.')
+        return
+    end
+
+    -- Once item'i tuket; ancak basariliysa seviyeyi yukselt (exploit/kayip olmasin).
+    local ok, removed = pcall(function()
+        return Inventory.RemoveItem(source, item.name, 1, nil, item.slot)
+    end)
+
+    if not (ok and removed) then
+        return notify(source, 'error', 'Sirt cantasi takilamadi, tekrar dene.')
+    end
+
+    setLevel(source, level)
+    notify(source, 'success', ('Seviye %d sirt cantasi takildi.'):format(level))
+end
+
+--- Canta itemlerini qbx kullanilabilir-item sistemine kaydet (bag_1..bag_5).
+CreateThread(function()
+    for level = 1, MAX_LEVEL do
+        local lvl = level -- closure icin sabitle
+        local itemName = ('bag_%d'):format(lvl)
+        local ok, err = pcall(function()
+            exports.qbx_core:CreateUseableItem(itemName, function(src, data)
+                equipBag(src, lvl, data)
+            end)
+        end)
+        if not ok then
+            print(('[bitirim] %s kullanilabilir item kaydedilemedi: %s'):format(itemName, tostring(err)))
+        end
+    end
+end)
 
 --- Oyuncu envanteri hazir oldugunda (ox ile ayni state bag) seviyeyi uygula.
 --- ox'un setupPlayer'i once calissin diye kisa bir gecikme.

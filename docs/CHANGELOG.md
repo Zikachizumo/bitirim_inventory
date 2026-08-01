@@ -7,8 +7,27 @@ Etiketler: `feat` yeni özellik · `fix` düzeltme · `revert` geri alma · `cho
 
 ---
 
+## [v0.6] — 2026-08-01  ·  Çanta-as-item + use ile giyme
+
+- **2026-08-01** `feat(backend)` **Sırt çantası itemleri (bag_1..bag_5)** + **use ile giyme**:
+  `data/items.lua`'ya 5 seviye çanta itemi eklendi; `modules/bitirim/server.lua` qbx
+  `CreateUseableItem` ile use handler kaydeder. **Sadece YÜKSELTME:** item seviyesi > mevcut ise
+  item tükenir + seviye kalıcı yükselir (`setLevel`); ≤ mevcut ise reddedilir, **item kalır**
+  (düşürme/aynı seviye takma yok). Takıldıktan sonra çıkarılmaz (seviye DB'de). Item `consume`'suz
+  tanımlı → ox use akışı `server.UseItem` → `QBX:CanUseItem`'a düşer. Otomatik giyme YOK; market
+  itemi verir, oyuncu use ile takar. Görseller placeholder (`web/images/bag_1.png..bag_5.png`).
+  **Bekleyen:** market listesi + fiyatlar (kullanıcıdan).
+
 ## [v0.5] — 2026-08-01  ·  Kilitli slot sunucu koruması
 
+- **2026-08-01** `feat(backend)` **Kilitli slota otomatik yerleştirme koruması** (core
+  `usableSlots(inv)`): `AddItem` / `GetItemSlots` / `GetSlotForItem` / `GetEmptySlot` yerleştirme
+  döngüleri, oyuncuda `inv.bitirimUsableSlots` (=5+seviye*8) ile sınırlanır. Böylece **724 market
+  alımı / kraft / oyuncu verme (`giveItem`) / pickup** artık kilitli slota item **koymaz**; açık
+  slot dolunca item eklenmez (önceden kilitli/gizli slota düşüp çanta boşalınca "sıradan geliyordu").
+  `inv.slots` 45 KALIR (client 45 slot + kilit görseli bozulmasın diye), yalnız bu alan sınırlar.
+  Alanı `applyLevel` yazar. FAIL-OPEN: alan yoksa tam `inv.slots` kullanılır. Container/araç/stash
+  etkilenmez (`inv.player` şartı).
 - **2026-08-01** `feat(backend)` **Kilitli slot sunucu koruması** (`swapItems` hook,
   `modules/bitirim/server.lua`): oyuncunun KENDİ envanterine (`toType=='player'`) çanta
   seviyesiyle **kilitli** bir slota taşı/değiştir/yığın **sunucuda reddedilir**; client
