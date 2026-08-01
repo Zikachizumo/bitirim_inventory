@@ -1,5 +1,8 @@
 import React from 'react';
 import CharacterStats from './CharacterStats';
+import { useAppSelector } from '../../store';
+import { selectBagLevel } from '../../store/backpack';
+import { getItemUrl } from '../../helpers';
 import {
   IconAmmo,
   IconBackpack,
@@ -22,8 +25,10 @@ import {
 /**
  * Bitirim karakter paneli.
  *
- * DURUM: ekipman slotlari su an GORSEL — giyme/cikarma mantigi
- * (illenium-appearance koprusu) henuz baglanmadi.
+ * Slotlar NUMARALI (sag ustte kucuk rozet) — karisiklik olmasin diye.
+ * ÇANTA slotu (key='bag') GERCEK: takili canta seviyesine gore bag_lvN.png
+ * gorselini gosterir; seviye degisince (use ile giyme/yukseltme) otomatik
+ * guncellenir. Diger slotlar su an GORSEL (illenium-appearance koprusu ileride).
  */
 
 const EQUIP_ROWS: { key: string; label: string; Icon: React.FC<{ size?: number }> }[][] = [
@@ -55,27 +60,50 @@ const EQUIP_ROWS: { key: string; label: string; Icon: React.FC<{ size?: number }
   ],
 ];
 
-const CharacterPanel: React.FC = () => (
-  <div className="bx-panel bx-character">
-    <p className="bx-panel-title">Karakter</p>
+const CharacterPanel: React.FC = () => {
+  const bagLevel = useAppSelector(selectBagLevel);
+  let slotNo = 0; // tum slotlara sirali numara (1..N)
 
-    <div className="bx-eq-grid">
-      {EQUIP_ROWS.map((row, i) => (
-        <div className="bx-eq-row" key={`eqrow-${i}`}>
-          {row.map(({ key, label, Icon }) => (
-            <div className="bx-eq-slot" key={key} title={`${label} — boş`}>
-              <Icon size={32} />
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
+  return (
+    <div className="bx-panel bx-character">
+      <p className="bx-panel-title">Karakter</p>
 
-    {/* Alt bolge: statlar dikeyde ortalanir (karsi paneldeki canta kartiyla hizali). */}
-    <div className="bx-char-bottom">
-      <CharacterStats />
+      <div className="bx-eq-grid">
+        {EQUIP_ROWS.map((row, i) => (
+          <div className="bx-eq-row" key={`eqrow-${i}`}>
+            {row.map(({ key, label, Icon }) => {
+              slotNo += 1;
+              // Canta slotu: takili seviyeye gore gercek gorsel (bag_lvN.png).
+              const bagUrl = key === 'bag' && bagLevel > 0 ? getItemUrl(`bag_lv${bagLevel}`) : undefined;
+              const title =
+                key === 'bag'
+                  ? bagLevel > 0
+                    ? `Çanta — Seviye ${bagLevel}`
+                    : 'Çanta — boş'
+                  : `${label} — boş`;
+
+              return (
+                <div
+                  className={bagUrl ? 'bx-eq-slot has-item' : 'bx-eq-slot'}
+                  key={key}
+                  title={title}
+                  style={bagUrl ? { backgroundImage: `url(${bagUrl})` } : undefined}
+                >
+                  <span className="bx-eq-num">{slotNo}</span>
+                  {!bagUrl && <Icon size={32} />}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* Alt bolge: statlar dikeyde ortalanir (karsi paneldeki canta kartiyla hizali). */}
+      <div className="bx-char-bottom">
+        <CharacterStats />
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default CharacterPanel;
