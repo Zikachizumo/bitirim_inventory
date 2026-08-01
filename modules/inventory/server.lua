@@ -1069,6 +1069,20 @@ end
 
 exports('SetMetadata', Inventory.SetMetadata)
 
+--[[ BITIRIM: canta seviyesine gore KULLANILABILIR slot ust siniri.
+     Player envanterinde slotlar 1..(5+seviye*8) aciktir; ustu kilitli. `inv.slots`
+     45 KALIR (client 45 slot + kilit gorseli bozulmasin diye), ama OTOMATIK
+     yerlestirme (AddItem / giveItem / kraft / pickup) yalniz bu sinira kadar slot
+     secer -> item asla kilitli slota gitmez. `bitirimUsableSlots` yoksa (henuz
+     uygulanmadi) tam `inv.slots` kullanilir = FAIL-OPEN (mevcut davranis).
+     Alani `modules/bitirim/server.lua` applyLevel'da yazar. ]]
+local function usableSlots(inv)
+    if inv.player and inv.bitirimUsableSlots then
+        return inv.bitirimUsableSlots
+    end
+    return inv.slots
+end
+
 ---@param inv inventory
 ---@param slots number
 function Inventory.SetSlotCount(inv, slots)
@@ -1155,7 +1169,7 @@ function Inventory.AddItem(inv, item, count, metadata, slot, cb)
 		local items = inv.items
 		slotMetadata, slotCount = Items.Metadata(inv.id, item, metadata and table.clone(metadata) or {}, count)
 
-		for i = 1, inv.slots do
+		for i = 1, usableSlots(inv) do -- BITIRIM: kilitli slotlara otomatik yerlestirme yok
 			local slotData = items[i]
 
 			if item.stack and slotData ~= nil and slotData.name == item.name and table.matches(slotData.metadata, slotMetadata) then
@@ -1303,7 +1317,7 @@ function Inventory.GetItemSlots(inv, item, metadata, strict)
 	inv = Inventory(inv) --[[@as OxInventory]]
 	if not inv?.slots then return end
 
-	local totalCount, slots, emptySlots = 0, {}, inv.slots
+	local totalCount, slots, emptySlots = 0, {}, usableSlots(inv) -- BITIRIM: bos slot sayimi kilitli slotlari saymaz
 
 	if strict == nil then strict = true end
 	local tablematch = strict and table.matches or table.contains
@@ -2189,7 +2203,7 @@ function Inventory.GetEmptySlot(inv)
 
 	local items = inventory.items
 
-	for i = 1, inventory.slots do
+	for i = 1, usableSlots(inventory) do -- BITIRIM: kilitli slot bos slot olarak dondurulmez
 		if not items[i] then
 			return i
 		end
@@ -2211,7 +2225,7 @@ function Inventory.GetSlotForItem(inv, itemName, metadata)
 	local items = inventory.items
 	local emptySlot
 
-	for i = 1, inventory.slots do
+	for i = 1, usableSlots(inventory) do -- BITIRIM: kilitli slot secilmez (give/market/kraft)
 		local slotData = items[i]
 
 		if not slotData and not emptySlot then

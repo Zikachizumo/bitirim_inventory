@@ -86,6 +86,16 @@ local function applyLevel(source, level)
         Inventory.SetMaxWeight(source, (CAP_KG[level] or 10) * 1000)
     end)
 
+    -- KULLANILABILIR slot ust siniri: 5 makro + seviye*8 grid. Otomatik yerlestirme
+    -- (AddItem/give/kraft/pickup) bu sinirin ustune (kilitli slota) item koymaz.
+    -- inv.slots 45 kalir (client gorseli); yalniz bu alan sinirlar. Bkz. core usableSlots().
+    pcall(function()
+        local inv = Inventory(source)
+        if inv then
+            inv.bitirimUsableSlots = HOTBAR_SLOTS + clampLevel(level) * SLOTS_PER_LEVEL
+        end
+    end)
+
     -- Client: NUI'ye setBagLevel gitsin (renk + kilitli slotlar).
     TriggerClientEvent('bitirim:client:bagLevel', source, level)
 end

@@ -171,8 +171,9 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
   reddedilir**; client `cb(success or false)` ile iyimser hareketi geri alır. **FAIL-OPEN:**
   seviye kesin bilinemezse (oyuncu çözülemedi / seviye önbelleğe alınmadı) izin verilir —
   meşru item hareketi asla kesilmez. Kilit formülü: `slot > 5 + level*8` (frontend ile aynı).
-  ⚠️ **Kalan açık:** `AddItem` yolları (724 market alımı / kraft / oyuncu verme) hâlâ
-  `GetSlotForItem` ile ilk boş slotu (kilitli olabilir) seçebilir. Bkz. bölüm 13.
+  ✅ **`AddItem` yolları da korunuyor:** market/kraft/give/pickup, core `usableSlots(inv)` ile
+  oyuncunun `bitirimUsableSlots` sınırına kadar slot seçer — kilitli slota item gitmez, açık
+  slot dolunca eklenmez. `inv.slots` 45 kalır (client görseli). Bkz. bölüm 13.
 - **Araç depolama** (`data/vehicles.lua`):
   - **Bagaj (trunk):** tüm araçlarda **36 slot (6×6)**, ağırlık 999.999 KG (sınırsız). 6 sütun render.
   - **Torpido (glovebox):** tüm araçlarda **6 slot**, ağırlık **50 KG** (sınır aktif, barı görünür).
@@ -258,8 +259,9 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
 - ✅ Çanta 5 seviye **görsel** (renk + kilitli slot + rozet + kapasite) — 0-5, çantasız dahil.
 - ✅ Çanta **backend**: DB'de kalıcı seviye + gerçek ağırlık sınırı (`SetMaxWeight`) +
   `/setcanta` admin + `BitirimGet/SetBagLevel` exports.
-- ✅ **Kilitli slot sunucu koruması** (swapItems hook): kendi envanterine kilitli slota
-  taşı/değiştir/yığın sunucuda reddedilir (fail-open). `AddItem` yolları hariç (bkz. bölüm 13).
+- ✅ **Kilitli slot sunucu koruması** — iki katman: (1) swapItems hook (manuel sürükle-bırak),
+  (2) core `usableSlots` ile otomatik yerleştirme (market/kraft/give/pickup) kilitli slota gitmez.
+  İkisi de fail-open (seviye bilinemezse izin). Açık slot dolunca item eklenmez.
 - ✅ Use↔Unequip (kuşanılı silah).
 - ✅ Araç: bagaj 6×6 / 999.999 KG, torpido 6 slot / 50 KG (bar görünür), drop 5×5 (temiz başlık +
   statlar), bagaj/drop başlığı (plaka/ID+KG) gizli.
@@ -273,9 +275,11 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
 - ✅ **Kilitli slot sunucu koruması (swapItems)** — YAPILDI. Bkz. bölüm 7/12. Not: `registerHook`
   export'u ref'i indeksliyor; ox içinden self-export'ta ham fonksiyon sarılmayabildiği için ref
   olarak metatable'lı **callable table** (`__call`) verildi.
-- ❌ **Kilitli slota `AddItem` yolları** — 724 market alımı / kraft / oyuncu verme (`giveItem`)
-  `swapItems`'ten geçmez; `Inventory.GetSlotForItem` kilitli slotu seçebilir. Tam koruma için
-  `GetSlotForItem`/`CanCarryItem`'ı seviye-farkında yapmak gerekir (ox core, ayrı dikkatli iş).
+- ✅ **Kilitli slota `AddItem` yolları** — YAPILDI. Core'a `usableSlots(inv)` yardımcısı eklendi;
+  `AddItem` / `GetItemSlots` / `GetSlotForItem` / `GetEmptySlot` otomatik yerleştirme döngüleri
+  oyuncuda `inv.bitirimUsableSlots` (=5+seviye*8) ile sınırlanır. `inv.slots` 45 KALIR (client
+  görseli); item market/kraft/give/pickup ile artık kilitli slota gitmez, açık slot dolunca
+  eklenmez. Alanı `applyLevel` yazar. Downgrade (admin) edge'i: yüksek slottaki item gizlenir.
 - ❌ **724 Market'te L1/L2 satışı** + çanta giyme (kalıcı seviye) — **fiyatlar** kullanıcıdan bekleniyor.
 - ❌ **L3-5 kraft** (%30, başarısız = kayıp) — **tarifler** kullanıcıdan bekleniyor.
 - ❌ **L0 (çantasız) ağırlık kapasitesi** 10 KG placeholder — onay bekliyor.
@@ -290,8 +294,7 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
 
 ## 14. Bundan Sonra Geliştirilecek Özellikler (öncelik sırası)
 
-1. ✅ **Kilitli slot koruması** (swapItems hook) — YAPILDI. Kalan: `AddItem` yolları (market/kraft/
-   give) kilitli slotu seçebiliyor; `GetSlotForItem` seviye-farkında yapılınca kapanır.
+1. ✅ **Kilitli slot koruması** — YAPILDI (swapItems hook + core `usableSlots` add-path guard).
 2. **724 Market + çanta giyme** (L1/L2) — fiyatlar gelince.
 3. **Kraft L3-5** — tarifler gelince.
 4. **Araç bagaj kilitleri** — seviye/modele göre.
