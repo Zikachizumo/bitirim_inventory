@@ -7,6 +7,18 @@ Etiketler: `feat` yeni özellik · `fix` düzeltme · `revert` geri alma · `cho
 
 ---
 
+## [v0.5] — 2026-08-01  ·  Kilitli slot sunucu koruması
+
+- **2026-08-01** `feat(backend)` **Kilitli slot sunucu koruması** (`swapItems` hook,
+  `modules/bitirim/server.lua`): oyuncunun KENDİ envanterine (`toType=='player'`) çanta
+  seviyesiyle **kilitli** bir slota taşı/değiştir/yığın **sunucuda reddedilir**; client
+  `cb(success or false)` ile iyimser hareketi geri alır. **FAIL-OPEN** — seviye kesin
+  bilinemezse (oyuncu çözülemedi / seviye önbelleğe alınmadı) izin verilir, meşru item
+  hareketi asla kesilmez. Kilit formülü `slot > 5 + seviye*8` (frontend `backpack.ts` ile
+  aynı). Kayıt: self-export'ta ham fonksiyon indekslenemediği için ref olarak metatable'lı
+  **callable table** (`__call`) verildi. Kapsam dışı: `AddItem` yolları (market/kraft/give)
+  hâlâ kilitli slotu seçebilir — ayrı iş.
+
 ## [v0.4] — 2026-07-31 → 2026-08-01  ·  Araç depolama, Drop, Divide
 
 - **2026-08-01** `fix` Bagaj + yere-atma ağırlık sınırı **999.999 KG** (pratikte sınırsız). Divide
