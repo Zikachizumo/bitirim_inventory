@@ -47,11 +47,11 @@ Durum: 🟢 tamamlandı · 🟡 kısmen · 🔴 planlandı
 - Bununla çanta sistemi (drag/drop + otomatik yerleştirme) "görsel"den **tam işlevsel**e geçti.
 
 ## 🟡 v0.6 — Çanta = Item + Use ile Giyme  *(çekirdek tamam; market kaldı)*  🟡
-- ✅ `bag_1..bag_5` itemleri (`data/items.lua`) + **use ile giyme** (qbx `CreateUseableItem`).
+- ✅ `bag_lv1..bag_lv5` itemleri (`data/items.lua`) + **use ile giyme** (qbx `CreateUseableItem`).
   Sadece **yükseltme** (düşürme/aynı seviye takma yok), item tükenir, seviye kalıcı, çıkarılamaz.
   Otomatik giyme yok.
 - ❌ **724 Market'te 1-5 satışı:** `data/shops.lua` listesi + **fiyatlar** (kullanıcıdan).
-- ❌ **Çanta görselleri:** `web/images/bag_1.png..bag_5.png` (sanat).
+- ❌ **Çanta görselleri:** `web/images/bag_lv1.png..bag_lv5.png` (sanat).
 
 ## 🔴 v0.7 — Çanta Ekonomisi: Kraft  *(opsiyonel)*  🔴
 - **L3/L4/L5** için %30 başarı şanslı kraft (opsiyonel; market 1-5 zaten satacak).

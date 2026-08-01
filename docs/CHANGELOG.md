@@ -9,13 +9,13 @@ Etiketler: `feat` yeni özellik · `fix` düzeltme · `revert` geri alma · `cho
 
 ## [v0.6] — 2026-08-01  ·  Çanta-as-item + use ile giyme
 
-- **2026-08-01** `feat(backend)` **Sırt çantası itemleri (bag_1..bag_5)** + **use ile giyme**:
+- **2026-08-01** `feat(backend)` **Sırt çantası itemleri (bag_lv1..bag_lv5)** + **use ile giyme**:
   `data/items.lua`'ya 5 seviye çanta itemi eklendi; `modules/bitirim/server.lua` qbx
   `CreateUseableItem` ile use handler kaydeder. **Sadece YÜKSELTME:** item seviyesi > mevcut ise
   item tükenir + seviye kalıcı yükselir (`setLevel`); ≤ mevcut ise reddedilir, **item kalır**
   (düşürme/aynı seviye takma yok). Takıldıktan sonra çıkarılmaz (seviye DB'de). Item `consume`'suz
   tanımlı → ox use akışı `server.UseItem` → `QBX:CanUseItem`'a düşer. Otomatik giyme YOK; market
-  itemi verir, oyuncu use ile takar. Görseller placeholder (`web/images/bag_1.png..bag_5.png`).
+  itemi verir, oyuncu use ile takar. Görseller placeholder (`web/images/bag_lv1.png..bag_lv5.png`).
   **Bekleyen:** market listesi + fiyatlar (kullanıcıdan).
 
 ## [v0.5] — 2026-08-01  ·  Kilitli slot sunucu koruması
