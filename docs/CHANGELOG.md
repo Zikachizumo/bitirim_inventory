@@ -9,6 +9,11 @@ Etiketler: `feat` yeni özellik · `fix` düzeltme · `revert` geri alma · `cho
 
 ## [v0.7] — 2026-08-01  ·  Karakter çanta slotu + market item satışı + çift-tık kullan
 
+- **2026-08-01** `feat(ui)` **Nakit & telefon oyuncu envanterinde gizlendi** (`InventorySlot.tsx`):
+  `money` ve `phone` (yalnız `player`) boş slot gibi render edilir; sürükleme/bırakma/kullanma yok.
+  Item **durur** → üst bar nakit rozeti + ox shop ödemesi + npwd telefon çalışmaya devam eder;
+  yalnız grid görünümünden gizlenir (o slotlar etkileşimsiz). Container/araç/stash/shop etkilenmez.
+
 - **2026-08-01** `feat(ui)` **Karakter panelinde takılı çanta görseli**: Karakter'in **Çanta**
   slotu artık gerçek — takılı seviyeye göre `bag_lvN.png` gösterir; seviye değişince (use ile
   giyme/yükseltme) envanter her açıldığında güncellenir (eski görsel gider, yeni gelir), Sv.0 boş.
