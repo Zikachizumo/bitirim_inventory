@@ -120,6 +120,16 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
     }
   };
 
+  // Bitirim: cift sol tik = item KULLAN (canta giyme dahil). Yalniz oyuncu
+  // envanterindeki dolu slotlarda; sag tik menusundeki "Kullan" ile ayni islev.
+  const handleDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (inventoryType !== 'player' || !isSlotWithItem(item)) return;
+    dispatch(closeTooltip());
+    if (timerRef.current) clearTimeout(timerRef.current);
+    onUse(item);
+  };
+
   const refs = useMergeRefs([connectRef, ref]);
 
   return (
@@ -127,6 +137,7 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
       ref={refs}
       onContextMenu={handleContext}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       // Bitirim: dolu slotlarin seviye renginde parlamasi icin stil kancasi.
       className={isSlotWithItem(item) ? 'inventory-slot has-item' : 'inventory-slot'}
       style={{
