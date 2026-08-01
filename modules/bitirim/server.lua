@@ -148,7 +148,7 @@ end
 
     Item consume'suz tanimli -> ox use akisi server.UseItem'a duser ->
     QBX:CanUseItem -> asagida CreateUseableItem ile kaydedilen cb. cb(src, data);
-    data.name = 'bag_N', data.slot = slot.
+    data.name = 'bag_lvN', data.slot = slot.
 ]]
 --- @param item table qbx use data ({ name, slot, ... })
 local function equipBag(source, level, item)
@@ -175,11 +175,11 @@ local function equipBag(source, level, item)
     notify(source, 'success', ('Seviye %d sirt cantasi takildi.'):format(level))
 end
 
---- Canta itemlerini qbx kullanilabilir-item sistemine kaydet (bag_1..bag_5).
+--- Canta itemlerini qbx kullanilabilir-item sistemine kaydet (bag_lv1..bag_lv5).
 CreateThread(function()
     for level = 1, MAX_LEVEL do
         local lvl = level -- closure icin sabitle
-        local itemName = ('bag_%d'):format(lvl)
+        local itemName = ('bag_lv%d'):format(lvl)
         local ok, err = pcall(function()
             exports.qbx_core:CreateUseableItem(itemName, function(src, data)
                 equipBag(src, lvl, data)
