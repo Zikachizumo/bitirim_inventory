@@ -134,6 +134,63 @@ end
 exports('BitirimGetBagLevel', function(source) return loadLevel(source) end)
 exports('BitirimSetBagLevel', function(source, level) return setLevel(source, level) end)
 
+--- Kisa bildirim yardimcisi (ox_lib).
+local function notify(source, ntype, description)
+    TriggerClientEvent('ox_lib:notify', source, { type = ntype, description = description })
+end
+
+--[[
+    CANTA ITEMI KULLANIMI (bag_1..bag_5) — "use edince tak, yalniz YUKSELTME".
+    -------------------------------------------------------------------------
+    - level > mevcut : item TUKENIR + seviye kalici yukselir (setLevel).
+    - level <= mevcut: reddedilir, item KALIR (dusurme/ayni seviye takma yok).
+    - Takildiktan sonra cikarilmaz (seviye DB'de; geri alma mekanigi yok).
+
+    Item consume'suz tanimli -> ox use akisi server.UseItem'a duser ->
+    QBX:CanUseItem -> asagida CreateUseableItem ile kaydedilen cb. cb(src, data);
+    data.name = 'bag_N', data.slot = slot.
+]]
+--- @param item table qbx use data ({ name, slot, ... })
+local function equipBag(source, level, item)
+    level = clampLevel(level)
+    local current = loadLevel(source)
+
+    if level <= current then
+        notify(source, 'error', current == level
+            and 'Zaten bu seviye sirt cantasini takiyorsun.'
+            or  'Daha ust seviye sirt cantan var; alt seviye canta takilmaz.')
+        return
+    end
+
+    -- Once item'i tuket; ancak basariliysa seviyeyi yukselt (exploit/kayip olmasin).
+    local ok, removed = pcall(function()
+        return Inventory.RemoveItem(source, item.name, 1, nil, item.slot)
+    end)
+
+    if not (ok and removed) then
+        return notify(source, 'error', 'Sirt cantasi takilamadi, tekrar dene.')
+    end
+
+    setLevel(source, level)
+    notify(source, 'success', ('Seviye %d sirt cantasi takildi.'):format(level))
+end
+
+--- Canta itemlerini qbx kullanilabilir-item sistemine kaydet (bag_1..bag_5).
+CreateThread(function()
+    for level = 1, MAX_LEVEL do
+        local lvl = level -- closure icin sabitle
+        local itemName = ('bag_%d'):format(lvl)
+        local ok, err = pcall(function()
+            exports.qbx_core:CreateUseableItem(itemName, function(src, data)
+                equipBag(src, lvl, data)
+            end)
+        end)
+        if not ok then
+            print(('[bitirim] %s kullanilabilir item kaydedilemedi: %s'):format(itemName, tostring(err)))
+        end
+    end
+end)
+
 --- Oyuncu envanteri hazir oldugunda (ox ile ayni state bag) seviyeyi uygula.
 --- ox'un setupPlayer'i once calissin diye kisa bir gecikme.
 AddStateBagChangeHandler('loadInventory', nil, function(bagName, _, value)

@@ -42,16 +42,19 @@ Durum: 🟢 tamamlandı · 🟡 kısmen · 🔴 planlandı
 - ✅ Sunucu tarafı `swapItems` hook'u: çanta seviyesinin üstündeki (kilitli) slotlara item
   taşı/değiştir/yığın **reddedilir**. Fail-open (seviye bilinemezse İZİN — item hareketi asla
   kilitlenmez). Client `cb(success or false)` ile iyimser hareketi geri alır.
-- Bununla çanta sistemi (drag/drop yolu için) "görsel"den **tam işlevsel**e geçti.
-- Kalan: `AddItem` yolları (market/kraft/give) `GetSlotForItem` ile kilitli slot seçebiliyor —
-  seviye-farkında slot seçimi ayrı iş olarak bırakıldı.
+- ✅ `AddItem` yolları (market/kraft/give/pickup): core `usableSlots(inv)` ile kilitli slota item
+  gitmez, açık slot dolunca eklenmez. `inv.slots` 45 kalır (client görseli).
+- Bununla çanta sistemi (drag/drop + otomatik yerleştirme) "görsel"den **tam işlevsel**e geçti.
 
-## 🔴 v0.6 — Çanta Ekonomisi: Market  *(Faz — market)*  🔴
-- 724 Market'te **L1/L2 çanta item'i** satışı. Giyince kalıcı seviye (`BitirimSetBagLevel`).
-- **Gerekli girdi:** L1/L2 fiyatları.
+## 🟡 v0.6 — Çanta = Item + Use ile Giyme  *(çekirdek tamam; market kaldı)*  🟡
+- ✅ `bag_1..bag_5` itemleri (`data/items.lua`) + **use ile giyme** (qbx `CreateUseableItem`).
+  Sadece **yükseltme** (düşürme/aynı seviye takma yok), item tükenir, seviye kalıcı, çıkarılamaz.
+  Otomatik giyme yok.
+- ❌ **724 Market'te 1-5 satışı:** `data/shops.lua` listesi + **fiyatlar** (kullanıcıdan).
+- ❌ **Çanta görselleri:** `web/images/bag_1.png..bag_5.png` (sanat).
 
-## 🔴 v0.7 — Çanta Ekonomisi: Kraft  *(Faz — kraft)*  🔴
-- **L3/L4/L5** için %30 başarı şanslı kraft. Yedek çanta + malzeme; başarısız = kayıp.
+## 🔴 v0.7 — Çanta Ekonomisi: Kraft  *(opsiyonel)*  🔴
+- **L3/L4/L5** için %30 başarı şanslı kraft (opsiyonel; market 1-5 zaten satacak).
 - **Gerekli girdi:** her seviye için kraft tarifleri.
 
 ## 🔴 v0.8 — Araç Bagaj Kilitleri  🔴
