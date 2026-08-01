@@ -34,6 +34,7 @@ Hedef deneyim (onaylanmış mockup):
 | Envanter tabanı | **ox_inventory v2.47.9** (fork) |
 | Kıyafet/görünüm | `illenium-appearance` (ileride entegre edilecek) |
 | Tanışma/kimlik | `bitirim_stranger` (ver özelliği için) |
+| Market | `bitirim_724` (ayrı repo/resource; NUI market, çanta itemlerini satar → `AddItem`) |
 | Arayüz (NUI) | **React 19 + Vite 8 + TypeScript 6 + Redux Toolkit + react-dnd + SASS** |
 | Derleme | **Bun** (`bun install && bun run build`) |
 | Sunucu | Ubuntu + txAdmin, veritabanı MySQL (oxmysql) |
@@ -149,9 +150,16 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
     ≤ mevcut → reddedilir, **item kalır** (düşürme yok, aynı seviye takma yok).
   - Use handler: `modules/bitirim/server.lua` → qbx `CreateUseableItem` (`equipBag`). Item
     `consume`'suz tanımlı → ox use akışı `server.UseItem` → `QBX:CanUseItem`'a düşer.
-  - **724 Market'te 1-5 satışı:** fiyatlar kullanıcıdan bekleniyor (item + use hazır; sadece
-    `data/shops.lua` listesi + fiyat kaldı). Kraft (L3-5) opsiyonel/ileride (tarifler bekleniyor).
-  - Görseller placeholder: `web/images/bag_lv1.png..bag_lv5.png` (sanat gelince değiştirilecek).
+  - **UI use tetikleyicileri:** sağ tık → "Kullan"; **çift sol tık** → doğrudan kullan
+    (`InventorySlot.tsx` `onDoubleClick`, yalnız oyuncu envanteri).
+  - **724 Market satışı — YAPILDI (ayrı repo `bitirim_724`):** `config/catalog.lua` çanta
+    kategorisi artık `bag_lv1..bag_lv5` (`kind='item'`) satar → `buyRegularItem`→`AddItem` ile
+    item verir (auto-equip DEĞİL). Fiyatlar 5k/10k/15k/20k/25k, etiket "LEVEL N BACKPACK".
+    Downgrade koruması use adımında. Kraft (L3-5) opsiyonel/ileride.
+  - **Karakter panelinde takılı çanta görseli:** `CharacterPanel` **Çanta** slotu takılı
+    seviyeye göre `bag_lvN.png` gösterir (seviye değişince güncellenir; Sv.0 boş). Equip
+    slotları numaralı. Diğer slotlar hâlâ görsel (illenium köprüsü ileride).
+  - Görseller: `web/images/bag_lv1.png..bag_lv5.png` (eklendi).
 - **Backend (kodlandı):** seviye `bitirim_backpack(citizenid, level)` MySQL tablosunda kalıcı;
   onbellekli. `modules/bitirim/server.lua`.
   - Uygulanış: `loadInventory` state bag'inde (ox ile aynı sinyal, +1.5s) + `lib.callback

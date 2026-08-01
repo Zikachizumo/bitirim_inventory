@@ -46,12 +46,15 @@ Durum: 🟢 tamamlandı · 🟡 kısmen · 🔴 planlandı
   gitmez, açık slot dolunca eklenmez. `inv.slots` 45 kalır (client görseli).
 - Bununla çanta sistemi (drag/drop + otomatik yerleştirme) "görsel"den **tam işlevsel**e geçti.
 
-## 🟡 v0.6 — Çanta = Item + Use ile Giyme  *(çekirdek tamam; market kaldı)*  🟡
+## 🟢 v0.6 — Çanta = Item + Use ile Giyme + Market + Karakter Slotu  *(tamamlandı)*  🟢
 - ✅ `bag_lv1..bag_lv5` itemleri (`data/items.lua`) + **use ile giyme** (qbx `CreateUseableItem`).
   Sadece **yükseltme** (düşürme/aynı seviye takma yok), item tükenir, seviye kalıcı, çıkarılamaz.
-  Otomatik giyme yok.
-- ❌ **724 Market'te 1-5 satışı:** `data/shops.lua` listesi + **fiyatlar** (kullanıcıdan).
-- ❌ **Çanta görselleri:** `web/images/bag_lv1.png..bag_lv5.png` (sanat).
+  Otomatik giyme yok. **Çift-sol-tık = kullan** (`InventorySlot.onDoubleClick`).
+- ✅ **724 Market (ayrı repo `bitirim_724`):** çanta kategorisi `bag_lv1..5` (`kind='item'`) satar
+  → `AddItem`. Fiyat 5k/10k/15k/20k/25k, "LEVEL N BACKPACK".
+- ✅ **Çanta görselleri** `web/images/bag_lv1.png..bag_lv5.png` (eklendi).
+- ✅ **Karakter panelinde takılı çanta görseli** (`CharacterPanel` Çanta slotu, seviyeye göre)
+  + equip slot numaraları.
 
 ## 🔴 v0.7 — Çanta Ekonomisi: Kraft  *(opsiyonel)*  🔴
 - **L3/L4/L5** için %30 başarı şanslı kraft (opsiyonel; market 1-5 zaten satacak).

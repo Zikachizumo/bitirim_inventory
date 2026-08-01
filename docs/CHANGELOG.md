@@ -7,6 +7,22 @@ Etiketler: `feat` yeni özellik · `fix` düzeltme · `revert` geri alma · `cho
 
 ---
 
+## [v0.7] — 2026-08-01  ·  Karakter çanta slotu + market item satışı + çift-tık kullan
+
+- **2026-08-01** `feat(ui)` **Karakter panelinde takılı çanta görseli**: Karakter'in **Çanta**
+  slotu artık gerçek — takılı seviyeye göre `bag_lvN.png` gösterir; seviye değişince (use ile
+  giyme/yükseltme) envanter her açıldığında güncellenir (eski görsel gider, yeni gelir), Sv.0 boş.
+  Ayrıca tüm equip slotlarına **sıralı numara** rozeti (karışıklık olmasın diye). Diğer equip
+  slotları hâlâ görsel (illenium köprüsü ileride). `CharacterPanel.tsx`, `index.scss`.
+- **2026-08-01** `feat(ui)` **Çift-sol-tık = item KULLAN** (`InventorySlot.tsx`): yalnız oyuncu
+  envanterinde dolu slotta `onUse` — sağ tık→"Kullan" ile aynı işlev (çanta giyme dahil).
+- **2026-08-01** `feat(market)` **bitirim_724 çanta kategorisi ITEM satışına çevrildi** (ayrı repo):
+  `backpack_lvl* (kind=backpack, seviye doğrudan set)` → `bag_lv1..bag_lv5 (kind=item)`. Satın alınca
+  item envantere gelir (`buyRegularItem`→`AddItem`), oyuncu use ile takar. Etiket "LEVEL N BACKPACK",
+  fiyatlar 5.000/10.000/15.000/20.000/25.000. Downgrade koruması artık use adımında.
+- **2026-08-01** `fix` Çanta itemi isimleri sunucudaki elle eklenmiş `bag_lv1..bag_lv5` ile hizalandı
+  (önce `bag_1..bag_5`) + görseller `web/images/bag_lv1.png..bag_lv5.png`.
+
 ## [v0.6] — 2026-08-01  ·  Çanta-as-item + use ile giyme
 
 - **2026-08-01** `feat(backend)` **Sırt çantası itemleri (bag_lv1..bag_lv5)** + **use ile giyme**:

@@ -934,6 +934,7 @@ body.inv-dragging {
 }
 
 .bx-eq-slot {
+  position: relative; /* numara rozeti icin */
   width: var(--slot-sz);
   height: var(--slot-sz);
   border-radius: var(--r-s);
@@ -943,10 +944,35 @@ body.inv-dragging {
   place-items: center;
   color: var(--text-3);
   transition: 140ms;
+  /* canta slotu dolu iken: item gorseli (bag_lvN.png) arka planda */
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 78%;
   &:hover {
     border-color: var(--slot-hover);
     color: var(--text-2);
   }
+  &.has-item {
+    border-color: var(--accent-line);
+    background-color: var(--slot);
+  }
+}
+
+/* equip slot sira numarasi — sag ust, kucuk ve soluk (karisiklik olmasin diye) */
+.bx-eq-num {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-3);
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.bx-eq-slot.has-item .bx-eq-num {
+  color: var(--accent);
+  opacity: 0.9;
 }
 
 .bx-eq-caption {
