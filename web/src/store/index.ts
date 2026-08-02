@@ -7,6 +7,7 @@ import playerStatusReducer from './playerStatus';
 import equipmentReducer from './equipment';
 import backpackReducer from './backpack';
 import splitReducer from './split';
+import cashReducer from './cash';
 
 export const store = configureStore({
   reducer: {
@@ -17,6 +18,7 @@ export const store = configureStore({
     equipment: equipmentReducer,
     backpack: backpackReducer,
     split: splitReducer,
+    cash: cashReducer,
   },
 });
 

@@ -186,24 +186,15 @@ return {
 		weight = 160,
 	},
 
+	-- BITIRIM: Telefon ENVANTER ITEM'i DEGIL (GrandRP mantigi). npwd 'PhoneAsItem=false'
+	-- ile calisir (M tusu telefonu acar, item aramaz). Item tanimi sadece eski/kalan
+	-- kayitlar bozulmasin diye duruyor; yuklemede envanterden temizlenir (slot bosalir).
+	-- npwd:setPhoneDisabled cagrilari KALDIRILDI ki item silinince telefon kapanmasin.
 	['phone'] = {
 		label = 'Phone',
 		weight = 190,
 		stack = false,
 		consume = 0,
-		client = {
-			add = function(total)
-				if total > 0 then
-					pcall(function() return exports.npwd:setPhoneDisabled(false) end)
-				end
-			end,
-
-			remove = function(total)
-				if total < 1 then
-					pcall(function() return exports.npwd:setPhoneDisabled(true) end)
-				end
-			end
-		}
 	},
 
 	['money'] = {

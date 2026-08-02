@@ -7,6 +7,25 @@ Etiketler: `feat` yeni özellik · `fix` düzeltme · `revert` geri alma · `cho
 
 ---
 
+## [v0.8] — 2026-08-01  ·  Nakit & telefon envanterden çıkarıldı (GrandRP mantığı)
+
+- **2026-08-01** `feat` **Nakit ve telefon artık envanter item'ı DEĞİL** — slot 1-2 boşalır.
+  - **Nakit:** `modules/bitirim/server.lua` başlangıçta `server.accounts.money = nil` yapar
+    (convar'dan bağımsız) → bridge money item'ı eklemez/senkronlamaz; qbx_core/account nakiti
+    yönetir. Yüklemede mevcut `money` item'ı envanterden temizlenir (`stripHudItems`). qbx nakiti
+    ETKİLENMEZ (artık account olmadığı için silmek geri-senkron tetiklemez). Üst bar nakiti
+    `setCash` NUI ile qbx'ten okur (`store/cash.ts`, `BitirimTopBar` artık money item'ından
+    değil qbx'ten).
+  - **Telefon:** `data/items.lua` phone item'ından `npwd:setPhoneDisabled` add/remove KALDIRILDI
+    (item silinince telefon kapanmasın). Yüklemede `phone` item'ı temizlenir. **npwd tarafında
+    `PhoneAsItem=false` + M tuşu ayarı gerekir** (telefon item aramadan çalışsın). Telefon verisi
+    (numara/rehber/mesaj) npwd'nin kendi DB'sinde, item'a bağlı değil → BOZULMAZ.
+  - **Uyum:** bitirim_724 zaten qbx parası (`RemoveMoney`) kullanır → etkilenmez. ⚠️ ox'un KENDİ
+    yerleşik shopları (General/Liquor) money item'dan ödeme aldığı için nakitle çalışmaz — market
+    için bitirim_724 kullanılır.
+  - **Deploy sırası:** önce npwd `PhoneAsItem=false` + restart, sonra ox_inventory pull + restart
+    (aksi halde phone item silinince npwd telefonu kapatabilir).
+
 ## [v0.7] — 2026-08-01  ·  Karakter çanta slotu + market item satışı + çift-tık kullan
 
 - **2026-08-01** `fix` **Ölü/laststand/respawn-bekleme durumunda envanter kesin kapalı**

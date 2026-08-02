@@ -7,6 +7,7 @@ import { refreshSlots, selectRightInventory, setAdditionalMetadata, setupInvento
 import { setPlayerStatus, PlayerStatus } from '../../store/playerStatus';
 import { setEquippedSlot } from '../../store/equipment';
 import { setBagLevel } from '../../store/backpack';
+import { setCash } from '../../store/cash';
 import { useExitListener } from '../../hooks/useExitListener';
 import type { Inventory as InventoryProps } from '../../typings';
 import RightInventory from './RightInventory';
@@ -85,6 +86,9 @@ const Inventory: React.FC = () => {
     dispatch(setBagLevel(level));
     document.documentElement.dataset.lv = String(Math.max(0, Math.min(5, Math.floor(level || 0))));
   });
+
+  // Bitirim: nakit (qbx cash) -> ust bar. Nakit artik envanter item'i degil.
+  useNuiEvent<number>('setCash', (amount) => dispatch(setCash(amount)));
 
   return (
     <>
