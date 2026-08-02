@@ -42,6 +42,18 @@ client.player:set('invBusy', true)
 client.player:set('invHotkeys', false)
 client.player:set('canUseWeapons', false)
 
+-- Bitirim: oyuncu olu/laststand/yarali mi? qbx_medical deathState statebag'i
+-- GUVENILIR — respawn beklerken ped teknik olarak DIRILTILSE bile deathState
+-- DEAD kalir (native IsEntityDead o an false doner, o yuzden yetmiyordu).
+-- qbx_medical yoksa native'lere + PlayerData.dead'e duser (fail-safe).
+local function isIncapacitated()
+    local ok, dead = pcall(function()
+        return exports.qbx_medical:IsDead() or exports.qbx_medical:IsLaststand()
+    end)
+    if ok and dead then return true end
+    return PlayerData.dead or IsPedFatallyInjured(playerPed) or IsEntityDead(playerPed)
+end
+
 local function canOpenInventory()
     if not PlayerData.loaded then
         return shared.info('cannot open inventory', '(player inventory has not loaded)')
@@ -53,9 +65,8 @@ local function canOpenInventory()
         return shared.info('cannot open inventory', '(is busy)')
     end
 
-    -- Bitirim: olu/yarali iken envanter ACILMAZ. IsEntityDead intihar/aninda olumu
-    -- da yakalar (PlayerData.dead qbx state'i bazen geç gelir).
-    if PlayerData.dead or IsPedFatallyInjured(playerPed) or IsEntityDead(playerPed) then
+    -- Bitirim: olu/laststand/respawn-bekleme durumunda envanter ACILMAZ.
+    if isIncapacitated() then
         return shared.info('cannot open inventory', '(fatal injury)')
     end
 
@@ -744,17 +755,16 @@ function OnPlayerData(key, val)
 	Utils.WeaponWheel()
 end
 
--- Bitirim: olu/yarali durumda envanteri KESIN kapali tut.
--- 'dead' state degisimi (yukarida) tek seferliktir; ama envanter ACIKKEN olunce
--- (intihar dahil) ya da laststand'a dusunce state gecikmesi/odak yuzunden UI acik
--- ve BOZUK kalabiliyordu: SetNuiFocusKeepInput(true) oldugu icin fare oyun
--- kamerasini oynatiyor, grid bos gorunuyordu (item kaybi DEGIL, gorsel hata).
--- Bu dongu envanter acikken oyuncu olu/yarali ise UI'yi zorla kapatir.
+-- Bitirim: olu/laststand/respawn-bekleme durumunda envanteri KESIN kapali tut.
+-- 'dead' state degisimi (yukarida) tek seferliktir ve intihar/timing'de kacabiliyor;
+-- ayrica respawn beklerken ped dirilse de oyuncu "olu" ekranindadir. Bu dongu
+-- envanter acikken oyuncu ehliyetsiz (isIncapacitated) ise UI'yi zorla kapatir.
+-- SetNuiFocusKeepInput(true) yuzunden olusan fare-kamera + bos-grid sorununu bitirir.
 -- Hicbir item'a dokunmaz; sadece envanteri kapatir (SetNuiFocus release eder).
 CreateThread(function()
 	while true do
 		Wait(250)
-		if invOpen and (PlayerData.dead or IsEntityDead(playerPed) or IsPedFatallyInjured(playerPed)) then
+		if invOpen and isIncapacitated() then
 			client.closeInventory()
 		end
 	end
