@@ -53,7 +53,9 @@ local function canOpenInventory()
         return shared.info('cannot open inventory', '(is busy)')
     end
 
-    if PlayerData.dead or IsPedFatallyInjured(playerPed) then
+    -- Bitirim: olu/yarali iken envanter ACILMAZ. IsEntityDead intihar/aninda olumu
+    -- da yakalar (PlayerData.dead qbx state'i bazen geç gelir).
+    if PlayerData.dead or IsPedFatallyInjured(playerPed) or IsEntityDead(playerPed) then
         return shared.info('cannot open inventory', '(fatal injury)')
     end
 
@@ -741,6 +743,22 @@ function OnPlayerData(key, val)
 
 	Utils.WeaponWheel()
 end
+
+-- Bitirim: olu/yarali durumda envanteri KESIN kapali tut.
+-- 'dead' state degisimi (yukarida) tek seferliktir; ama envanter ACIKKEN olunce
+-- (intihar dahil) ya da laststand'a dusunce state gecikmesi/odak yuzunden UI acik
+-- ve BOZUK kalabiliyordu: SetNuiFocusKeepInput(true) oldugu icin fare oyun
+-- kamerasini oynatiyor, grid bos gorunuyordu (item kaybi DEGIL, gorsel hata).
+-- Bu dongu envanter acikken oyuncu olu/yarali ise UI'yi zorla kapatir.
+-- Hicbir item'a dokunmaz; sadece envanteri kapatir (SetNuiFocus release eder).
+CreateThread(function()
+	while true do
+		Wait(250)
+		if invOpen and (PlayerData.dead or IsEntityDead(playerPed) or IsPedFatallyInjured(playerPed)) then
+			client.closeInventory()
+		end
+	end
+end)
 
 -- People consistently ignore errors when one of the "modules" failed to load
 if not Utils or not Weapon or not Items or not Inventory then return end
