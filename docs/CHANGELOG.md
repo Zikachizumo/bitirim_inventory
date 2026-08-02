@@ -9,12 +9,15 @@ Etiketler: `feat` yeni özellik · `fix` düzeltme · `revert` geri alma · `cho
 
 ## [v0.7] — 2026-08-01  ·  Karakter çanta slotu + market item satışı + çift-tık kullan
 
-- **2026-08-01** `fix` **Ölü/yaralı iken envanter kesin kapalı** (`client.lua`): `canOpenInventory`
-  artık `IsEntityDead` de kontrol eder (intihar/anında ölüm; `PlayerData.dead` bazen geç gelir).
-  Ayrıca envanter **açıkken** ölünce/laststand'a düşünce UI'yi zorla kapatan koruma döngüsü
-  eklendi — önceden `SetNuiFocusKeepInput(true)` yüzünden fare oyun kamerasını oynatıyor, grid
-  boş görünüyordu (item kaybı değil, görsel/odak hatası). **Hiçbir item'a dokunmaz** — ölünce
-  item düşmez/silinmez (ox_inventory sadece silahı envantere geri koyar + UI kapatır).
+- **2026-08-01** `fix` **Ölü/laststand/respawn-bekleme durumunda envanter kesin kapalı**
+  (`client.lua`): yeni `isIncapacitated()` yardımcısı **qbx_medical `IsDead()`/`IsLaststand()`**
+  (statebag `qbx_medical:deathState`) kullanır — respawn beklerken ped teknik olarak diriltilse
+  bile deathState `DEAD` kaldığından envanter yine açılmaz (native `IsEntityDead` o an `false`
+  döndüğü için tek başına yetmiyordu; export yoksa native'lere + `PlayerData.dead`'e düşer).
+  `canOpenInventory` ve envanteri **açıkken** zorla kapatan koruma döngüsü bu helper'a bağlı.
+  Önceden `SetNuiFocusKeepInput(true)` yüzünden fare oyun kamerasını oynatıyor, grid boş
+  görünüyordu (item kaybı değil, görsel/odak hatası). **Hiçbir item'a dokunmaz** — ölünce item
+  düşmez/silinmez (ox_inventory sadece silahı envantere geri koyar + UI kapatır).
 - **2026-08-01** `feat(ui)` **Nakit & telefon oyuncu envanterinde gizlendi** (`InventorySlot.tsx`):
   `money` ve `phone` (yalnız `player`) boş slot gibi render edilir; sürükleme/bırakma/kullanma yok.
   Item **durur** → üst bar nakit rozeti + ox shop ödemesi + npwd telefon çalışmaya devam eder;
