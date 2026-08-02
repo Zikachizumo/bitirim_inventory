@@ -33,6 +33,41 @@ local SLOTS_PER_LEVEL = 8  -- her seviye acilan grid slotu sayisi
 -- citizenid -> level (bellek onbellegi)
 local levelCache = {}
 
+--[[
+    GrandRP mantigi: NAKIT ve TELEFON envanter ITEM'i OLMASIN.
+    - Nakit: qbx_core/account sistemi yonetir + HUD/ust barda gosterilir. 'money'
+      account listesinden cikarilir ki bridge onu envantere ekleyip senkronlamasin.
+    - Telefon: npwd ile calisir (PhoneAsItem=false yapilmali — npwd tarafinda).
+    - Her ikisi de yuklemede envanterden temizlenir -> slot 1-2 bosalir.
+    NOT: Telefon verisi (numara/rehber/mesaj) npwd'nin KENDI DB tablolarindadir,
+    item'a bagli degildir -> item silinince BOZULMAZ.
+]]
+local HUD_ITEMS = { 'money', 'phone' } -- envanterde tutulmayacak itemler
+
+-- 'money'i account listesinden cikar (convar'dan bagimsiz; server global init.lua
+-- calistiktan sonra hazir). Boylece GetAccountItemCounts onu saymaz, bridge
+-- envantere money item'i eklemez / geri senkronlamaz.
+CreateThread(function()
+    if server and type(server.accounts) == 'table' then
+        server.accounts.money = nil
+    end
+end)
+
+--- Oyuncunun envanterindeki HUD_ITEMS (money/phone) itemlerini temizle.
+--- money artik account degil -> silmek qbx nakit'ini ETKILEMEZ (senkron yok).
+--- phone item'i npwd verisini etkilemez (veri ayri DB'de).
+local function stripHudItems(source)
+    for i = 1, #HUD_ITEMS do
+        local name = HUD_ITEMS[i]
+        pcall(function()
+            local count = Inventory.GetItem(source, name, nil, true)
+            if type(count) == 'number' and count > 0 then
+                Inventory.RemoveItem(source, name, count)
+            end
+        end)
+    end
+end
+
 --- Tablo (yoksa olustur). oxmysql hazir (server_scripts'te @oxmysql yuklu).
 CreateThread(function()
     MySQL.query([[
@@ -201,6 +236,7 @@ AddStateBagChangeHandler('loadInventory', nil, function(bagName, _, value)
     CreateThread(function()
         Wait(1500) -- ox envanteri kursun
         applyLevel(src, loadLevel(src))
+        stripHudItems(src) -- nakit/telefon envanterden temizle (GrandRP mantigi)
     end)
 end)
 

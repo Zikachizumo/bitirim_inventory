@@ -1,23 +1,17 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useAppSelector } from '../../store';
-import { selectLeftInventory } from '../../store/inventory';
+import { selectCash } from '../../store/cash';
 import { fetchNui } from '../../utils/fetchNui';
 import { IconBrandBag, IconCash, IconClose } from './BitirimIcons';
 
 /**
  * Bitirim ust bari — marka, tasinan nakit, kapat.
  *
- * Nakit oyuncunun envanterindeki 'money' item'indan hesaplanir (gercek veri).
- * Item yoksa rozet hic gosterilmez — uydurma bakiye yazilmaz.
+ * Nakit qbx_core/account sisteminden gelir (GrandRP mantigi: nakit envanter
+ * item'i DEGIL). Client Lua `setCash` ile yollar. 0 ise rozet gosterilmez.
  */
 const BitirimTopBar: React.FC = () => {
-  const leftInventory = useAppSelector(selectLeftInventory);
-
-  const cash = useMemo(
-    () =>
-      leftInventory.items.reduce((total, item) => (item?.name === 'money' ? total + (item.count ?? 0) : total), 0),
-    [leftInventory.items]
-  );
+  const cash = useAppSelector(selectCash);
 
   return (
     <div className="bx-topbar">

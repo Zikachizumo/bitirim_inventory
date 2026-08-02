@@ -73,6 +73,41 @@ local function survivalStats()
     return tonumber(metadata.hunger), tonumber(metadata.thirst)
 end
 
+--- qbx nakit (cash). Nakit artik envanter item'i DEGIL (GrandRP mantigi) ->
+--- ust bar bunu qbx'ten okur. Yoksa nil.
+local function cashAmount()
+    local ok, data = pcall(function()
+        return exports.qbx_core:GetPlayerData()
+    end)
+    if not ok or type(data) ~= 'table' or type(data.money) ~= 'table' then return nil end
+    return tonumber(data.money.cash)
+end
+
+--[[
+    Telefon artik envanter item'i DEGIL -> item ile enable/disable YOK. npwd
+    telefonu HER ZAMAN acik tutulur (M tusu ile acilir, item aranmaz). Eski item
+    kaldirildiginda telefon 'disabled' kalabilir; o yuzden oyuncu yuklenince bir
+    kez enable edilir, relog/spawn'da tekrarlanir. pcall: npwd yoksa/farkli ise kirmasin.
+    (npwd'nin kendi 'item gerektir' ayari varsa o da kapatilmali — npwd tarafinda.)
+]]
+local function enablePhone()
+    pcall(function() exports.npwd:setPhoneDisabled(false) end)
+end
+
+CreateThread(function()
+    -- Oyuncu (qbx) yuklenene kadar bekle, sonra telefonu ac.
+    while true do
+        local ok, data = pcall(function() return exports.qbx_core:GetPlayerData() end)
+        if ok and type(data) == 'table' and data.citizenid then break end
+        Wait(1000)
+    end
+    Wait(1500)
+    enablePhone()
+end)
+
+RegisterNetEvent('QBCore:Client:OnPlayerLoaded', enablePhone)   -- relog (qbx compat)
+RegisterNetEvent('qbx_core:client:playerLoggedIn', enablePhone) -- surum uyumu
+
 --- O an kusanili silahin slotunu dondurur (yoksa nil).
 --- ox client'inin getCurrentWeapon export'unu kullanir (kendi kaynagimiz).
 local function equippedWeaponSlot()
@@ -89,6 +124,7 @@ CreateThread(function()
     local last
     local lastEquipped = false -- 'false' = henuz gonderilmedi (nil'den ayirt icin)
     local lastBagSent
+    local lastCash
 
     while true do
         local wait = IDLE_INTERVAL
@@ -110,6 +146,13 @@ CreateThread(function()
             if currentBagLevel ~= lastBagSent then
                 lastBagSent = currentBagLevel
                 SendNUIMessage({ action = 'setBagLevel', data = currentBagLevel })
+            end
+
+            -- Nakit (qbx cash) — artik envanter item'i degil, ust bar bunu gosterir.
+            local cash = cashAmount()
+            if cash ~= lastCash then
+                lastCash = cash
+                SendNUIMessage({ action = 'setCash', data = cash or 0 })
             end
 
             -- Kusanili slot (sag tik menusunde Use/Unequip etiketi icin)
