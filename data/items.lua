@@ -47,15 +47,27 @@ return {
 		description = '90 KG - 40 Slot',
 	},
 
-	--[[ BITIRIM: KIYAFET / EKIPMAN itemleri (ORNEK katalog).
-	     Kullaninca (Kullan / cift sol tik / sag tik) ilgili slota GIYILIR:
-	     item envanterden cikar, karakter panelinde slot dolar, ped'e uygulanir
-	     (kalici, DB'de). Panelden geri cikarilinca item envantere doner.
-	     Mantik: modules/bitirim/equipment_server.lua (qbx CreateUseableItem).
-	     Slot + gorunum (drawable/texture) esleme: data/bitirim_clothing.lua.
-	     - consume/usetime YOK -> item server.UseItem yoluna duser (qbx).
-	     - stack=false: her parca tekil.
-	     TAM KATALOG (gercek drawable'lar + gorseller) kullanicidan gelecek. ]]
+	--[[ BITIRIM: GENERIC KIYAFET base item'i ('apparel') — VERI-GUDUMLU KATALOG.
+	     Tum kiyafetler TEK bu item'dir; parca bilgisi item METADATA'sinda durur
+	     (metadata.label = gorunen ad, metadata.image = envanter gorseli,
+	      metadata.rarity, metadata.wear = { slot, drawable, texture } veya
+	      { slot, male={..}, female={..} }). Market (bitirim_724) satista bu
+	     metadata'yi yazar; oyuncu use edince modules/bitirim/equipment_server.lua
+	     metadata.wear'i okuyup giydirir. Boylece yeni parca = katalog verisi +
+	     ikon PNG (parca basina item tanimi GEREKMEZ).
+	     - component/tint/consume YOK -> use akisi server.UseItem'a duser (qbx).
+	     - stack=false: her parca tekil (metadata farkli -> ayri yigin).
+	     - close=false: giyince envanter acik kalir (panel slotu dolarken gorunur). ]]
+	['apparel'] = {
+		label = 'Kiyafet',
+		weight = 200,
+		stack = false,
+		close = false,
+	},
+
+	--[[ LEGACY: eski named kiyafet itemleri (mask_black vb.). Yeni katalog 'apparel'
+	     + metadata kullanir; bunlar geriye uyumluluk icin data/bitirim_clothing.lua
+	     items map'i uzerinden calismaya devam eder. ]]
 	['mask_black'] = {
 		label = 'Siyah Maske',
 		weight = 200,

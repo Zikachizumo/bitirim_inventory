@@ -44,25 +44,25 @@ local function captureBase(ped)
     baseCaptured = true
 end
 
---- Bir kiyafet item'inin gorunumunu oyuncunun cinsiyetine gore coz.
---- Duz { drawable, texture } veya { male = {...}, female = {...} } destekler.
+--- Bir `wear` gorunum tablosunu oyuncunun cinsiyetine gore coz.
+--- wear: { drawable, texture } veya { male = {...}, female = {...} }.
 --- Donus: drawable, texture (bulunamazsa nil).
-local function resolveVariant(itemName, isFemale)
-    local map = itemName and clothing.items[itemName]
-    if not map then return nil end
+local function resolveWear(wear, isFemale)
+    if type(wear) ~= 'table' then return nil end
 
-    if map.male or map.female then
-        local v = (isFemale and map.female) or map.male or map.female
+    if wear.male or wear.female then
+        local v = (isFemale and wear.female) or wear.male or wear.female
         if type(v) == 'table' then return v.drawable, v.texture end
         return nil
     end
 
-    return map.drawable, map.texture
+    return wear.drawable, wear.texture
 end
 
---- Giyili ekipmani ped'e uygula. Giyili slot -> item gorunumu (cinsiyete gore);
---- bos slot -> spawn'da yakalanan temiz base. (drawable 0 gecerlidir; Lua'da 0
---- truthy oldugu icin `or` zincirleri yalniz nil'de base'e duser.)
+--- Giyili ekipmani ped'e uygula. Giyili slot -> parca gorunumu (cinsiyete gore);
+--- bos slot -> spawn'da yakalanan temiz base. Gorunum server payload'inda
+--- `e.wear`'da gelir; yoksa (eski satir) legacy clothing.items map'inden coz.
+--- (drawable 0 gecerlidir; Lua'da 0 truthy oldugu icin `or` yalniz nil'de base'e duser.)
 local function applyEquip()
     local ped = PlayerPedId()
     if not baseCaptured then captureBase(ped) end
@@ -72,7 +72,10 @@ local function applyEquip()
         local e = currentEquip[slot]
         local b = base[slot]
         local ed, et
-        if e and e.item then ed, et = resolveVariant(e.item, isFemale) end
+        if e then
+            local wear = e.wear or (e.item and clothing.items[e.item])
+            ed, et = resolveWear(wear, isFemale)
+        end
 
         if def.kind == 'component' then
             local d = ed or (b and b.drawable) or 0

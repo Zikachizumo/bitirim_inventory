@@ -14,12 +14,20 @@ import type { RootState } from '.';
  *    hem ileride 3D önizlemeyi besleyecek — dünya karakteri ile AYNI kaynak.
  */
 
-export interface EquipItem {
-  item?: string;
-  // Görünüm (drawable/texture) client Lua'da cinsiyete göre çözülür; panel yalnız
-  // `item`'i kullanır (görsel/etiket). Bu alanlar opsiyoneldir.
+export interface EquipWear {
+  slot?: string;
   drawable?: number;
   texture?: number;
+  male?: { drawable: number; texture: number };
+  female?: { drawable: number; texture: number };
+}
+
+export interface EquipItem {
+  item?: string; // base item adı ('apparel' veya legacy named item)
+  label?: string; // metadata.label — panelde gösterilen ad
+  image?: string; // metadata.image — web/images/<image>.png
+  // Görünüm client Lua'da cinsiyete göre çözülür; panel `wear`'ı kullanmaz.
+  wear?: EquipWear;
 }
 
 export type EquipmentMap = Record<string, EquipItem>;
