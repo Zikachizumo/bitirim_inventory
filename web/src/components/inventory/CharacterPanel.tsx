@@ -100,13 +100,14 @@ const CharacterPanel: React.FC = () => {
               }
 
               // Kiyafet/ekipman slotu: giyiliyse item gorseli (varsa) + tikla-cikar.
-              // Item gorseli yoksa (art henuz eklenmedi) accent highlight + kategori
-              // ikonu ile "giyili" belli olur.
+              // Etiket/gorsel oncelikle metadata'dan (label/image), yoksa item
+              // tanimindan. Gorsel yoksa accent highlight + kategori ikonu.
               const equipped = equipment[key];
               const equippedName = equipped?.item;
-              const equipImage = equippedName ? Items[equippedName]?.image : undefined;
-              const equipUrl = equipImage ? getItemUrl(equippedName as string) : undefined;
-              const equipLabel = equippedName ? Items[equippedName]?.label || equippedName : undefined;
+              const equipImageName = equipped?.image || (equippedName ? Items[equippedName]?.image : undefined);
+              const equipUrl = equipImageName ? getItemUrl(equipImageName) : undefined;
+              const equipLabel =
+                equipped?.label || (equippedName ? Items[equippedName]?.label || equippedName : undefined);
               const title = equipped ? `${equipLabel ?? label} — çıkarmak için tıkla` : `${label} — boş`;
 
               return (

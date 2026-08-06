@@ -77,28 +77,80 @@ local function saveEquipment(cid)
 end
 
 --- Client'e giyili ekipmani gonder (ped uygulamasi + panel gosterimi). Payload
---- slot -> { item }. Gorunum (drawable/texture) CLIENT'ta data/bitirim_clothing'den
---- oyuncunun CINSIYETINE gore cozulur (erkek/kadin drawable farkli olabilir).
+--- slot -> { item, label, image, wear }. `wear` gorunum tablosudur
+--- ({ slot, drawable, texture } veya { slot, male, female }); client bunu
+--- oyuncunun CINSIYETINE gore uygular. `wear` yoksa (eski satir) client
+--- data/bitirim_clothing.items map'inden coz. label/image panel gosterimi icin.
 local function pushToClient(source)
     local tbl = loadEquipment(source)
     local payload = {}
     for slot, entry in pairs(tbl) do
-        payload[slot] = { item = entry.item }
+        payload[slot] = {
+            item = entry.item,
+            label = entry.label,
+            image = entry.image,
+            wear = entry.wear,
+        }
     end
     TriggerClientEvent('bitirim:client:equipment', source, payload)
 end
 
+--- Bir DB entry'sini (giyili parca) ENVANTERE iade et. apparel ise metadata ile,
+--- legacy named item ise duz. @return boolean success
+local function giveBackEntry(source, entry)
+    if entry.item == 'apparel' then
+        local meta = {
+            label = entry.label,
+            image = entry.image,
+            rarity = entry.rarity,
+            wear = entry.wear,
+        }
+        local ok, addOk = pcall(function() return Inventory.AddItem(source, 'apparel', 1, meta) end)
+        return ok and addOk
+    end
+    local ok, addOk = pcall(function() return Inventory.AddItem(source, entry.item, 1) end)
+    return ok and addOk
+end
+
+--- Kullanilan item + metadata'dan normalize parca cikar. Metadata-guдумlu
+--- (apparel) veya legacy (named item + clothing.items map). Bulunamazsa nil.
+--- Donus: entry = { item, label?, image?, rarity?, wear = { slot, ... } }
+local function resolvePiece(itemName, metadata)
+    -- 1) Metadata-guдумlu (apparel): gorunum item metadata'sinda.
+    if type(metadata) == 'table' and type(metadata.wear) == 'table' and metadata.wear.slot then
+        return {
+            item = itemName,
+            label = metadata.label,
+            image = metadata.image,
+            rarity = metadata.rarity,
+            wear = metadata.wear,
+        }
+    end
+
+    -- 2) Legacy: clothing.items map'inden.
+    local map = clothing.items[itemName]
+    if map then
+        return {
+            item = itemName,
+            wear = { slot = map.slot, drawable = map.drawable, texture = map.texture, male = map.male, female = map.female },
+        }
+    end
+
+    return nil
+end
+
 --[[
-    GIYME — kiyafet item'i use edilince cagrilir.
-    itemName data/bitirim_clothing.items'ta tanimli olmali (degilse "kiyafet"
-    sayilmaz, dokunulmaz). useData = qbx use verisi ({ name, slot, ... }).
+    GIYME — kiyafet item'i use edilince cagrilir. itemName + metadata'dan parca
+    cozulur (apparel -> metadata.wear; legacy -> clothing.items map). Kiyafet
+    degilse dokunulmaz. useData = qbx use verisi ({ name, slot, metadata, ... }).
 ]]
 local function equip(source, itemName, useData)
-    local map = clothing.items[itemName]
-    if not map then return end -- kiyafet degil
+    local metadata = type(useData) == 'table' and useData.metadata or nil
+    local piece = resolvePiece(itemName, metadata)
+    if not piece then return end -- kiyafet degil
 
-    local slotDef = clothing.slots[map.slot]
-    if not slotDef then
+    local slotKey = piece.wear.slot
+    if not clothing.slots[slotKey] then
         return notify(source, 'error', 'Bu parca icin gecerli bir ekipman slotu tanimli degil.')
     end
 
@@ -106,19 +158,11 @@ local function equip(source, itemName, useData)
     if not cid then return end
 
     local tbl = loadEquipment(source)
-    local old = tbl[map.slot]
-
-    -- Ayni item zaten bu slotta takiliysa bir sey yapma (spam korumasi).
-    if old and old.item == itemName then
-        return notify(source, 'inform', 'Bu parca zaten takili.')
-    end
+    local old = tbl[slotKey]
 
     -- Slot doluysa ONCE eski parcayi envantere iade et (yer yoksa giyme iptal).
     if old then
-        local ok, addOk = pcall(function()
-            return Inventory.AddItem(source, old.item, 1)
-        end)
-        if not (ok and addOk) then
+        if not giveBackEntry(source, old) then
             return notify(source, 'error', 'Envanterde yer yok; once yer ac.')
         end
     end
@@ -129,26 +173,25 @@ local function equip(source, itemName, useData)
     end)
     if not (rok and removed) then
         -- Eski parca zaten iade edildi; slot bos kaldi. Kayip yok.
-        tbl[map.slot] = nil
+        tbl[slotKey] = nil
         equipCache[cid] = tbl
         saveEquipment(cid)
         pushToClient(source)
         return notify(source, 'error', 'Parca takilamadi, tekrar dene.')
     end
 
-    -- Slota yaz + kaydet + uygula. Yalniz item adi saklanir; gorunum client'ta
-    -- cinsiyete gore cozulur (data/bitirim_clothing).
-    tbl[map.slot] = { item = itemName }
+    -- Slota yaz + kaydet + uygula. Gorunum piece.wear'da; client cinsiyete gore uygular.
+    tbl[slotKey] = piece
     equipCache[cid] = tbl
     saveEquipment(cid)
     pushToClient(source)
 
-    local label = (Items and Items(itemName) and Items(itemName).label) or itemName
+    local label = piece.label or (Items and Items(itemName) and Items(itemName).label) or itemName
     notify(source, 'success', ('%s takildi.'):format(label))
 end
 
 --[[
-    CIKARMA — panelden slot cikarilir. Item envantere iade edilir.
+    CIKARMA — panelden slot cikarilir. Item (apparel ise metadata'siyla) envantere iade.
 ]]
 local function unequip(source, slot)
     local cid = citizenidOf(source)
@@ -159,10 +202,7 @@ local function unequip(source, slot)
     if not entry then return false end
 
     -- Item'i envantere iade et; yer yoksa cikarma iptal (parca ustunde kalir).
-    local ok, addOk = pcall(function()
-        return Inventory.AddItem(source, entry.item, 1)
-    end)
-    if not (ok and addOk) then
+    if not giveBackEntry(source, entry) then
         notify(source, 'error', 'Envanterde yer yok; parca cikarilamadi.')
         return false
     end
@@ -172,15 +212,20 @@ local function unequip(source, slot)
     saveEquipment(cid)
     pushToClient(source)
 
-    local label = (Items and Items(entry.item) and Items(entry.item).label) or entry.item
+    local label = entry.label or (Items and Items(entry.item) and Items(entry.item).label) or entry.item
     notify(source, 'inform', ('%s cikarildi.'):format(label))
     return true
 end
 
 --- Kiyafet itemlerini qbx kullanilabilir-item sistemine kaydet (use = giy).
+--- 'apparel' = generic base item (metadata-guдумlu katalog); ayrica legacy
+--- named itemler (clothing.items). Hepsi ayni equip() yoluna gider.
 CreateThread(function()
-    for itemName in pairs(clothing.items) do
-        local name = itemName -- closure icin sabitle
+    local names = { 'apparel' }
+    for itemName in pairs(clothing.items) do names[#names + 1] = itemName end
+
+    for i = 1, #names do
+        local name = names[i] -- closure icin sabitle
         local ok, err = pcall(function()
             exports.qbx_core:CreateUseableItem(name, function(src, data)
                 equip(src, name, data)
@@ -250,4 +295,40 @@ RegisterCommand('setkiyafet', function(source, args)
     -- Test icin: envanterde yoksa bile bir tane ver, sonra giy.
     pcall(function() Inventory.AddItem(source, a1, 1) end)
     equip(source, a1, nil)
+end, false)
+
+--- Admin/test: /kiyafetver <slot> <drawable> <texture> [etiket...]
+--- Metadata'li bir 'apparel' itemi ENVANTERE verir (giydirmez — dukkan gibi).
+--- Oyuncu use ile giyer. Dukkansiz uctan uca test icin.
+RegisterCommand('kiyafetver', function(source, args)
+    if source == 0 then return print('kiyafetver oyuncudan calistirilmali') end
+    if not IsPlayerAceAllowed(source, 'bitirim.admin') then
+        return notify(source, 'error', 'Yetkisiz.')
+    end
+
+    local slot = args[1]
+    local drawable = tonumber(args[2])
+    local texture = tonumber(args[3])
+
+    if not slot or not clothing.slots[slot] or not drawable or not texture then
+        return notify(source, 'error', 'Kullanim: /kiyafetver <slot> <drawable> <texture> [etiket]')
+    end
+
+    -- 4. arg ve sonrasi = etiket.
+    local label = nil
+    if args[4] then
+        label = table.concat(args, ' ', 4)
+    end
+
+    local metadata = {
+        label = label,
+        wear = { slot = slot, drawable = drawable, texture = texture },
+    }
+
+    local ok, addOk = pcall(function() return Inventory.AddItem(source, 'apparel', 1, metadata) end)
+    if ok and addOk then
+        notify(source, 'success', ('Kiyafet verildi (%s). Use ile giy.'):format(label or slot))
+    else
+        notify(source, 'error', 'Kiyafet verilemedi (envanterde yer yok?).')
+    end
 end, false)
