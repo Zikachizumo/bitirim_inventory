@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import CharacterStats from './CharacterStats';
 import { useAppDispatch, useAppSelector } from '../../store';
@@ -38,33 +38,30 @@ import {
  * guncellenir. Diger slotlar su an GORSEL (illenium-appearance koprusu ileride).
  */
 
-const EQUIP_ROWS: { key: string; label: string; Icon: React.FC<{ size?: number }> }[][] = [
-  [
-    { key: 'hat', label: 'Şapka', Icon: IconCap },
-    { key: 'glasses', label: 'Gözlük', Icon: IconGlasses },
-    { key: 'ears', label: 'Kulaklık', Icon: IconHeadphones },
-    { key: 'mask', label: 'Maske', Icon: IconMask },
-  ],
-  [
-    { key: 'ring', label: 'Yüzük', Icon: IconRing },
-    { key: 'necklace', label: 'Kolye', Icon: IconNecklace },
-    { key: 'watch', label: 'Saat', Icon: IconWatch },
-  ],
-  [
-    { key: 'jacket', label: 'Ceket', Icon: IconJacket },
-    { key: 'tshirt', label: 'Tişört', Icon: IconTshirt },
-    { key: 'gloves', label: 'Eldiven', Icon: IconGloves },
-    { key: 'armour', label: 'Zırh', Icon: IconVest },
-    { key: 'bag', label: 'Çanta', Icon: IconBackpack },
-  ],
-  [
-    { key: 'pants', label: 'Pantolon', Icon: IconPants },
-    { key: 'shoes', label: 'Ayakkabı', Icon: IconShoes },
-  ],
-  [
-    { key: 'weapon', label: 'Silah', Icon: IconPistol },
-    { key: 'ammo', label: 'Mermi', Icon: IconAmmo },
-  ],
+type SlotDef = { key: string; label: string; Icon: React.FC<{ size?: number }> };
+
+// Mockup duzeni: karakterin SOLUNDA ve SAGINDA dikey slot sutunlari, ortada
+// canli karakter. Slotlarin islevi (equip/unequip/drag/sag-tik) korunur.
+const LEFT_SLOTS: SlotDef[] = [
+  { key: 'hat', label: 'Şapka', Icon: IconCap },
+  { key: 'glasses', label: 'Gözlük', Icon: IconGlasses },
+  { key: 'ring', label: 'Yüzük', Icon: IconRing },
+  { key: 'necklace', label: 'Kolye', Icon: IconNecklace },
+  { key: 'jacket', label: 'Ceket', Icon: IconJacket },
+  { key: 'tshirt', label: 'Tişört', Icon: IconTshirt },
+  { key: 'gloves', label: 'Eldiven', Icon: IconGloves },
+  { key: 'pants', label: 'Pantolon', Icon: IconPants },
+  { key: 'shoes', label: 'Ayakkabı', Icon: IconShoes },
+];
+
+const RIGHT_SLOTS: SlotDef[] = [
+  { key: 'mask', label: 'Maske', Icon: IconMask },
+  { key: 'ears', label: 'Kulaklık', Icon: IconHeadphones },
+  { key: 'watch', label: 'Saat', Icon: IconWatch },
+  { key: 'bag', label: 'Çanta', Icon: IconBackpack },
+  { key: 'armour', label: 'Zırh', Icon: IconVest },
+  { key: 'weapon', label: 'Silah', Icon: IconPistol },
+  { key: 'ammo', label: 'Mermi', Icon: IconAmmo },
 ];
 
 // Kiyafet olmayan slotlar: canta (ayri seviye sistemi), silah/mermi (ox weapon).
@@ -225,52 +222,95 @@ const CharacterPanel: React.FC = () => {
     [sourceItem]
   );
 
+  // Donme kontrolleri -> client (character_client.lua) klonu/kamerayi cevirir.
+  const rotate = useCallback((mode: 'left' | 'right' | 'top') => {
+    fetchNui('bitirim:charRotate', { mode }).catch(() => {});
+  }, []);
+
+  // Orta pencerede fareyle surukle-dondur.
+  const dragX = useRef<number | null>(null);
+  const onViewDown = (e: React.MouseEvent) => {
+    dragX.current = e.clientX;
+  };
+  const onViewMove = (e: React.MouseEvent) => {
+    if (dragX.current === null) return;
+    const dx = e.clientX - dragX.current;
+    if (dx !== 0) {
+      dragX.current = e.clientX;
+      fetchNui('bitirim:charRotate', { mode: 'drag', value: dx }).catch(() => {});
+    }
+  };
+  const onViewUp = () => {
+    dragX.current = null;
+  };
+
+  // Tek slot render (canta = ayri gorsel sistem, digerleri EquipSlot).
+  const renderSlot = ({ key, label, Icon }: SlotDef) => {
+    slotNo += 1;
+    if (key === 'bag') {
+      const bagUrl = bagLevel > 0 ? getItemUrl(`bag_lv${bagLevel}`) : undefined;
+      return (
+        <div
+          className={bagUrl ? 'bx-eq-slot has-item' : 'bx-eq-slot'}
+          key={key}
+          title={bagLevel > 0 ? `Çanta — Seviye ${bagLevel}` : 'Çanta — boş'}
+          style={bagUrl ? { backgroundImage: `url(${bagUrl})` } : undefined}
+        >
+          <span className="bx-eq-num">{slotNo}</span>
+          {!bagUrl && <Icon size={32} />}
+        </div>
+      );
+    }
+    return (
+      <EquipSlot
+        key={key}
+        slotKey={key}
+        label={label}
+        Icon={Icon}
+        slotNo={slotNo}
+        equipped={equipment[key]}
+        onUnequip={handleUnequip}
+        onContext={handleContext}
+        canEquipHere={canEquipHere}
+        onEquipDrop={onEquipDrop}
+      />
+    );
+  };
+
   return (
     <div className="bx-panel bx-character">
       <p className="bx-panel-title">Karakter</p>
 
-      <div className="bx-eq-grid">
-        {EQUIP_ROWS.map((row, i) => (
-          <div className="bx-eq-row" key={`eqrow-${i}`}>
-            {row.map(({ key, label, Icon }) => {
-              slotNo += 1;
+      {/* 3 sutun: sol slotlar | canli karakter (seffaf) | sag slotlar */}
+      <div className="bx-char-body">
+        <div className="bx-eq-col">{LEFT_SLOTS.map(renderSlot)}</div>
 
-              // Canta slotu: takili seviyeye gore gercek gorsel (bag_lvN.png) — AYRI sistem.
-              if (key === 'bag') {
-                const bagUrl = bagLevel > 0 ? getItemUrl(`bag_lv${bagLevel}`) : undefined;
-                return (
-                  <div
-                    className={bagUrl ? 'bx-eq-slot has-item' : 'bx-eq-slot'}
-                    key={key}
-                    title={bagLevel > 0 ? `Çanta — Seviye ${bagLevel}` : 'Çanta — boş'}
-                    style={bagUrl ? { backgroundImage: `url(${bagUrl})` } : undefined}
-                  >
-                    <span className="bx-eq-num">{slotNo}</span>
-                    {!bagUrl && <Icon size={32} />}
-                  </div>
-                );
-              }
-
-              return (
-                <EquipSlot
-                  key={key}
-                  slotKey={key}
-                  label={label}
-                  Icon={Icon}
-                  slotNo={slotNo}
-                  equipped={equipment[key]}
-                  onUnequip={handleUnequip}
-                  onContext={handleContext}
-                  canEquipHere={canEquipHere}
-                  onEquipDrop={onEquipDrop}
-                />
-              );
-            })}
+        {/* Orta: ped OYUN tarafinda arkada render edilir; burasi SEFFAF penceredir.
+            Fareyle surukleyerek dondur; altta 3 aci butonu. */}
+        <div
+          className="bx-char-view"
+          onMouseDown={onViewDown}
+          onMouseMove={onViewMove}
+          onMouseUp={onViewUp}
+          onMouseLeave={onViewUp}
+        >
+          <div className="bx-char-rotate">
+            <button type="button" title="Sola döndür" onClick={() => rotate('left')}>
+              ◀
+            </button>
+            <button type="button" title="Üstten göster" onClick={() => rotate('top')}>
+              ▲
+            </button>
+            <button type="button" title="Sağa döndür" onClick={() => rotate('right')}>
+              ▶
+            </button>
           </div>
-        ))}
+        </div>
+
+        <div className="bx-eq-col">{RIGHT_SLOTS.map(renderSlot)}</div>
       </div>
 
-      {/* Alt bolge: statlar dikeyde ortalanir (karsi paneldeki canta kartiyla hizali). */}
+      {/* Alt bolge: statlar. */}
       <div className="bx-char-bottom">
         <CharacterStats />
       </div>

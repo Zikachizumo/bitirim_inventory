@@ -57,6 +57,8 @@ client_scripts {
     'modules/bitirim/client.lua',
     -- Bitirim: giyili ekipmani ped'e uygular + panele yollar + unequip
     'modules/bitirim/equipment_client.lua',
+    -- Bitirim: envanterde canli 3B karakter onizlemesi (klon + kamera + isik)
+    'modules/bitirim/character_client.lua',
 }
 
 ui_page 'web/build/index.html'
