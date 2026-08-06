@@ -9,7 +9,7 @@ import { getTotalWeight } from '../../helpers';
 import { IconBackpack, IconWeight } from './BitirimIcons';
 
 const HOTBAR_SLOTS = 7; // Fast Access (makro) slotlari
-const GRID_SLOTS = 40; // 7 sutun x ~6 satir (Backpack)
+const GRID_SLOTS = 35; // 7 sutun x 5 satir (Backpack) — son 5 slot kaldirildi
 
 /**
  * Bitirim sag panel — oyuncunun kendi envanteri.

@@ -38,7 +38,7 @@
      Genislik: sol slot sutunu + ped + sag slot sutunu + envanter 8 grid + makro. */
   --slot-sz: 7.6vh;
   --grid-cols: 7;
-  --grid-rows: 6; /* 40 grid slotu 7 sutunda = 6 sira (son sira 5 dolu) */
+  --grid-rows: 5; /* 35 grid slotu 7 sutunda = 5 tam sira (son 5 slot kaldirildi) */
   --gap: 6px;
   --r: 16px;
   --r-s: 12px;
@@ -918,7 +918,7 @@ body.inv-dragging {
   margin: 0;
 }
 
-/* Bolum basligi (Fast Access / Backpack) — makro ve grid ustunde. */
+/* Bolum basligi (Fast Access / Backpack) — makro ve grid ustunde, ORTALI. */
 .bx-sec-title {
   font-size: 10px;
   letter-spacing: 0.18em;
@@ -926,6 +926,7 @@ body.inv-dragging {
   color: var(--text-3);
   font-weight: 700;
   margin: 2px 0 -4px;
+  text-align: center;
 }
 
 /* ---- karakter paneli ---- */
@@ -1240,16 +1241,26 @@ body.inv-dragging {
   align-items: flex-start; /* grid ustu = makro sutunu ustu -> makro N satir N ile hizali */
 }
 
-/* Makro slotlari — grid'in USTUNDE yatay sira (1-5). */
+/* Fast Access makro slotlari — grid'in USTUNDE yatay sira, ORTALI (grid ile hizali). */
 .bx-hotrow {
   display: flex;
   gap: var(--gap);
   padding-bottom: 4px;
+  justify-content: center;
 
   .inventory-slot {
     width: var(--slot-sz);
     height: var(--slot-sz);
   }
+}
+
+/* Envanter grid'ini panelde yatay ORTALA (makro ile ayni hizada). Grid tam
+   sigdigi icin scrollbar payi ayrilmasin (auto). */
+.bx-inventory .inventory-grid-wrapper {
+  align-items: center;
+}
+.bx-inventory .inventory-grid-container {
+  overflow-y: auto;
 }
 
 .bx-hotcol {

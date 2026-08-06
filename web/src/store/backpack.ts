@@ -13,7 +13,8 @@ import type { RootState } from '.';
  */
 
 export const BAG_LEVELS = 5;
-export const SLOTS_PER_LEVEL = 8; // grid: L1=8 ... L5=40 (L0=0)
+export const SLOTS_PER_LEVEL = 7; // grid 7 sutun: her seviye 1 sira acar. L1=7 ... L5=35 (L0=0)
+export const GRID_TOTAL = 35; // 7 sutun x 5 sira
 // index = seviye. L0 (cantasiz) icin taban kapasite — degeri sonra ayarlanacak.
 export const BAG_CAP_KG = [10, 20, 35, 50, 70, 90];
 
@@ -34,7 +35,7 @@ export const { setBagLevel } = backpackSlice.actions;
 export const selectBagLevel = (state: RootState) => state.backpack.level;
 
 /** O seviyede acik grid slotu sayisi (0-based sinir: bu indexten itibaren kilitli).
- *  L0 -> 0 (hepsi kilitli), L5 -> 40 (hicbiri kilitli degil). */
-export const unlockedGridSlots = (level: number) => Math.max(0, Math.min(40, level * SLOTS_PER_LEVEL));
+ *  L0 -> 0 (hepsi kilitli), L5 -> 35 (hicbiri kilitli degil). */
+export const unlockedGridSlots = (level: number) => Math.max(0, Math.min(GRID_TOTAL, level * SLOTS_PER_LEVEL));
 
 export default backpackSlice.reducer;

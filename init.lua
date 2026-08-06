@@ -15,10 +15,10 @@ end
 shared = {
     resource = GetCurrentResourceName(),
     framework = GetConvar('inventory:framework', 'esx'),
-    -- Bitirim: tasarim 47 slot (7 Fast Access makro + 40 grid, grid 7 sutun/6 sira).
-    -- server.cfg'de `setr inventory:slots` varsa onu da 47 YAPIN, yoksa gridde
+    -- Bitirim: tasarim 42 slot (7 Fast Access makro + 35 grid, grid 7 sutun x 5 sira).
+    -- server.cfg'de `setr inventory:slots` varsa onu da 42 YAPIN, yoksa gridde
     -- gosterilmeyen slotlar ortaya cikar / kilit kaymalari olur.
-    playerslots = GetConvarInt('inventory:slots', 47),
+    playerslots = GetConvarInt('inventory:slots', 42),
     playerweight = GetConvarInt('inventory:weight', 30000),
     target = GetConvarBool('inventory:target', false),
     police = json.decode(GetConvar('inventory:police', '["police", "sheriff"]')),
