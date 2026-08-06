@@ -249,6 +249,21 @@ RegisterNetEvent('bitirim:server:unequip', function(slot)
     unequip(source, slot)
 end)
 
+-- HIZLI GIYME yolu: cift-tik / surukle-giy bunu cagirir. ox'un `useItem` akisini
+-- (200ms callback + 500ms usingItem kilidi) ATLAR -> aninda giyer. Client sadece
+-- slot no yollar; sunucu o slottaki item'i OTORITER okuyup equip eder (guvenli).
+RegisterNetEvent('bitirim:server:equipSlot', function(slot)
+    local source = source
+    slot = tonumber(slot)
+    if not slot then return end
+
+    local inv = Inventory(source)
+    local item = inv and inv.items and inv.items[slot]
+    if not item or not item.name then return end
+
+    equip(source, item.name, { slot = slot, metadata = item.metadata })
+end)
+
 -- Envanter acilinca giyili ekipmani iste (relog/timing emniyeti).
 lib.callback.register('bitirim:server:getEquipment', function(source)
     pushToClient(source)

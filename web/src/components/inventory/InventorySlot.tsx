@@ -142,14 +142,19 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
     }
   };
 
-  // Bitirim: cift sol tik = item KULLAN (canta giyme dahil). Yalniz oyuncu
-  // envanterindeki dolu slotlarda; sag tik menusundeki "Kullan" ile ayni islev.
+  // Bitirim: cift sol tik = item KULLAN. Kiyafet (metadata.wear) icin HIZLI equip
+  // yolu (ox useItem'in 200ms/500ms gecikmesini atlar -> aninda giyer); diger
+  // itemlerde normal use. Yalniz oyuncu envanterindeki dolu slotlarda.
   const handleDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (inventoryType !== 'player' || !isSlotWithItem(item) || isHidden) return;
     dispatch(closeTooltip());
     if (timerRef.current) clearTimeout(timerRef.current);
-    onUse(item);
+    if ((item.metadata as any)?.wear) {
+      fetchNui('bitirim:equip', { slot: item.slot }).catch(() => {});
+    } else {
+      onUse(item);
+    }
   };
 
   const refs = useMergeRefs([connectRef, ref]);

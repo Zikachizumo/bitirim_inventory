@@ -7,7 +7,6 @@ import { selectEquipment, EquipItem } from '../../store/equipment';
 import { selectLeftInventory } from '../../store/inventory';
 import { Items } from '../../store/items';
 import { fetchNui } from '../../utils/fetchNui';
-import { onUse } from '../../dnd/onUse';
 import { getItemUrl } from '../../helpers';
 import { DragSource, Slot } from '../../typings';
 import {
@@ -101,16 +100,33 @@ const EquipSlot: React.FC<EquipSlotProps> = ({
 }) => {
   const isClothingSlot = !NON_CLOTHING.has(slotKey);
 
-  const [{ isDragging }, drag] = useDrag<{ slot: string }, void, { isDragging: boolean }>(
+  const equippedName = equipped?.item;
+  const equipImageName = equipped?.image || (equippedName ? Items[equippedName]?.image : undefined);
+  const equipUrl = equipImageName ? getItemUrl(equipImageName) : undefined;
+  const equipLabel = equipped?.label || (equippedName ? Items[equippedName]?.label || equippedName : undefined);
+
+  // DRAG kaynagi ('EQUIP'): unequip icin `slot`; DragPreview icin `item`+`image`
+  // (imlecte giyili parca kutusu gorunur, envanter surukleme ile ayni his).
+  const [{ isDragging }, drag] = useDrag<
+    { slot: string; item: { name?: string; slot: string }; image?: string },
+    void,
+    { isDragging: boolean }
+  >(
     () => ({
       type: 'EQUIP',
-      item: { slot: slotKey },
+      item: {
+        slot: slotKey,
+        item: { name: equippedName, slot: slotKey },
+        image: equipUrl ? `url(${equipUrl})` : undefined,
+      },
       canDrag: () => isClothingSlot && !!equipped,
       collect: (monitor) => ({ isDragging: monitor.isDragging() }),
     }),
-    [slotKey, equipped, isClothingSlot]
+    [slotKey, equipped, equippedName, equipUrl, isClothingSlot]
   );
 
+  // DROP hedefi ('SLOT'): uyumlu kiyafet suruklenirken `canDrop` true olur (bu slot
+  // ustunde OLMASA bile) -> uygun slot vurgulanir. `isOver` uzerine gelince guclenir.
   const [{ isOver, canDrop }, drop] = useDrop<DragSource, void, { isOver: boolean; canDrop: boolean }>(
     () => ({
       accept: 'SLOT',
@@ -125,10 +141,6 @@ const EquipSlot: React.FC<EquipSlotProps> = ({
     drag(drop(el));
   };
 
-  const equippedName = equipped?.item;
-  const equipImageName = equipped?.image || (equippedName ? Items[equippedName]?.image : undefined);
-  const equipUrl = equipImageName ? getItemUrl(equipImageName) : undefined;
-  const equipLabel = equipped?.label || (equippedName ? Items[equippedName]?.label || equippedName : undefined);
   const title = equipped
     ? `${equipLabel ?? label} — çıkarmak için tıkla veya envantere sürükle`
     : isClothingSlot
@@ -138,14 +150,18 @@ const EquipSlot: React.FC<EquipSlotProps> = ({
   return (
     <div
       ref={connectRef}
-      className={equipped ? 'bx-eq-slot has-item' : 'bx-eq-slot'}
+      className={
+        'bx-eq-slot' +
+        (equipped ? ' has-item' : '') +
+        (canDrop ? ' bx-eq-droppable' : '') +
+        (isOver && canDrop ? ' bx-eq-dropover' : '')
+      }
       title={title}
       onClick={equipped ? () => onUnequip(slotKey) : undefined}
       style={{
         ...(equipUrl ? { backgroundImage: `url(${equipUrl})` } : undefined),
         cursor: equipped ? 'pointer' : undefined,
         opacity: isDragging ? 0.4 : 1,
-        border: isOver && canDrop ? '1px dashed rgba(255,255,255,0.55)' : undefined,
       }}
     >
       <span className="bx-eq-num">{slotNo}</span>
@@ -182,12 +198,15 @@ const CharacterPanel: React.FC = () => {
     [sourceItem]
   );
 
-  // Birak -> giydir (item'i use et; sunucu metadata.wear.slot'a takar).
+  // Birak -> giydir. HIZLI equip yolu (ox useItem gecikmesini atlar); sunucu
+  // metadata.wear.slot'a takar. Yalniz dogru slota birakilinca.
   const onEquipDrop = useCallback(
     (slotKey: string, source: DragSource) => {
       if (source.inventory !== 'player') return;
       const src = sourceItem(source);
-      if (src && (src as any).metadata?.wear?.slot === slotKey) onUse(src);
+      if (src && (src as any).metadata?.wear?.slot === slotKey) {
+        fetchNui('bitirim:equip', { slot: src.slot }).catch(() => {});
+      }
     },
     [sourceItem]
   );
