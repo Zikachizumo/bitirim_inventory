@@ -113,7 +113,8 @@ const Inventory: React.FC = () => {
       const w = el.offsetWidth;
       const h = el.offsetHeight;
       if (!w || !h) return;
-      const s = Math.min((window.innerWidth * 0.99) / w, (window.innerHeight * 0.985) / h);
+      // 1 tavan: 90px slot boyutunu buyutme, yalniz ekrana sigmiyorsa kucult.
+      const s = Math.min(1, (window.innerWidth * 0.99) / w, (window.innerHeight * 0.985) / h);
       el.style.transform = `scale(${s})`;
     };
     fit();

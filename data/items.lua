@@ -12,7 +12,7 @@ return {
 		weight = 1000,
 		stack = false,
 		close = true,
-		description = '20 KG - 8 Slot',
+		description = '20 KG - 7 Slot',
 	},
 
 	['bag_lv2'] = {
@@ -20,7 +20,7 @@ return {
 		weight = 1000,
 		stack = false,
 		close = true,
-		description = '35 KG - 16 Slot',
+		description = '35 KG - 14 Slot',
 	},
 
 	['bag_lv3'] = {
@@ -28,7 +28,7 @@ return {
 		weight = 1000,
 		stack = false,
 		close = true,
-		description = '50 KG - 24 Slot',
+		description = '50 KG - 21 Slot',
 	},
 
 	['bag_lv4'] = {
@@ -36,7 +36,7 @@ return {
 		weight = 1000,
 		stack = false,
 		close = true,
-		description = '70 KG - 32 Slot',
+		description = '70 KG - 28 Slot',
 	},
 
 	['bag_lv5'] = {
@@ -44,7 +44,7 @@ return {
 		weight = 1000,
 		stack = false,
 		close = true,
-		description = '90 KG - 40 Slot',
+		description = '90 KG - 35 Slot',
 	},
 
 	--[[ BITIRIM: GENERIC KIYAFET base item'i ('apparel') — VERI-GUDUMLU KATALOG.

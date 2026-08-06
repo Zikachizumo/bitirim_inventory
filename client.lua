@@ -901,7 +901,8 @@ local function registerCommands()
 		end
 	})
 
-	for i = 1, 5 do
+	-- Bitirim: 7 Fast Access slotu -> tuslar 1-7 (6=silah, 7=mermi vb. kusanir).
+	for i = 1, 7 do
 		lib.addKeybind({
 			name = ('hotkey%s'):format(i),
 			description = locale('use_hotbar', i),
