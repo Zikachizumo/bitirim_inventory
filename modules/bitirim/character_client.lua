@@ -60,27 +60,25 @@ RegisterNetEvent('bitirim:client:bagLevel', function(level)
     currentLevel = math.max(0, math.min(5, math.floor(tonumber(level) or 0)))
 end)
 
---- Kamerayi klonun onune (ve yana kaydirarak) yerlestir + klona baktir.
+--- Kamerayi klonun onune yerlestir + klona baktir. Ped'i ekranin SOLUNA almak
+--- icin: kamera TAM ONDE durur, ama BAKIS HEDEFI saga kaydirilir (CAM_SIDE) ->
+--- ped karede sola kayar. (Eskiden hem kamera hem hedef ayni yana kayiyordu =
+--- ped ortada kaliyordu; duzeltildi.)
 local function positionCamera()
     if not cam or not clone or not DoesEntityExist(clone) then return end
 
     local dist = topView and TOP_DIST or CAM_DIST
     local height = topView and TOP_HEIGHT or CAM_HEIGHT
 
-    -- Klonun ONU (heading yonu). Kamera onun onunde durur.
     local cc = GetEntityCoords(clone)
     local cx, cy, cz = cc.x, cc.y, cc.z
     local h = math.rad(GetEntityHeading(clone))
-    -- ileri vektor
-    local fx, fy = -math.sin(h), math.cos(h)
-    -- saga vektor (yatay kaydirma icin)
-    local rx, ry = math.cos(h), math.sin(h)
+    local fx, fy = -math.sin(h), math.cos(h)   -- klonun ONU (yuzune baktigimiz yon)
+    local rx, ry = math.cos(h), math.sin(h)    -- saga vektor
 
-    local camX = cx + fx * dist + rx * CAM_SIDE
-    local camY = cy + fy * dist + ry * CAM_SIDE
-    local camZ = cz + height
-
-    SetCamCoord(cam, camX, camY, camZ)
+    -- Kamera tam onde (yana kaydirma YOK).
+    SetCamCoord(cam, cx + fx * dist, cy + fy * dist, cz + height)
+    -- Bakis hedefi saga kaydik -> ped karede SOLA gelir. topView'da yukaridan bakar.
     PointCamAtCoord(cam, cx + rx * CAM_SIDE, cy + ry * CAM_SIDE, cz + (topView and 0.0 or CAM_LOOK_Z))
     SetCamFov(cam, CAM_FOV)
 end
@@ -92,11 +90,16 @@ local function openScene()
     if not ped or ped == 0 then return end
     realPed = ped
 
-    -- Klon (gorunum + kiyafetler kopyalanir). 2. arg = heading (float).
-    clone = ClonePed(ped, 0.0, false, true)
-    if not clone or clone == 0 then clone = nil; return end
+    -- Klon (gorunum + kiyafetler kopyalanir).
+    clone = ClonePed(ped, GetEntityHeading(ped), true, true)
+    if not clone or clone == 0 or not DoesEntityExist(clone) then
+        print('^1[bitirim] karakter sahnesi: ClonePed BASARISIZ^7')
+        clone = nil
+        return
+    end
     -- Emniyet: gorunumu (component/prop) hedefe kopyala (klon eksik kopyalarsa).
     pcall(ClonePedToTarget, ped, clone)
+    print(('^2[bitirim] karakter sahnesi ACILDI: clone=%s^7'):format(tostring(clone)))
 
     SetEntityCoordsNoOffset(clone, VOID.x, VOID.y, VOID.z, false, false, false)
     FreezeEntityPosition(clone, true)
@@ -194,6 +197,31 @@ RegisterNUICallback('bitirim:charRotate', function(data, cb)
 
     positionCamera()
 end)
+
+--[[
+    /cam — CANLI KAMERA AYARI (sahne acikken kullan). Ped'i karakter penceresinin
+    ortasina/istedigin boyuta oturtmak icin degerleri degistir; begenince cikan
+    degerleri bana soyle, kalici yaparim.
+      /cam dist <n>    kamera uzakligi (buyuk = ped kucuk/uzak)
+      /cam side <n>    yatay: buyuk = ped daha SOLA (bakis hedefi saga kayar)
+      /cam height <n>  kamera yuksekligi
+      /cam fov <n>     gorus acisi (kucuk = yakinlasma)
+      /cam lookz <n>   bakis hedefi yuksekligi (gogus/yuz)
+      /cam show        guncel degerleri F8'e yazar
+]]
+RegisterCommand('cam', function(_, args)
+    local p, v = args[1], tonumber(args[2])
+    if p == 'dist' and v then CAM_DIST = v
+    elseif p == 'side' and v then CAM_SIDE = v
+    elseif p == 'height' and v then CAM_HEIGHT = v
+    elseif p == 'fov' and v then CAM_FOV = v
+    elseif p == 'lookz' and v then CAM_LOOK_Z = v
+    end
+
+    positionCamera()
+    print(('^3[bitirim] cam dist=%.2f side=%.2f height=%.2f fov=%.1f lookz=%.2f (sahne:%s)^7')
+        :format(CAM_DIST, CAM_SIDE, CAM_HEIGHT, CAM_FOV, CAM_LOOK_Z, tostring(sceneActive)))
+end, false)
 
 -- Emniyet: kaynak durursa temizle.
 AddEventHandler('onResourceStop', function(res)

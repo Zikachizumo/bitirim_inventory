@@ -1083,6 +1083,27 @@ local function usableSlots(inv)
     return inv.slots
 end
 
+-- BITIRIM: otomatik yerlestirme SIRASI. Oyuncuda Fast Access (1-7) otomatik
+-- DOLDURULMAZ -> once Backpack grid (8..), sonra Fast Access yedek. Boylece
+-- satin alinan/cikarilan itemler cantaya gider; makro slotlar elle atanir.
+-- (Stacklenebilir itemler yine mevcut stack'e eklenir; yalniz YENI item'in
+--  gidecegi bos slotun onceligi degisir.) Diger envanterler: normal 1..n.
+local BITIRIM_HOTBAR = 7
+
+local function usableSlotOrder(inv)
+    local n = usableSlots(inv)
+    local order = {}
+
+    if inv.player and inv.bitirimUsableSlots then
+        for i = BITIRIM_HOTBAR + 1, n do order[#order + 1] = i end
+        for i = 1, BITIRIM_HOTBAR do order[#order + 1] = i end
+    else
+        for i = 1, n do order[#order + 1] = i end
+    end
+
+    return order
+end
+
 ---@param inv inventory
 ---@param slots number
 function Inventory.SetSlotCount(inv, slots)
@@ -1169,7 +1190,7 @@ function Inventory.AddItem(inv, item, count, metadata, slot, cb)
 		local items = inv.items
 		slotMetadata, slotCount = Items.Metadata(inv.id, item, metadata and table.clone(metadata) or {}, count)
 
-		for i = 1, usableSlots(inv) do -- BITIRIM: kilitli slotlara otomatik yerlestirme yok
+		for _, i in ipairs(usableSlotOrder(inv)) do -- BITIRIM: Fast Access'i koru, grid-oncelikli yerlestir
 			local slotData = items[i]
 
 			if item.stack and slotData ~= nil and slotData.name == item.name and table.matches(slotData.metadata, slotMetadata) then
@@ -2203,7 +2224,7 @@ function Inventory.GetEmptySlot(inv)
 
 	local items = inventory.items
 
-	for i = 1, usableSlots(inventory) do -- BITIRIM: kilitli slot bos slot olarak dondurulmez
+	for _, i in ipairs(usableSlotOrder(inventory)) do -- BITIRIM: Fast Access'i koru, grid-oncelikli bos slot
 		if not items[i] then
 			return i
 		end
