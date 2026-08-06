@@ -67,12 +67,17 @@ local function loadEquipment(source)
     return tbl
 end
 
---- Onbellegi DB'ye yaz (kalici).
+--- Onbellegi DB'ye yaz (kalici). BLOKE ETMEZ (fire-and-forget): equip/unequip
+--- use akisinin icinde cagriliyor; client `ox_inventory:useItem` callback'i
+--- yalnizca 200ms bekliyor. Bloke bir DB await bu sureyi asinca ilk cift-tik
+--- "olmadi" gibi gorunuyordu (+usingItem kilidi ~500ms). Onbellek zaten
+--- otoriter; DB kalicilik icin arka planda yazilir.
 local function saveEquipment(cid)
     local tbl = equipCache[cid] or {}
-    MySQL.query.await(
+    local encoded = json.encode(tbl)
+    MySQL.query(
         'INSERT INTO `bitirim_equipment` (`citizenid`, `data`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `data` = ?',
-        { cid, json.encode(tbl), json.encode(tbl) }
+        { cid, encoded, encoded }
     )
 end
 
@@ -175,16 +180,16 @@ local function equip(source, itemName, useData)
         -- Eski parca zaten iade edildi; slot bos kaldi. Kayip yok.
         tbl[slotKey] = nil
         equipCache[cid] = tbl
-        saveEquipment(cid)
         pushToClient(source)
+        saveEquipment(cid)
         return notify(source, 'error', 'Parca takilamadi, tekrar dene.')
     end
 
-    -- Slota yaz + kaydet + uygula. Gorunum piece.wear'da; client cinsiyete gore uygular.
+    -- Slota yaz -> ONCE uygula/gonder (aninda giyilsin), SONRA DB'ye yaz (bloke etmez).
     tbl[slotKey] = piece
     equipCache[cid] = tbl
-    saveEquipment(cid)
     pushToClient(source)
+    saveEquipment(cid)
 
     local label = piece.label or (Items and Items(itemName) and Items(itemName).label) or itemName
     notify(source, 'success', ('%s takildi.'):format(label))
@@ -209,8 +214,8 @@ local function unequip(source, slot)
 
     tbl[slot] = nil
     equipCache[cid] = tbl
-    saveEquipment(cid)
     pushToClient(source)
+    saveEquipment(cid)
 
     local label = entry.label or (Items and Items(entry.item) and Items(entry.item).label) or entry.item
     notify(source, 'inform', ('%s cikarildi.'):format(label))
