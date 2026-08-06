@@ -16,8 +16,10 @@ import type { RootState } from '.';
 
 export interface EquipItem {
   item?: string;
-  drawable: number;
-  texture: number;
+  // Görünüm (drawable/texture) client Lua'da cinsiyete göre çözülür; panel yalnız
+  // `item`'i kullanır (görsel/etiket). Bu alanlar opsiyoneldir.
+  drawable?: number;
+  texture?: number;
 }
 
 export type EquipmentMap = Record<string, EquipItem>;

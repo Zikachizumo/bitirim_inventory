@@ -47,14 +47,27 @@ local slots = {
     jacket   = { kind = 'component', id = 11 }, -- ust/tops
 }
 
--- Kiyafet itemleri -> slot + gorunum. (ORNEK; tam katalog kullanicidan.)
--- Item ayrica data/items.lua'da (weight/label/gorsel) tanimli olmali.
+--[[
+    Kiyafet itemleri -> slot + gorunum. (ORNEK; tam katalog kullanicidan.)
+    Item ayrica data/items.lua'da (weight/label/gorsel) tanimli olmali.
+
+    Gorunum iki bicimde yazilabilir:
+      1) DUZ  : { slot = 'mask', drawable = 52, texture = 0 }
+                (erkek ve kadin AYNI drawable — basit parcalar icin.)
+      2) CINSIYETE GORE (drawable erkek/kadin farkliysa — cogu giysi boyle):
+                { slot = 'mask', male = { drawable = 52, texture = 0 },
+                                 female = { drawable = 33, texture = 0 } }
+
+    Dogru drawable/texture sayilarini bulmak icin: kiyafet dukkaninda parcayi
+    giy, sonra oyunda `/kiyafetbak` yaz -> F8 konsoluna su an giyili tum
+    slotlarin degerlerini + cinsiyetini yazar. O sayilari buraya gecir.
+]]
 local items = {
-    ['mask_black']   = { slot = 'mask',    drawable = 52, texture = 0 },
-    ['cap_black']    = { slot = 'hat',     drawable = 5,  texture = 0 },
-    ['glasses_dark'] = { slot = 'glasses', drawable = 5,  texture = 0 },
-    ['gold_chain']   = { slot = 'necklace', drawable = 1, texture = 0 },
-    ['gold_watch']   = { slot = 'watch',   drawable = 12, texture = 0 },
+    ['mask_black']   = { slot = 'mask',     drawable = 52, texture = 0 },
+    ['cap_black']    = { slot = 'hat',      drawable = 5,  texture = 0 },
+    ['glasses_dark'] = { slot = 'glasses',  drawable = 5,  texture = 0 },
+    ['gold_chain']   = { slot = 'necklace', drawable = 1,  texture = 0 },
+    ['gold_watch']   = { slot = 'watch',    drawable = 12, texture = 0 },
 }
 
 return {

@@ -77,12 +77,13 @@ local function saveEquipment(cid)
 end
 
 --- Client'e giyili ekipmani gonder (ped uygulamasi + panel gosterimi). Payload
---- slot -> { drawable, texture }; client kind/id'yi data/bitirim_clothing'den cozer.
+--- slot -> { item }. Gorunum (drawable/texture) CLIENT'ta data/bitirim_clothing'den
+--- oyuncunun CINSIYETINE gore cozulur (erkek/kadin drawable farkli olabilir).
 local function pushToClient(source)
     local tbl = loadEquipment(source)
     local payload = {}
     for slot, entry in pairs(tbl) do
-        payload[slot] = { item = entry.item, drawable = entry.drawable, texture = entry.texture }
+        payload[slot] = { item = entry.item }
     end
     TriggerClientEvent('bitirim:client:equipment', source, payload)
 end
@@ -135,8 +136,9 @@ local function equip(source, itemName, useData)
         return notify(source, 'error', 'Parca takilamadi, tekrar dene.')
     end
 
-    -- Slota yaz + kaydet + uygula.
-    tbl[map.slot] = { item = itemName, drawable = map.drawable, texture = map.texture }
+    -- Slota yaz + kaydet + uygula. Yalniz item adi saklanir; gorunum client'ta
+    -- cinsiyete gore cozulur (data/bitirim_clothing).
+    tbl[map.slot] = { item = itemName }
     equipCache[cid] = tbl
     saveEquipment(cid)
     pushToClient(source)
