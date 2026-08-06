@@ -9,6 +9,7 @@ import { setEquippedSlot, setEquipment, EquipmentMap } from '../../store/equipme
 import { setBagLevel } from '../../store/backpack';
 import { setCash } from '../../store/cash';
 import { useExitListener } from '../../hooks/useExitListener';
+import { fetchNui } from '../../utils/fetchNui';
 import type { Inventory as InventoryProps } from '../../typings';
 import RightInventory from './RightInventory';
 import Tooltip from '../utils/Tooltip';
@@ -52,6 +53,14 @@ const Inventory: React.FC = () => {
   useEffect(() => {
     if (!inventoryVisible) dispatch(closeSplit());
   }, [inventoryVisible, dispatch]);
+
+  // Bitirim: canli karakter sahnesi — yalniz KARAKTER paneli goruntulenirken acik
+  // (kap/drop acikken karakter paneli gizli, o yuzden sahne de kapali). Client
+  // (character_client.lua) klon+kamera+isik sahnesini yonetir.
+  useEffect(() => {
+    const showChar = inventoryVisible && !isDrop && !hasContainer;
+    fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
+  }, [inventoryVisible, isDrop, hasContainer]);
 
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {

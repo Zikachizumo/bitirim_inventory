@@ -783,9 +783,10 @@ body.inv-dragging {
   flex-direction: column;
   width: max-content;
   max-width: 99vw;
-  background: linear-gradient(180deg, var(--panel), rgba(11, 8, 18, 0.75));
-  backdrop-filter: blur(16px) saturate(120%);
-  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  /* Bitirim: pencere SEFFAF -> karakter panelindeki bosluktan arkadaki (oyun)
+     canli 3B ped gorunur. Cam efekti (blur) her PANELE ayri verilir (asagida),
+     boylece orta karakter alani net kalir. */
+  background: transparent;
   border: 1px solid var(--line);
   border-radius: 22px;
   box-shadow: 0 40px 120px -30px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -799,7 +800,9 @@ body.inv-dragging {
   gap: 14px;
   padding: 12px 18px;
   border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--accent-dim), transparent);
+  background: linear-gradient(180deg, var(--accent-dim), transparent), var(--panel);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
 }
 
 .bx-brandmark {
@@ -887,9 +890,21 @@ body.inv-dragging {
   flex-direction: column;
   gap: 14px;
   background: var(--surface);
+  /* cam efekti panel-bazinda (pencere seffaf oldugu icin) */
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
   border: 1px solid var(--line);
   border-radius: var(--r);
   padding: 16px;
+}
+
+/* Karakter paneli: TAM SEFFAF (cam yok) -> arkadaki canli ped net gorunur.
+   Slotlar/statlar kendi arka planlariyla void uzerinde "yuzer". */
+.bx-panel.bx-character {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-color: transparent;
 }
 
 .bx-panel-title {
@@ -911,6 +926,80 @@ body.inv-dragging {
 .bx-eq-row {
   display: flex;
   gap: var(--gap);
+}
+
+/* ---- Bitirim: canli karakter duzeni (sol slotlar | ped | sag slotlar) ---- */
+.bx-char-body {
+  flex: 1;
+  display: flex;
+  gap: var(--gap);
+  align-items: stretch;
+}
+
+/* dikey slot sutunu (karakterin solu/sagi) */
+.bx-eq-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+/* orta: SEFFAF pencere -> arkadaki (oyun) canli ped gorunur. Slotlar/ped void
+   uzerinde. min-width ped'in gorunecegi alan (kamera cerceveleme buna gore AYARLA). */
+.bx-char-view {
+  position: relative;
+  flex: 1;
+  min-width: 230px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: transparent;
+  border-radius: var(--r);
+  cursor: grab;
+  /* zeminde hafif seviye-renkli parilti (ped'in ayagi hizasi) */
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 12%;
+    width: 62%;
+    height: 26%;
+    transform: translateX(-50%);
+    background: radial-gradient(ellipse at center, var(--accent-dim), transparent 70%);
+    filter: blur(6px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+/* 3 aci butonu (sol / ust / sag) — orta pencerenin altinda */
+.bx-char-rotate {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  button {
+    width: 36px;
+    height: 30px;
+    border-radius: 10px;
+    background: var(--surface);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--line);
+    color: var(--text-2);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    transition: 140ms;
+    &:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: var(--accent-glow);
+    }
+  }
 }
 
 /* eq grid altindaki bolge: statlar dikeyde ortalanir */
@@ -1239,6 +1328,8 @@ body.inv-dragging {
   flex-direction: column;
   gap: 12px;
   background: var(--surface);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
   border: 1px solid var(--line);
   border-radius: var(--r);
   padding: 16px;
@@ -1287,7 +1378,9 @@ body.inv-dragging {
   gap: 16px;
   padding: 11px 14px;
   border-radius: var(--r);
-  background: linear-gradient(120deg, var(--accent-dim), var(--surface));
+  background: linear-gradient(120deg, var(--accent-dim), var(--surface)), var(--panel);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
   border: 1px solid var(--accent-line);
   transition: 140ms;
 
