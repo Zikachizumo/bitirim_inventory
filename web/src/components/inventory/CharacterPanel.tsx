@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useCallback } from 'react';
+import { useDrag, useDrop } from 'react-dnd';
 import CharacterStats from './CharacterStats';
 import { useAppSelector } from '../../store';
 import { selectBagLevel } from '../../store/backpack';
-import { selectEquipment } from '../../store/equipment';
+import { selectEquipment, EquipItem } from '../../store/equipment';
+import { selectLeftInventory } from '../../store/inventory';
 import { Items } from '../../store/items';
 import { fetchNui } from '../../utils/fetchNui';
+import { onUse } from '../../dnd/onUse';
 import { getItemUrl } from '../../helpers';
+import { DragSource, Slot } from '../../typings';
 import {
   IconAmmo,
   IconBackpack,
@@ -63,15 +67,130 @@ const EQUIP_ROWS: { key: string; label: string; Icon: React.FC<{ size?: number }
   ],
 ];
 
+// Kiyafet olmayan slotlar: canta (ayri seviye sistemi), silah/mermi (ox weapon).
+// Bunlarda surukle-giy/cikar YOK.
+const NON_CLOTHING = new Set(['bag', 'weapon', 'ammo']);
+
+interface EquipSlotProps {
+  slotKey: string;
+  label: string;
+  Icon: React.FC<{ size?: number }>;
+  slotNo: number;
+  equipped?: EquipItem;
+  onUnequip: (slot: string) => void;
+  canEquipHere: (slotKey: string, source: DragSource) => boolean;
+  onEquipDrop: (slotKey: string, source: DragSource) => void;
+}
+
+/**
+ * Tek ekipman slotu. Kiyafet slotlari icin:
+ *  - DROP hedefi (envanterden 'SLOT' surukle): dogru slota birakilinca giydirir.
+ *  - DRAG kaynagi ('EQUIP'): giyili parcayi envantere surukleyip cikarmak icin
+ *    (InventorySlot 'EQUIP' drop'unu unequip'e baglar).
+ *  - Tik: giyiliyse cikar.
+ */
+const EquipSlot: React.FC<EquipSlotProps> = ({
+  slotKey,
+  label,
+  Icon,
+  slotNo,
+  equipped,
+  onUnequip,
+  canEquipHere,
+  onEquipDrop,
+}) => {
+  const isClothingSlot = !NON_CLOTHING.has(slotKey);
+
+  const [{ isDragging }, drag] = useDrag<{ slot: string }, void, { isDragging: boolean }>(
+    () => ({
+      type: 'EQUIP',
+      item: { slot: slotKey },
+      canDrag: () => isClothingSlot && !!equipped,
+      collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+    }),
+    [slotKey, equipped, isClothingSlot]
+  );
+
+  const [{ isOver, canDrop }, drop] = useDrop<DragSource, void, { isOver: boolean; canDrop: boolean }>(
+    () => ({
+      accept: 'SLOT',
+      canDrop: (source) => isClothingSlot && canEquipHere(slotKey, source),
+      drop: (source) => onEquipDrop(slotKey, source),
+      collect: (monitor) => ({ isOver: monitor.isOver(), canDrop: monitor.canDrop() }),
+    }),
+    [slotKey, isClothingSlot, canEquipHere, onEquipDrop]
+  );
+
+  const connectRef = (el: HTMLDivElement | null) => {
+    drag(drop(el));
+  };
+
+  const equippedName = equipped?.item;
+  const equipImageName = equipped?.image || (equippedName ? Items[equippedName]?.image : undefined);
+  const equipUrl = equipImageName ? getItemUrl(equipImageName) : undefined;
+  const equipLabel = equipped?.label || (equippedName ? Items[equippedName]?.label || equippedName : undefined);
+  const title = equipped
+    ? `${equipLabel ?? label} — çıkarmak için tıkla veya envantere sürükle`
+    : isClothingSlot
+      ? `${label} — envanterden sürükleyip bırak`
+      : `${label} — boş`;
+
+  return (
+    <div
+      ref={connectRef}
+      className={equipped ? 'bx-eq-slot has-item' : 'bx-eq-slot'}
+      title={title}
+      onClick={equipped ? () => onUnequip(slotKey) : undefined}
+      style={{
+        ...(equipUrl ? { backgroundImage: `url(${equipUrl})` } : undefined),
+        cursor: equipped ? 'pointer' : undefined,
+        opacity: isDragging ? 0.4 : 1,
+        border: isOver && canDrop ? '1px dashed rgba(255,255,255,0.55)' : undefined,
+      }}
+    >
+      <span className="bx-eq-num">{slotNo}</span>
+      {!equipUrl && <Icon size={32} />}
+    </div>
+  );
+};
+
 const CharacterPanel: React.FC = () => {
   const bagLevel = useAppSelector(selectBagLevel);
   const equipment = useAppSelector(selectEquipment);
+  const leftInventory = useAppSelector(selectLeftInventory);
   let slotNo = 0; // tum slotlara sirali numara (1..N)
 
-  // Dolu bir ekipman slotuna tiklayinca cikar (item envantere doner).
-  const handleUnequip = (slot: string) => {
+  // Dolu bir ekipman slotuna tiklayinca (veya envantere surukleyince) cikar.
+  const handleUnequip = useCallback((slot: string) => {
     fetchNui('bitirim:unequip', { slot }).catch(() => {});
-  };
+  }, []);
+
+  // Suruklenen envanter item'ini Redux'tan bul (slot 1-indexli -> items[slot-1]).
+  const sourceItem = useCallback(
+    (source: DragSource): Slot | undefined => leftInventory.items?.[source.item.slot - 1],
+    [leftInventory]
+  );
+
+  // Bu slota birakilabilir mi? Yalniz OYUNCU envanterinden gelen, kiyafet item'i
+  // VE metadata.wear.slot bu slota esitse (dogru yere birak). Sadece dogru slot vurgulanir.
+  const canEquipHere = useCallback(
+    (slotKey: string, source: DragSource) => {
+      if (source.inventory !== 'player') return false;
+      const src = sourceItem(source) as any;
+      return src?.metadata?.wear?.slot === slotKey;
+    },
+    [sourceItem]
+  );
+
+  // Birak -> giydir (item'i use et; sunucu metadata.wear.slot'a takar).
+  const onEquipDrop = useCallback(
+    (slotKey: string, source: DragSource) => {
+      if (source.inventory !== 'player') return;
+      const src = sourceItem(source);
+      if (src && (src as any).metadata?.wear?.slot === slotKey) onUse(src);
+    },
+    [sourceItem]
+  );
 
   return (
     <div className="bx-panel bx-character">
@@ -99,31 +218,18 @@ const CharacterPanel: React.FC = () => {
                 );
               }
 
-              // Kiyafet/ekipman slotu: giyiliyse item gorseli (varsa) + tikla-cikar.
-              // Etiket/gorsel oncelikle metadata'dan (label/image), yoksa item
-              // tanimindan. Gorsel yoksa accent highlight + kategori ikonu.
-              const equipped = equipment[key];
-              const equippedName = equipped?.item;
-              const equipImageName = equipped?.image || (equippedName ? Items[equippedName]?.image : undefined);
-              const equipUrl = equipImageName ? getItemUrl(equipImageName) : undefined;
-              const equipLabel =
-                equipped?.label || (equippedName ? Items[equippedName]?.label || equippedName : undefined);
-              const title = equipped ? `${equipLabel ?? label} — çıkarmak için tıkla` : `${label} — boş`;
-
               return (
-                <div
-                  className={equipped ? 'bx-eq-slot has-item' : 'bx-eq-slot'}
+                <EquipSlot
                   key={key}
-                  title={title}
-                  onClick={equipped ? () => handleUnequip(key) : undefined}
-                  style={{
-                    ...(equipUrl ? { backgroundImage: `url(${equipUrl})` } : undefined),
-                    cursor: equipped ? 'pointer' : undefined,
-                  }}
-                >
-                  <span className="bx-eq-num">{slotNo}</span>
-                  {!equipUrl && <Icon size={32} />}
-                </div>
+                  slotKey={key}
+                  label={label}
+                  Icon={Icon}
+                  slotNo={slotNo}
+                  equipped={equipment[key]}
+                  onUnequip={handleUnequip}
+                  canEquipHere={canEquipHere}
+                  onEquipDrop={onEquipDrop}
+                />
               );
             })}
           </div>
