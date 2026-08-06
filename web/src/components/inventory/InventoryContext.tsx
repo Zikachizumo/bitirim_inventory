@@ -45,14 +45,17 @@ const InventoryContext: React.FC = () => {
 
   // Bitirim: item su an kusaniliysa (giyili silah), "Use" yerine "Unequip".
   const isEquipped = !!item && item.slot === equippedSlot;
-  // Bitirim: kiyafet (metadata.wear tasiyan) item -> "Use" yerine "Giy". Envanterdeki
-  // kiyafet her zaman cikarilmis durumda oldugu icin etiket "Giy" (cikarma panelden).
+  // Bitirim: kiyafet (metadata.wear tasiyan) item -> "Use" yerine "Equip". Envanterdeki
+  // kiyafet her zaman cikarilmis durumda oldugu icin etiket "Equip".
   const isClothing = !!item && !!(item.metadata as any)?.wear;
   const useLabel = isClothing
-    ? 'Giy'
+    ? 'Equip'
     : isEquipped
       ? Locale.ui_unequip || 'Unequip'
       : Locale.ui_use || 'Use';
+
+  // Bitirim: karakter panelindeki GIYILI ekipman slotuna sag tik -> sadece "Unequip".
+  const equipSlot = contextMenu.equipSlot;
 
   const handleClick = (data: DataProps) => {
     if (!item) return;
@@ -108,6 +111,21 @@ const InventoryContext: React.FC = () => {
       return groups;
     }, []);
   };
+
+  // Karakter panelindeki giyili slot menusu: yalniz "Unequip".
+  if (equipSlot) {
+    return (
+      <Menu>
+        <MenuItem
+          onClick={() => {
+            fetchNui('bitirim:unequip', { slot: equipSlot }).catch(() => {});
+            dispatch(closeContextMenu());
+          }}
+          label="Unequip"
+        />
+      </Menu>
+    );
+  }
 
   return (
     <>

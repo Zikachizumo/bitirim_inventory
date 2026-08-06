@@ -1,10 +1,11 @@
 import React, { useCallback } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import CharacterStats from './CharacterStats';
-import { useAppSelector } from '../../store';
+import { useAppDispatch, useAppSelector } from '../../store';
 import { selectBagLevel } from '../../store/backpack';
 import { selectEquipment, EquipItem } from '../../store/equipment';
 import { selectLeftInventory } from '../../store/inventory';
+import { openContextMenu } from '../../store/contextMenu';
 import { Items } from '../../store/items';
 import { fetchNui } from '../../utils/fetchNui';
 import { getItemUrl } from '../../helpers';
@@ -77,6 +78,7 @@ interface EquipSlotProps {
   slotNo: number;
   equipped?: EquipItem;
   onUnequip: (slot: string) => void;
+  onContext: (slotKey: string, event: React.MouseEvent<HTMLDivElement>) => void;
   canEquipHere: (slotKey: string, source: DragSource) => boolean;
   onEquipDrop: (slotKey: string, source: DragSource) => void;
 }
@@ -95,6 +97,7 @@ const EquipSlot: React.FC<EquipSlotProps> = ({
   slotNo,
   equipped,
   onUnequip,
+  onContext,
   canEquipHere,
   onEquipDrop,
 }) => {
@@ -158,6 +161,7 @@ const EquipSlot: React.FC<EquipSlotProps> = ({
       }
       title={title}
       onClick={equipped ? () => onUnequip(slotKey) : undefined}
+      onContextMenu={equipped ? (e) => onContext(slotKey, e) : undefined}
       style={{
         ...(equipUrl ? { backgroundImage: `url(${equipUrl})` } : undefined),
         cursor: equipped ? 'pointer' : undefined,
@@ -174,12 +178,22 @@ const CharacterPanel: React.FC = () => {
   const bagLevel = useAppSelector(selectBagLevel);
   const equipment = useAppSelector(selectEquipment);
   const leftInventory = useAppSelector(selectLeftInventory);
+  const dispatch = useAppDispatch();
   let slotNo = 0; // tum slotlara sirali numara (1..N)
 
   // Dolu bir ekipman slotuna tiklayinca (veya envantere surukleyince) cikar.
   const handleUnequip = useCallback((slot: string) => {
     fetchNui('bitirim:unequip', { slot }).catch(() => {});
   }, []);
+
+  // Giyili slota SAG TIK -> baglam menusu (Unequip). InventoryContext gosterir.
+  const handleContext = useCallback(
+    (slot: string, event: React.MouseEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      dispatch(openContextMenu({ equipSlot: slot, coords: { x: event.clientX, y: event.clientY } }));
+    },
+    [dispatch]
+  );
 
   // Suruklenen envanter item'ini Redux'tan bul (slot 1-indexli -> items[slot-1]).
   const sourceItem = useCallback(
@@ -246,6 +260,7 @@ const CharacterPanel: React.FC = () => {
                   slotNo={slotNo}
                   equipped={equipment[key]}
                   onUnequip={handleUnequip}
+                  onContext={handleContext}
                   canEquipHere={canEquipHere}
                   onEquipDrop={onEquipDrop}
                 />
