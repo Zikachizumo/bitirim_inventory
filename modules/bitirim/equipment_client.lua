@@ -44,24 +44,45 @@ local function captureBase(ped)
     baseCaptured = true
 end
 
---- Giyili ekipmani ped'e uygula. Giyili slot -> item degeri; bos slot -> base.
+--- Bir kiyafet item'inin gorunumunu oyuncunun cinsiyetine gore coz.
+--- Duz { drawable, texture } veya { male = {...}, female = {...} } destekler.
+--- Donus: drawable, texture (bulunamazsa nil).
+local function resolveVariant(itemName, isFemale)
+    local map = itemName and clothing.items[itemName]
+    if not map then return nil end
+
+    if map.male or map.female then
+        local v = (isFemale and map.female) or map.male or map.female
+        if type(v) == 'table' then return v.drawable, v.texture end
+        return nil
+    end
+
+    return map.drawable, map.texture
+end
+
+--- Giyili ekipmani ped'e uygula. Giyili slot -> item gorunumu (cinsiyete gore);
+--- bos slot -> spawn'da yakalanan temiz base. (drawable 0 gecerlidir; Lua'da 0
+--- truthy oldugu icin `or` zincirleri yalniz nil'de base'e duser.)
 local function applyEquip()
     local ped = PlayerPedId()
     if not baseCaptured then captureBase(ped) end
+    local isFemale = GetEntityModel(ped) == `mp_f_freemode_01`
 
     for slot, def in pairs(clothing.slots) do
         local e = currentEquip[slot]
         local b = base[slot]
+        local ed, et
+        if e and e.item then ed, et = resolveVariant(e.item, isFemale) end
 
         if def.kind == 'component' then
-            local d = (e and e.drawable) or (b and b.drawable) or 0
-            local t = (e and e.texture) or (b and b.texture) or 0
+            local d = ed or (b and b.drawable) or 0
+            local t = et or (b and b.texture) or 0
             if IsPedComponentVariationValid(ped, def.id, d, t) then
                 SetPedComponentVariation(ped, def.id, d, t, 0)
             end
         else -- prop
-            if e then
-                SetPedPropIndex(ped, def.id, e.drawable, e.texture, true)
+            if ed then
+                SetPedPropIndex(ped, def.id, ed, et or 0, true)
             elseif b and b.drawable and b.drawable >= 0 then
                 SetPedPropIndex(ped, def.id, b.drawable, b.texture, true)
             else
@@ -118,3 +139,32 @@ end
 AddEventHandler('playerSpawned', onFreshSpawn)
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', onFreshSpawn)
 RegisterNetEvent('qbx_core:client:playerLoggedIn', onFreshSpawn)
+
+--[[
+    /kiyafetbak — KATALOG YARDIMCISI.
+    Su an giyili tum ekipman slotlarinin GTA degerlerini (component/prop id +
+    drawable + texture) ve oyuncunun cinsiyetini F8 konsoluna yazar. Kullanim:
+    kiyafet dukkaninda parcayi giy -> /kiyafetbak -> cikan drawable/texture'i
+    data/bitirim_clothing.lua'daki items tablosuna gecir.
+    NOT: bu komut hicbir seyi degistirmez, sadece OKUR.
+]]
+RegisterCommand('kiyafetbak', function()
+    local ped = PlayerPedId()
+    local isFemale = GetEntityModel(ped) == `mp_f_freemode_01`
+    local gender = isFemale and 'kadin (female)' or 'erkek (male)'
+
+    print(('^3[bitirim] Su an giyili degerler — cinsiyet: %s^7'):format(gender))
+    print('^3  slot      | tip        id | drawable texture^7')
+    for slot, def in pairs(clothing.slots) do
+        local d, t
+        if def.kind == 'component' then
+            d, t = GetPedDrawableVariation(ped, def.id), GetPedTextureVariation(ped, def.id)
+        else
+            d, t = GetPedPropIndex(ped, def.id), GetPedPropTextureIndex(ped, def.id)
+        end
+        print(('  %-9s | %-9s %2d | drawable=%d texture=%d'):format(slot, def.kind, def.id, d, t))
+    end
+    print('^3[bitirim] Bu degerleri data/bitirim_clothing.lua > items tablosuna gecir.^7')
+
+    lib.notify({ type = 'inform', description = 'Kiyafet degerleri F8 konsoluna yazildi.' })
+end, false)
