@@ -115,6 +115,14 @@ RegisterNUICallback('bitirim:unequip', function(data, cb)
     cb(1)
 end)
 
+-- HIZLI GIYME (cift-tik / surukle-giy): ox useItem gecikmesini atlar.
+RegisterNUICallback('bitirim:equip', function(data, cb)
+    if type(data) == 'table' and data.slot then
+        TriggerServerEvent('bitirim:server:equipSlot', data.slot)
+    end
+    cb(1)
+end)
+
 -- Envanter ilk acildiginda guncel ekipmani iste (ilk push kacmis olabilir).
 CreateThread(function()
     while true do

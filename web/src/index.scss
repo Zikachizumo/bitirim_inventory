@@ -956,6 +956,19 @@ body.inv-dragging {
     border-color: var(--accent-line);
     background-color: var(--slot);
   }
+  /* Bitirim: uyumlu kiyafet suruklenirken bu slot "buraya uygun" vurgusu alir
+     (item slot ustunde OLMASA bile). Uzerine gelince (dropover) guclenir. */
+  &.bx-eq-droppable {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), var(--accent-glow);
+  }
+  &.bx-eq-dropover {
+    border-color: var(--accent);
+    background-color: var(--accent-dim);
+    box-shadow: 0 0 0 2px var(--accent), var(--accent-glow);
+    transform: scale(1.05);
+  }
 }
 
 /* equip slot sira numarasi — sag ust, kucuk ve soluk (karisiklik olmasin diye) */

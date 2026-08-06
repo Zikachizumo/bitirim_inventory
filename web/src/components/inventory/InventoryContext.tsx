@@ -59,7 +59,12 @@ const InventoryContext: React.FC = () => {
 
     switch (data && data.action) {
       case 'use':
-        onUse({ name: item.name, slot: item.slot });
+        // Bitirim: kiyafet -> hizli equip yolu (ox useItem gecikmesini atla).
+        if (isClothing) {
+          fetchNui('bitirim:equip', { slot: item.slot }).catch(() => {});
+        } else {
+          onUse({ name: item.name, slot: item.slot });
+        }
         break;
       case 'give':
         onGive({ name: item.name, slot: item.slot });
