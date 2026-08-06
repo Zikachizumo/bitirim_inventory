@@ -17,7 +17,7 @@ const Stat: React.FC<{ kind: string; label: string; value: number; Icon: React.F
 }) => (
   <div className={`bx-stat bx-stat-${kind}`}>
     <div className="bx-stat-top">
-      <Icon size={18} />
+      <Icon size={14} />
       <span className="bx-stat-label">{label}</span>
       <span className="bx-stat-pct">{Math.round(value)}%</span>
     </div>

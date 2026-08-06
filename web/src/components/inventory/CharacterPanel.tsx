@@ -42,11 +42,11 @@ type SlotDef = { key: string; label: string; Icon: React.FC<{ size?: number }> }
 
 // Mockup duzeni: karakterin SOLUNDA ve SAGINDA dikey slot sutunlari, ortada
 // canli karakter. Slotlarin islevi (equip/unequip/drag/sag-tik) korunur.
+// Slotlar 8-8: SOL sutun 1-8 (giysiler), SAG sutun 9-16 (aksesuar + techizat).
 const LEFT_SLOTS: SlotDef[] = [
   { key: 'hat', label: 'Şapka', Icon: IconCap },
   { key: 'glasses', label: 'Gözlük', Icon: IconGlasses },
-  { key: 'ring', label: 'Yüzük', Icon: IconRing },
-  { key: 'necklace', label: 'Kolye', Icon: IconNecklace },
+  { key: 'mask', label: 'Maske', Icon: IconMask },
   { key: 'jacket', label: 'Ceket', Icon: IconJacket },
   { key: 'tshirt', label: 'Tişört', Icon: IconTshirt },
   { key: 'gloves', label: 'Eldiven', Icon: IconGloves },
@@ -55,8 +55,9 @@ const LEFT_SLOTS: SlotDef[] = [
 ];
 
 const RIGHT_SLOTS: SlotDef[] = [
-  { key: 'mask', label: 'Maske', Icon: IconMask },
   { key: 'ears', label: 'Kulaklık', Icon: IconHeadphones },
+  { key: 'ring', label: 'Yüzük', Icon: IconRing },
+  { key: 'necklace', label: 'Kolye', Icon: IconNecklace },
   { key: 'watch', label: 'Saat', Icon: IconWatch },
   { key: 'bag', label: 'Çanta', Icon: IconBackpack },
   { key: 'armour', label: 'Zırh', Icon: IconVest },
