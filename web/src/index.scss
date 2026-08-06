@@ -37,8 +37,8 @@
   /* Ekrana sigsin diye slot boyutu kucultuldu (envanter cok genisti). 7.6vh ~82px.
      Genislik: sol slot sutunu + ped + sag slot sutunu + envanter 8 grid + makro. */
   --slot-sz: 7.6vh;
-  --grid-cols: 8;
-  --grid-rows: 5;
+  --grid-cols: 7;
+  --grid-rows: 6; /* 40 grid slotu 7 sutunda = 6 sira (son sira 5 dolu) */
   --gap: 6px;
   --r: 16px;
   --r-s: 12px;
@@ -916,6 +916,16 @@ body.inv-dragging {
   color: var(--text-2);
   font-weight: 700;
   margin: 0;
+}
+
+/* Bolum basligi (Fast Access / Backpack) — makro ve grid ustunde. */
+.bx-sec-title {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 700;
+  margin: 2px 0 -4px;
 }
 
 /* ---- karakter paneli ---- */
