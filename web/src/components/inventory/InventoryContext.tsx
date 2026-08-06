@@ -43,10 +43,16 @@ const InventoryContext: React.FC = () => {
   const dispatch = useAppDispatch();
   const item = contextMenu.item;
 
-  // Bitirim: item su an kusaniliysa (giyili), "Use" yerine "Unequip" goster —
-  // ayni buton hem giyer hem cikarir, etiket duruma gore degisir.
+  // Bitirim: item su an kusaniliysa (giyili silah), "Use" yerine "Unequip".
   const isEquipped = !!item && item.slot === equippedSlot;
-  const useLabel = isEquipped ? Locale.ui_unequip || 'Unequip' : Locale.ui_use || 'Use';
+  // Bitirim: kiyafet (metadata.wear tasiyan) item -> "Use" yerine "Giy". Envanterdeki
+  // kiyafet her zaman cikarilmis durumda oldugu icin etiket "Giy" (cikarma panelden).
+  const isClothing = !!item && !!(item.metadata as any)?.wear;
+  const useLabel = isClothing
+    ? 'Giy'
+    : isEquipped
+      ? Locale.ui_unequip || 'Unequip'
+      : Locale.ui_use || 'Use';
 
   const handleClick = (data: DataProps) => {
     if (!item) return;

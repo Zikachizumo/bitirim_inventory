@@ -10,6 +10,7 @@ import { canCraftItem, canPurchaseItem, getItemUrl, isSlotWithItem } from '../..
 import { onUse } from '../../dnd/onUse';
 import { Locale } from '../../store/locale';
 import { onCraft } from '../../dnd/onCraft';
+import { fetchNui } from '../../utils/fetchNui';
 import useNuiEvent from '../../hooks/useNuiEvent';
 import { ItemsPayload } from '../../reducers/refreshSlots';
 import { closeTooltip, openTooltip } from '../../store/tooltip';
@@ -65,14 +66,19 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
     [inventoryType, item]
   );
 
-  const [{ isOver }, drop] = useDrop<DragSource, void, { isOver: boolean }>(
+  const [{ isOver }, drop] = useDrop<any, void, { isOver: boolean }>(
     () => ({
-      accept: 'SLOT',
+      accept: ['SLOT', 'EQUIP'],
       collect: (monitor) => ({
         isOver: monitor.isOver(),
       }),
-      drop: (source) => {
+      drop: (source, monitor) => {
         dispatch(closeTooltip());
+        // Bitirim: karakter ekipman slotundan surukleyip envantere birakmak = CIKAR.
+        if (monitor.getItemType() === 'EQUIP') {
+          if (typeof source?.slot === 'string') fetchNui('bitirim:unequip', { slot: source.slot }).catch(() => {});
+          return;
+        }
         switch (source.inventory) {
           case InventoryType.SHOP:
             onBuy(source, { inventory: inventoryType, item: { slot: item.slot } });
@@ -85,11 +91,17 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
             break;
         }
       },
-      canDrop: (source) =>
-        !isHidden &&
-        (source.item.slot !== item.slot || source.inventory !== inventoryType) &&
-        inventoryType !== InventoryType.SHOP &&
-        inventoryType !== InventoryType.CRAFTING,
+      canDrop: (source, monitor) => {
+        // 'EQUIP' (giyili parca) -> yalniz oyuncu envanterine birakilabilir (= cikar).
+        if (monitor.getItemType() === 'EQUIP') return inventoryType === 'player' && !isHidden;
+
+        return (
+          !isHidden &&
+          (source.item.slot !== item.slot || source.inventory !== inventoryType) &&
+          inventoryType !== InventoryType.SHOP &&
+          inventoryType !== InventoryType.CRAFTING
+        );
+      },
     }),
     [inventoryType, item, isHidden]
   );
