@@ -1,6 +1,5 @@
 import React, { useCallback, useRef } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
-import CharacterStats from './CharacterStats';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { selectBagLevel } from '../../store/backpack';
 import { selectEquipment, EquipItem } from '../../store/equipment';
@@ -309,11 +308,6 @@ const CharacterPanel: React.FC = () => {
         </div>
 
         <div className="bx-eq-col">{RIGHT_SLOTS.map(renderSlot)}</div>
-      </div>
-
-      {/* Alt bolge: statlar. */}
-      <div className="bx-char-bottom">
-        <CharacterStats />
       </div>
     </div>
   );

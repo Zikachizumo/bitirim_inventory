@@ -34,9 +34,9 @@
   --money: #3ddc84;
 
   /* --- olcu --- */
-  /* Ekranda 14 slot genisligi (sol 5 + sag 8 + makro 1) ve dikeyde 5 sira +
-     ust bar + canta karti + talimat/ver satiri 1080'e sigmali. 9.5vh ~103px. */
-  --slot-sz: 9.5vh;
+  /* Ekrana sigsin diye slot boyutu kucultuldu (envanter cok genisti). 7.6vh ~82px.
+     Genislik: sol slot sutunu + ped + sag slot sutunu + envanter 8 grid + makro. */
+  --slot-sz: 7.6vh;
   --grid-cols: 8;
   --grid-rows: 5;
   --gap: 6px;
@@ -948,7 +948,7 @@ body.inv-dragging {
 .bx-char-view {
   position: relative;
   flex: 1;
-  min-width: 230px;
+  min-width: 170px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -1000,6 +1000,16 @@ body.inv-dragging {
       box-shadow: var(--accent-glow);
     }
   }
+}
+
+/* Bitirim: alt-sol hucre = statbar. 2x2 grid'de Surukle&Ver ile AYNI satirda
+   (align-items:stretch) -> yuksekligi otomatik olarak Ver penceresiyle esit. */
+.bx-statsbar {
+  display: flex;
+  align-items: center;
+}
+.bx-statsbar .bx-stats {
+  width: 100%;
 }
 
 /* eq grid altindaki bolge: statlar dikeyde ortalanir */
