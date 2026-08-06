@@ -8,8 +8,8 @@ import { selectBagLevel, unlockedGridSlots, BAG_CAP_KG } from '../../store/backp
 import { getTotalWeight } from '../../helpers';
 import { IconBackpack, IconWeight } from './BitirimIcons';
 
-const HOTBAR_SLOTS = 5;
-const GRID_SLOTS = 40; // 8 sutun x 5 satir
+const HOTBAR_SLOTS = 7; // Fast Access (makro) slotlari
+const GRID_SLOTS = 40; // 7 sutun x ~6 satir (Backpack)
 
 /**
  * Bitirim sag panel — oyuncunun kendi envanteri.
@@ -50,8 +50,9 @@ const PlayerPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Makro slotlari (1-5): grid'in USTUNDE yatay sira. */}
-      <div className="bx-hotrow" title="Makro slotları (1-5)">
+      {/* Fast Access (makro 1-7): grid'in USTUNDE yatay sira. */}
+      <p className="bx-sec-title">Fast Access</p>
+      <div className="bx-hotrow" title="Hizli erisim slotlari (1-7)">
         {hotbarItems.map((item) => (
           <InventorySlot
             key={`hotrow-${inventory.id}-${item.slot}`}
@@ -63,6 +64,7 @@ const PlayerPanel: React.FC = () => {
         ))}
       </div>
 
+      <p className="bx-sec-title">Backpack</p>
       <InventoryGrid
         inventory={inventory}
         skipSlots={HOTBAR_SLOTS}

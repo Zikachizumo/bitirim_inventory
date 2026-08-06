@@ -27,8 +27,8 @@ local MAX_LEVEL = 5
 --   Player envanteri = 5 makro (1-5) + 40 grid (6-45).
 --   Her seviye +8 grid slotu acar. Acik toplam = 5 + seviye*8.
 --   slot > 5 + seviye*8 => KILITLI.
-local HOTBAR_SLOTS = 5     -- makro slotlari (1-5) her seviyede aciktir
-local SLOTS_PER_LEVEL = 8  -- her seviye acilan grid slotu sayisi
+local HOTBAR_SLOTS = 7     -- Fast Access (makro) slotlari (1-7) her seviyede aciktir
+local SLOTS_PER_LEVEL = 8  -- her seviye acilan grid slotu sayisi (level*8, degismedi)
 
 -- citizenid -> level (bellek onbellegi)
 local levelCache = {}
