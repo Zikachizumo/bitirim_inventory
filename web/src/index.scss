@@ -34,9 +34,9 @@
   --money: #3ddc84;
 
   /* --- olcu --- */
-  /* Ekrana sigsin diye slot boyutu kucultuldu (envanter cok genisti). 7.6vh ~82px.
-     Genislik: sol slot sutunu + ped + sag slot sutunu + envanter 8 grid + makro. */
-  --slot-sz: 7.6vh;
+  /* Tum slotlar (envanter + karakter) sabit 90px. Auto-scale (index.tsx) pencereyi
+     ekrana sigacaksa kuculterek olcekler (buyutmez -> 90px tavan). */
+  --slot-sz: 90px;
   --grid-cols: 7;
   --grid-rows: 5; /* 35 grid slotu 7 sutunda = 5 tam sira (son 5 slot kaldirildi) */
   --gap: 6px;
@@ -508,13 +508,9 @@ body.inv-dragging {
   }
 }
 
+/* Bitirim: item ADI slotta GIZLI (gorseli kapatiyordu). Isim tooltip'te (hover) gorunur. */
 .inventory-slot-label-box {
-  background: rgba(9, 8, 14, 0.72);
-  color: var(--text);
-  text-align: center;
-  border-bottom-left-radius: calc(var(--r-s) - 1px);
-  border-bottom-right-radius: calc(var(--r-s) - 1px);
-  border-top: 1px solid var(--line);
+  display: none;
 }
 
 .inventory-slot-label-text {
@@ -529,22 +525,25 @@ body.inv-dragging {
   letter-spacing: 0.03em;
 }
 
-/* hotbar makro numarasi — adet rozetiyle karismasin diye belirgin accent rozet */
+/* Fast Access makro numarasi — slotun SOL ALT kosesinde kucuk accent rozet. */
 .inventory-slot-number {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  z-index: 2;
   background: var(--accent);
   color: var(--accent-ink);
-  min-width: 22px;
-  height: 22px;
+  min-width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
-  border-top-left-radius: calc(var(--r-s) - 1px);
-  border-bottom-right-radius: var(--r-xs);
-  padding: 0 6px;
-  font-size: 13px;
+  border-radius: var(--r-xs);
+  padding: 0 5px;
+  font-size: 12px;
   font-weight: 900;
   font-family: var(--font);
   font-variant-numeric: tabular-nums;
-  box-shadow: 0 0 14px -3px var(--accent);
+  box-shadow: 0 0 12px -3px var(--accent);
 }
 
 .item-slot-wrapper {
