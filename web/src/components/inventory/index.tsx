@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import useNuiEvent from '../../hooks/useNuiEvent';
 import InventoryHotbar from './InventoryHotbar';
 import CharacterStats from './CharacterStats';
@@ -102,11 +102,34 @@ const Inventory: React.FC = () => {
   // Bitirim: nakit (qbx cash) -> ust bar. Nakit artik envanter item'i degil.
   useNuiEvent<number>('setCash', (amount) => dispatch(setCash(amount)));
 
+  // Bitirim: OTOMATIK OLCEKLEME — pencereyi ekrana sigacak/dolduracak sekilde
+  // olcekle (tam ekran his). Dogal boyutu olcup min(vw,vh) orani ile scale eder.
+  const windowRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!inventoryVisible) return;
+    const el = windowRef.current;
+    if (!el) return;
+    const fit = () => {
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      if (!w || !h) return;
+      const s = Math.min((window.innerWidth * 0.99) / w, (window.innerHeight * 0.985) / h);
+      el.style.transform = `scale(${s})`;
+    };
+    fit();
+    const t = window.setTimeout(fit, 60); // layout otursun
+    window.addEventListener('resize', fit);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('resize', fit);
+    };
+  }, [inventoryVisible, isDrop, hasContainer]);
+
   return (
     <>
       <Fade in={inventoryVisible}>
         <div className="inventory-wrapper">
-          <div className="bx-window">
+          <div className="bx-window" ref={windowRef}>
             <BitirimTopBar />
 
             {/* 2x2 grid: satir1 = ana kutular (esit yukseklik),
