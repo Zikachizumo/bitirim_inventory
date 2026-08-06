@@ -126,16 +126,37 @@ local function openScene()
 
     sceneActive = true
 
-    -- Spot isik dongusu (yalniz sahne acikken).
+    -- Spot isik + KLAVYE CANLI AYAR dongusu (yalniz sahne acikken). Envanter
+    -- acikken chat (T) acilmadigi icin kamera ok tuslari + fare tekerlegi ile
+    -- ayarlanir; degerler degisince F8'e yazilir (begenince bana soyle).
     CreateThread(function()
         while sceneActive and clone and DoesEntityExist(clone) do
             local rgb = LEVEL_RGB[currentLevel] or LEVEL_RGB[0]
             local cc = GetEntityCoords(clone)
             local cx, cy, cz = cc.x, cc.y, cc.z
-            -- onden-ustten spot
             DrawSpotLight(cx, cy - 1.4, cz + 1.4, 0.0, 0.7, -0.6, rgb[1], rgb[2], rgb[3], 9.0, 18.0, 0.0, 10.0, 1.5)
-            -- yumusak dolgu
             DrawLightWithRangeAndShadow(cx, cy - 0.8, cz + 0.4, rgb[1], rgb[2], rgb[3], 4.0, 6.0, 0.0)
+
+            -- Canli ayar (ok tuslari + tekerlek). Hem enabled hem disabled kontrol
+            -- (NUI odakli iken bazi kontroller disabled olabilir). Kontroller:
+            -- 174/175 sol/sag ok, 172/173 yukari/asagi ok, 241/242 tekerlek, 96/97 pad.
+            local function pressed(c) return IsControlJustPressed(0, c) or IsDisabledControlJustPressed(0, c) end
+            local changed = false
+            if pressed(174) then CAM_SIDE = CAM_SIDE - 0.05; changed = true end
+            if pressed(175) then CAM_SIDE = CAM_SIDE + 0.05; changed = true end
+            if pressed(172) then CAM_HEIGHT = CAM_HEIGHT + 0.05; changed = true end
+            if pressed(173) then CAM_HEIGHT = CAM_HEIGHT - 0.05; changed = true end
+            if pressed(241) then CAM_DIST = math.max(0.5, CAM_DIST - 0.1); changed = true end
+            if pressed(242) then CAM_DIST = CAM_DIST + 0.1; changed = true end
+            if pressed(96) then CAM_FOV = math.max(10.0, CAM_FOV - 1.0); changed = true end
+            if pressed(97) then CAM_FOV = math.min(90.0, CAM_FOV + 1.0); changed = true end
+
+            if changed then
+                positionCamera()
+                print(('^3[bitirim] cam dist=%.2f side=%.2f height=%.2f fov=%.1f lookz=%.2f^7')
+                    :format(CAM_DIST, CAM_SIDE, CAM_HEIGHT, CAM_FOV, CAM_LOOK_Z))
+            end
+
             Wait(0)
         end
     end)
