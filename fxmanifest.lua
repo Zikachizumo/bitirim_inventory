@@ -47,12 +47,16 @@ server_scripts {
     'init.lua',
     -- Bitirim: canta seviyesi backend (kalici seviye + agirlik siniri)
     'modules/bitirim/server.lua',
+    -- Bitirim: ekipman/kiyafet backend (kalici giyili itemler + ped uygulama)
+    'modules/bitirim/equipment_server.lua',
 }
 
 client_scripts {
     'init.lua',
     -- Bitirim: karakter panelindeki durum barlarini besler (bagimsiz calisir)
     'modules/bitirim/client.lua',
+    -- Bitirim: giyili ekipmani ped'e uygular + panele yollar + unequip
+    'modules/bitirim/equipment_client.lua',
 }
 
 ui_page 'web/build/index.html'

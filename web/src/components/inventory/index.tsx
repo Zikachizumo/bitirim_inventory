@@ -5,7 +5,7 @@ import BitirimHints from './BitirimHints';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { refreshSlots, selectRightInventory, setAdditionalMetadata, setupInventory } from '../../store/inventory';
 import { setPlayerStatus, PlayerStatus } from '../../store/playerStatus';
-import { setEquippedSlot } from '../../store/equipment';
+import { setEquippedSlot, setEquipment, EquipmentMap } from '../../store/equipment';
 import { setBagLevel } from '../../store/backpack';
 import { setCash } from '../../store/cash';
 import { useExitListener } from '../../hooks/useExitListener';
@@ -80,6 +80,9 @@ const Inventory: React.FC = () => {
 
   // Bitirim: o an kusanili slot (sag tik menusunde Use/Unequip etiketi icin)
   useNuiEvent<number | null>('setEquippedSlot', (data) => dispatch(setEquippedSlot(data)));
+
+  // Bitirim: giyili kiyafet/ekipman (slot -> gorunum). Karakter panelini doldurur.
+  useNuiEvent<EquipmentMap>('setEquipment', (data) => dispatch(setEquipment(data)));
 
   // Bitirim: canta seviyesi -> tema rengi (<html data-lv>) + acik/kilitli slotlar
   useNuiEvent<number>('setBagLevel', (level) => {

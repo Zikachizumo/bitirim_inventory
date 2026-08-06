@@ -2,15 +2,32 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '.';
 
 /**
- * Bitirim — o an kusanili/giyili slot.
+ * Bitirim — ekipman durumu (TEK KAYNAK).
  *
- * Su an yalnizca silah icin dolar (client Lua getCurrentWeapon'i izleyip
- * `setEquippedSlot` gonderir). Kiyafet giyme sistemi baglaninca ayni slice
- * giyili kiyafet slotlari icin de kullanilabilir.
- *
- * Sag tik menusunde bu slot icin "Use" yerine "Unequip" yazilir.
+ * İki parça:
+ *  - `equippedSlot`: o an kuşanılı SİLAH slotu (client Lua getCurrentWeapon'i
+ *    izleyip `setEquippedSlot` gönderir). Sağ tık menüsünde "Use" yerine
+ *    "Unequip" yazmak için kullanılır.
+ *  - `equipment`: karakter panelindeki GİYİLİ kıyafet/ekipman slotları
+ *    (slot -> { drawable, texture }). Server (equipment_server.lua) DB'den
+ *    üretir, client `setEquipment` ile gönderir. Bu veri hem paneli doldurur
+ *    hem ileride 3D önizlemeyi besleyecek — dünya karakteri ile AYNI kaynak.
  */
-const initialState: { equippedSlot: number | null } = { equippedSlot: null };
+
+export interface EquipItem {
+  item?: string;
+  drawable: number;
+  texture: number;
+}
+
+export type EquipmentMap = Record<string, EquipItem>;
+
+interface EquipmentState {
+  equippedSlot: number | null;
+  equipment: EquipmentMap;
+}
+
+const initialState: EquipmentState = { equippedSlot: null, equipment: {} };
 
 export const equipmentSlice = createSlice({
   name: 'equipment',
@@ -19,9 +36,13 @@ export const equipmentSlice = createSlice({
     setEquippedSlot: (state, action: PayloadAction<number | null>) => {
       state.equippedSlot = action.payload ?? null;
     },
+    setEquipment: (state, action: PayloadAction<EquipmentMap | null | undefined>) => {
+      state.equipment = action.payload ?? {};
+    },
   },
 });
 
-export const { setEquippedSlot } = equipmentSlice.actions;
+export const { setEquippedSlot, setEquipment } = equipmentSlice.actions;
 export const selectEquippedSlot = (state: RootState) => state.equipment.equippedSlot;
+export const selectEquipment = (state: RootState) => state.equipment.equipment;
 export default equipmentSlice.reducer;

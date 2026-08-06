@@ -47,6 +47,50 @@ return {
 		description = '90 KG - 40 Slot',
 	},
 
+	--[[ BITIRIM: KIYAFET / EKIPMAN itemleri (ORNEK katalog).
+	     Kullaninca (Kullan / cift sol tik / sag tik) ilgili slota GIYILIR:
+	     item envanterden cikar, karakter panelinde slot dolar, ped'e uygulanir
+	     (kalici, DB'de). Panelden geri cikarilinca item envantere doner.
+	     Mantik: modules/bitirim/equipment_server.lua (qbx CreateUseableItem).
+	     Slot + gorunum (drawable/texture) esleme: data/bitirim_clothing.lua.
+	     - consume/usetime YOK -> item server.UseItem yoluna duser (qbx).
+	     - stack=false: her parca tekil.
+	     TAM KATALOG (gercek drawable'lar + gorseller) kullanicidan gelecek. ]]
+	['mask_black'] = {
+		label = 'Siyah Maske',
+		weight = 200,
+		stack = false,
+		close = false, -- giyince envanter acik kalsin (panel slotu dolarken gorunur)
+	},
+
+	['cap_black'] = {
+		label = 'Siyah Sapka',
+		weight = 150,
+		stack = false,
+		close = false,
+	},
+
+	['glasses_dark'] = {
+		label = 'Gunes Gozlugu',
+		weight = 80,
+		stack = false,
+		close = false,
+	},
+
+	['gold_chain'] = {
+		label = 'Altin Kolye',
+		weight = 120,
+		stack = false,
+		close = false,
+	},
+
+	['gold_watch'] = {
+		label = 'Altin Saat',
+		weight = 120,
+		stack = false,
+		close = false,
+	},
+
 	['testburger'] = {
 		label = 'Test Burger',
 		weight = 220,
