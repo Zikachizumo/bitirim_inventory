@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import useNuiEvent from '../../hooks/useNuiEvent';
 import InventoryHotbar from './InventoryHotbar';
-import BitirimHints from './BitirimHints';
+import CharacterStats from './CharacterStats';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { refreshSlots, selectRightInventory, setAdditionalMetadata, setupInventory } from '../../store/inventory';
 import { setPlayerStatus, PlayerStatus } from '../../store/playerStatus';
@@ -123,7 +123,16 @@ const Inventory: React.FC = () => {
                 <CharacterPanel />
               )}
               <PlayerPanel />
-              <BitirimHints />
+              {/* Bitirim: Kullanim talimatlari kaldirildi. Alt-sol hucre = statlar
+                  (Surukle&Ver ile ayni satir -> ayni yukseklik). Drop modunda
+                  DropPanel kendi statini gosterir, burasi bos. */}
+              {isDrop ? (
+                <div />
+              ) : (
+                <div className="bx-statsbar">
+                  <CharacterStats />
+                </div>
+              )}
               <GiveBar />
             </div>
           </div>
