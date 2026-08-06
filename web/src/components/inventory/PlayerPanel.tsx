@@ -50,31 +50,28 @@ const PlayerPanel: React.FC = () => {
         </div>
       </div>
 
-      <div className="bx-inv-main">
-        <InventoryGrid
-          inventory={inventory}
-          skipSlots={HOTBAR_SLOTS}
-          maxSlots={GRID_SLOTS}
-          hideHeader
-          lockedFrom={unlocked}
-        />
-
-        <div className="bx-hotcol" title="Makro slotları (1-5)">
-          {hotbarItems.map((item) => (
-            <InventorySlot
-              key={`hotcol-${inventory.id}-${item.slot}`}
-              item={item}
-              inventoryId={inventory.id}
-              inventoryType={inventory.type}
-              inventoryGroups={inventory.groups}
-            />
-          ))}
-        </div>
+      {/* Makro slotlari (1-5): grid'in USTUNDE yatay sira. */}
+      <div className="bx-hotrow" title="Makro slotları (1-5)">
+        {hotbarItems.map((item) => (
+          <InventorySlot
+            key={`hotrow-${inventory.id}-${item.slot}`}
+            item={item}
+            inventoryId={inventory.id}
+            inventoryType={inventory.type}
+            inventoryGroups={inventory.groups}
+          />
+        ))}
       </div>
 
-      {/* Alt bolge: canta karti dikeyde ortalanir; karsi paneldeki statlarla
-          ortadan hizali olsun diye (envanter paneli, karakter paneliyle esit
-          yukseklikte oldugundan iki alt bolge ayni banda denk gelir). */}
+      <InventoryGrid
+        inventory={inventory}
+        skipSlots={HOTBAR_SLOTS}
+        maxSlots={GRID_SLOTS}
+        hideHeader
+        lockedFrom={unlocked}
+      />
+
+      {/* Alt bolge: canta karti panelin ALTINA itilir (margin-top:auto). */}
       <div className="bx-inv-bottom">
       {/* Canta karti — gercek slot/agirlik verisi.
           Seviye rozeti, canta seviye sistemi baglanana kadar gosterilmiyor. */}

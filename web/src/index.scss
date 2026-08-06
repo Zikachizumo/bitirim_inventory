@@ -1025,8 +1025,10 @@ body.inv-dragging {
 }
 
 /* grid altindaki bolge: canta karti dikeyde ortalanir (statlarla ortadan hizali) */
+/* Canta karti panelin ALTINA itilir (kalan bosluk kartin ustunde kalir; makro
+   ustte oldugu icin envanter yuksekligi karakter paneline yakin -> bosluk az). */
 .bx-inv-bottom {
-  flex: 1;
+  margin-top: auto;
   display: flex;
   align-items: center;
 }
@@ -1226,6 +1228,18 @@ body.inv-dragging {
   display: flex;
   gap: 14px;
   align-items: flex-start; /* grid ustu = makro sutunu ustu -> makro N satir N ile hizali */
+}
+
+/* Makro slotlari — grid'in USTUNDE yatay sira (1-5). */
+.bx-hotrow {
+  display: flex;
+  gap: var(--gap);
+  padding-bottom: 4px;
+
+  .inventory-slot {
+    width: var(--slot-sz);
+    height: var(--slot-sz);
+  }
 }
 
 .bx-hotcol {
