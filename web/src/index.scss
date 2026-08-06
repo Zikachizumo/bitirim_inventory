@@ -791,6 +791,8 @@ body.inv-dragging {
   border-radius: 22px;
   box-shadow: 0 40px 120px -30px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   overflow: hidden;
+  /* Otomatik olcekleme (index.tsx) merkezden uygulanir. */
+  transform-origin: center center;
 }
 
 /* ---- ust bar ---- */
@@ -932,7 +934,7 @@ body.inv-dragging {
 .bx-char-body {
   flex: 1;
   display: flex;
-  gap: var(--gap);
+  gap: 22px; /* sol/sag slot sutunlari ile ortadaki ped arasi bosluk (genis) */
   align-items: stretch;
 }
 
@@ -948,7 +950,7 @@ body.inv-dragging {
 .bx-char-view {
   position: relative;
   flex: 1;
-  min-width: 170px;
+  min-width: 300px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -1103,26 +1105,26 @@ body.inv-dragging {
   gap: 8px;
 }
 
-/* %50 kisaltilmis kompakt stat karti (padding + bosluk azaltildi). */
+/* Stat karti — referans gorsele gore dengeli boyut. */
 .bx-stat {
   background: var(--slot);
   border: 1px solid var(--line);
   border-radius: var(--r-s);
-  padding: 6px 9px;
+  padding: 11px 14px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 9px;
 }
 
 .bx-stat-top {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 9px;
 }
 
 .bx-stat-label {
-  font-size: 9px;
-  letter-spacing: 0.06em;
+  font-size: 11px;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--text-2);
   font-weight: 700;
@@ -1133,13 +1135,13 @@ body.inv-dragging {
 
 .bx-stat-pct {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 750;
   font-variant-numeric: tabular-nums;
 }
 
 .bx-bar {
-  height: 5px;
+  height: 7px;
   border-radius: 99px;
   background: rgba(9, 8, 14, 0.65);
   overflow: hidden;
