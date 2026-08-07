@@ -83,6 +83,7 @@ local backdrop    = nil     -- koyu arka plan prop'u (gercek dunyayi kapatir)
 local cam         = nil
 local realPed     = nil
 local heading     = FIXED_DIR
+local camYaw      = 0.0     -- sahne acilinca yakalanan OYUN kamerasi yaw'i (acisi)
 local compCache   = {}     -- aynalama diff onbellegi
 local curWeapon   = nil
 -- NOT: seviye-renkli arka glow artik CSS'te (.bx-char-view, --accent bag rengini
@@ -127,17 +128,20 @@ end
 ------------------------------------------------------------------------------
 -- KAMERA
 ------------------------------------------------------------------------------
---- Kamerayi SABIT referans yone gore yerlestir (klon heading'inden BAGIMSIZ) ->
---- ped'i dondurmek gorsel donme yapar; kamera cerceve degismez.
+--- Kamerayi OYUN kamerasinin YONUNE (camYaw, sahne acilinca yakalandi) gore
+--- yerlestir -> "oyundaki bakis acisi" (arkadan/ucuncu sahis) korunur, one zip-
+--- lamaz. Karakter yine sol panele (char-view) alinir (side offset). Klonu
+--- dondurmek (RotatePreview) ped'i gorsel dondurur; kamera acisi sabit kalir.
 local function positionCamera()
     if not cam or not previewPed or not DoesEntityExist(previewPed) then return end
     local cc = GetEntityCoords(previewPed)
     local cx, cy, cz = cc.x, cc.y, cc.z
-    local h = math.rad(FIXED_DIR)
-    local fx, fy = -math.sin(h), math.cos(h)   -- referans "on" (kamera bu yonde durur)
+    local h = math.rad(camYaw)
+    local fx, fy = -math.sin(h), math.cos(h)   -- oyun kamerasi ONU (kamera -> karakter)
     local rx, ry = math.cos(h), math.sin(h)    -- saga vektor
     local dist = cam_cfg.dist / (cam_cfg.zoom > 0 and cam_cfg.zoom or 1.0)
-    SetCamCoord(cam, cx + fx * dist, cy + fy * dist, cz + cam_cfg.height)
+    -- Kamera karakterin ARKASINDA (oyun acisi): char - on*dist. Bakis = karaktere.
+    SetCamCoord(cam, cx - fx * dist, cy - fy * dist, cz + cam_cfg.height)
     PointCamAtCoord(cam, cx + rx * cam_cfg.side, cy + ry * cam_cfg.side, cz + cam_cfg.lookz)
     SetCamFov(cam, cam_cfg.fov)
 end
@@ -222,6 +226,10 @@ local function CreatePreview(opts)
     if not ped or ped == 0 then return end
     realPed = ped
 
+    -- OYUN kamerasinin acisini (yaw) YAKALA (ped gizlenmeden once). Preview kamera
+    -- bu aciyi kullanir -> "oyundaki bakis acisi" korunur, one ziplamaz.
+    camYaw = GetGameplayCamRot(2).z
+
     -- Klon = oyuncunun TAM gorunumu (bilesen/prop/head-blend/tattoo kopyalanir).
     previewPed = ClonePed(ped, GetEntityHeading(ped), true, true)
     if not previewPed or previewPed == 0 or not DoesEntityExist(previewPed) then
@@ -240,14 +248,17 @@ local function CreatePreview(opts)
     SetEntityCollision(previewPed, false, false)
     SetBlockingOfNonTemporaryEvents(previewPed, true)
     SetEntityLodDist(previewPed, 1000)
-    heading = FIXED_DIR
+    -- Klon oyuncunun IN-GAME heading'iyle durur (one cevirmiyoruz) -> oyun acisi
+    -- korunur. RotatePreview ile sonra dondurulebilir.
+    heading = GetEntityHeading(ped)
     SetEntityHeading(previewPed, heading)
 
     -- Gercek oyuncuyu GIZLE + DONDUR -> klonla cakismaz + WASD/hareket pasif.
     SetEntityVisible(realPed, false, false)
     FreezeEntityPosition(realPed, true)
 
-    -- Scripted kamera (SADECE klonu cercever).
+    -- Scripted kamera: OYUN acisini (camYaw) kullanir -> one ziplamaz, "oyundaki
+    -- bakis acisi" (arkadan) korunur; karakter yine sol panele alinir (side).
     cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
     SetCamUseShallowDofMode(cam, false)
     SetCamDofStrength(cam, 0.0)
