@@ -32,7 +32,7 @@
 ------------------------------------------------------------------------------
 -- Dedike onizleme sahnesi: YUKSEK irtifa void -> ped'in arkasi (yatay bakis)
 -- karanlik gokyuzu; sehir/isik kalabaligi karede degil. Gece override karartir.
-local SCENE      = vector3(1000.0, -2000.0, 900.0)
+local SCENE      = vector3(1000.0, -2000.0, 1400.0)
 local NIGHT_HOUR = 1        -- gece saati (0-4 en koyu). Her kare uygulanir (senkronu yener)
 local FIXED_DIR  = 180.0    -- kamera SABIT referans yonu (ped bu yone bakinca on-goruntu).
                             -- Klon heading'i degisince ped GORSEL doner (kamera sabit).
@@ -47,16 +47,18 @@ local cam_cfg = {
     zoom   = 1.0,    -- ileride kolay zoom: dist / zoom (buyuk = yakin)
 }
 
--- STUDYO ISIK (void'de gunes yok -> ped'i biz aydinlatiriz; backdrop yok, karanlik
--- gokyuzu zemin). KEY = beyaz on dolgu, RIM = seviye-renkli arka kenar isigi.
-local KEY_INT, KEY_RANGE, KEY_ZOFF = 2.4, 4.2, 0.35
-local RIM_INT, RIM_RANGE, RIM_ZOFF = 2.6, 4.5, 1.05
+-- STUDYO ISIK: KEY = kameradan beyaz on dolgu (ped parlak/net). Menzil KISA ->
+-- backdrop'a tasmaz (backdrop KOYU kalir -> gercek dunya kapanir; renkli glow'u
+-- CSS veriyor, referans 1.jpg gibi). Seviye-renkli arka aura CSS'te (bag rengi).
+local KEY_INT, KEY_RANGE, KEY_ZOFF = 2.4, 3.6, 0.35
 
--- Seviye -> RIM RGB (tema paleti: L0 gri ... L5 altin)
-local LEVEL_RGB = {
-    [0] = { 139, 147, 167 }, [1] = { 223, 226, 238 }, [2] = { 47, 155, 255 },
-    [3] = { 192, 38, 211 },  [4] = { 255, 122, 26 },  [5] = { 245, 197, 24 },
-}
+-- BACKDROP: ped'in ARKASINA konan KOYU prop -> gercek dunyayi (gece sehir) kapatir.
+-- ISIKLANDIRILMAZ (KEY menzili kisa) -> karanlikta dokusu gorunmez, temiz koyu zemin.
+-- Renkli glow/gradyan CSS'ten gelir (.bx-char-view). /cam bdist/bzoff/bhead/bmodel.
+local BACKDROP_MODEL   = `prop_container_01a`
+local BACKDROP_DIST    = 1.4   -- ped'in ARKASINA (kameradan uzak) uzaklik (yakin=buyuk)
+local BACKDROP_ZOFF    = 0.2   -- dikey kaydirma (kareyi doldur)
+local BACKDROP_HEADOFF = 90.0  -- duz yuzu kameraya cevir
 
 -- Idle animasyonlari (cinsiyete gore). Donuk gorunmesin: nefes/kucuk salinim.
 local IDLE_M = { dict = 'anim@heists@heist_corona@team_idles@male_a',   anim = 'idle' }
@@ -72,17 +74,50 @@ local UNARMED    = `WEAPON_UNARMED`
 ------------------------------------------------------------------------------
 local active      = false
 local previewPed  = nil
+local backdrop    = nil     -- koyu arka plan prop'u (gercek dunyayi kapatir)
 local cam         = nil
 local realPed     = nil
 local heading     = FIXED_DIR
-local currentLevel = 0
 local compCache   = {}     -- aynalama diff onbellegi
 local curWeapon   = nil
+-- NOT: seviye-renkli arka glow artik CSS'te (.bx-char-view, --accent bag rengini
+-- alir). Bu yuzden Lua'da seviye/RIM takibi YOK.
 
--- Canta seviyesi -> RIM rengi (bagimsiz; bag backend zaten yolluyor).
-RegisterNetEvent('bitirim:client:bagLevel', function(level)
-    currentLevel = math.max(0, math.min(5, math.floor(tonumber(level) or 0)))
-end)
+------------------------------------------------------------------------------
+-- BACKDROP (koyu okluder — gercek dunyayi kapatir)
+------------------------------------------------------------------------------
+--- Backdrop'u ped'in ARKASINA (kameraya gore) sabit yerlestir. Kamera SABIT
+--- yonde oldugu icin backdrop da FIXED_DIR'e gore konur (ped donse de arkada kalir).
+local function positionBackdrop()
+    if not backdrop or not DoesEntityExist(backdrop) or not previewPed or not DoesEntityExist(previewPed) then return end
+    local cc = GetEntityCoords(previewPed)
+    local h = math.rad(FIXED_DIR)
+    local fx, fy = -math.sin(h), math.cos(h) -- kamera yonu (referans on)
+    -- Ped'in arkasi = kameradan uzak = -on yon.
+    SetEntityCoordsNoOffset(backdrop, cc.x - fx * BACKDROP_DIST, cc.y - fy * BACKDROP_DIST, cc.z + BACKDROP_ZOFF, false, false, false)
+    SetEntityHeading(backdrop, FIXED_DIR + BACKDROP_HEADOFF)
+end
+
+--- Backdrop prop'unu (yeniden) yarat.
+local function spawnBackdrop()
+    if backdrop and DoesEntityExist(backdrop) then DeleteEntity(backdrop) end
+    backdrop = nil
+    if not previewPed or BACKDROP_MODEL == 0 then return end
+    RequestModel(BACKDROP_MODEL)
+    local t = 0
+    while not HasModelLoaded(BACKDROP_MODEL) and t < 100 do Wait(10); t = t + 1 end
+    if not HasModelLoaded(BACKDROP_MODEL) then
+        print('^1[bitirim] PreviewManager: backdrop yuklenemedi^7'); return
+    end
+    local cc = GetEntityCoords(previewPed)
+    backdrop = CreateObject(BACKDROP_MODEL, cc.x, cc.y, cc.z + BACKDROP_ZOFF, false, false, false)
+    SetEntityInvincible(backdrop, true)
+    FreezeEntityPosition(backdrop, true)
+    SetEntityCollision(backdrop, false, false)
+    SetEntityLodDist(backdrop, 1000)
+    SetModelAsNoLongerNeeded(BACKDROP_MODEL)
+    positionBackdrop()
+end
 
 ------------------------------------------------------------------------------
 -- KAMERA
@@ -206,6 +241,9 @@ local function CreatePreview(opts)
     RequestCollisionAtCoord(SCENE.x, SCENE.y, SCENE.z)
     SetFocusPosAndVel(SCENE.x, SCENE.y, SCENE.z, 0.0, 0.0, 0.0)
 
+    -- Koyu backdrop (gercek dunyayi kapatir -> temiz koyu zemin).
+    spawnBackdrop()
+
     -- Kamera (SADECE preview ped'i cercever).
     cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
     SetCamUseShallowDofMode(cam, false)
@@ -234,20 +272,12 @@ local function CreatePreview(opts)
             -- Gece override'i HER KARE (sunucu zaman senkronunu yener -> koyu sahne).
             NetworkOverrideClockTime(NIGHT_HOUR, 0, 0)
 
-            local rgb = LEVEL_RGB[currentLevel] or LEVEL_RGB[0]
-            local cc = GetEntityCoords(previewPed)
-            local h = math.rad(FIXED_DIR)
-            local fx, fy = -math.sin(h), math.cos(h) -- referans on (kamera yonu)
-
-            -- KEY: kameradan beyaz dolgu -> ped parlak/net (menzil kisa).
+            -- KEY: kameradan beyaz dolgu -> ped parlak/net. Menzil KISA -> backdrop'a
+            -- tasmaz (backdrop koyu kalir). Renkli glow CSS'te (seviye rengi).
             if cam then
                 local cp = GetCamCoord(cam)
                 DrawLightWithRange(cp.x, cp.y, cp.z + KEY_ZOFF, 255, 252, 246, KEY_RANGE, KEY_INT)
             end
-            -- RIM: ped'in ARKASINDAN (kameraya gore) seviye-renkli kenar isigi.
-            local rx = cc.x - fx * (cam_cfg.dist * 0.55)
-            local ry = cc.y - fy * (cam_cfg.dist * 0.55)
-            DrawLightWithRange(rx, ry, cc.z + RIM_ZOFF, rgb[1], rgb[2], rgb[3], RIM_RANGE, RIM_INT)
 
             -- ox screenblur kapali tut (ped net).
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
@@ -281,6 +311,8 @@ local function DestroyPreview()
 
     RenderScriptCams(false, false, 0, true, true)
     if cam then DestroyCam(cam, false); cam = nil end
+    if backdrop and DoesEntityExist(backdrop) then DeleteEntity(backdrop) end
+    backdrop = nil
     if previewPed and DoesEntityExist(previewPed) then
         SetEntityAsMissionEntity(previewPed, true, true)
         DeletePed(previewPed)
@@ -373,7 +405,8 @@ local function RotatePreview(mode, value)
     -- Kamera SABIT; yeniden konumlandirmaya gerek yok (ped gorsel doner).
 end
 
---- Kamera kompozisyonu guncelle (dist/height/side/fov/lookz/zoom). Zoom ilerisi hazir.
+--- Kamera kompozisyonu + backdrop guncelle (dist/height/side/fov/lookz/zoom +
+--- bdist/bzoff/bhead/bmodel). Zoom ilerisi hazir.
 local function SetCamera(cfg)
     if type(cfg) ~= 'table' then return end
     if cfg.dist   then cam_cfg.dist   = cfg.dist   + 0.0 end
@@ -382,7 +415,16 @@ local function SetCamera(cfg)
     if cfg.fov    then cam_cfg.fov    = cfg.fov    + 0.0 end
     if cfg.lookz  then cam_cfg.lookz  = cfg.lookz  + 0.0 end
     if cfg.zoom   then cam_cfg.zoom   = math.max(0.4, cfg.zoom + 0.0) end
+    -- Backdrop ince ayari (koyu okluder konum/model).
+    if cfg.bdist  then BACKDROP_DIST    = cfg.bdist + 0.0 end
+    if cfg.bzoff  then BACKDROP_ZOFF    = cfg.bzoff + 0.0 end
+    if cfg.bhead  then BACKDROP_HEADOFF = cfg.bhead + 0.0 end
+    if cfg.bmodel then
+        BACKDROP_MODEL = type(cfg.bmodel) == 'string' and GetHashKey(cfg.bmodel) or cfg.bmodel
+        if active then spawnBackdrop() end
+    end
     positionCamera()
+    positionBackdrop()
 end
 
 local function IsPreviewActive() return active end

@@ -47,11 +47,20 @@ end)
       /cam fov <n>    gorus acisi (35-45)
       /cam lookz <n>  bakis hedefi yuksekligi
       /cam zoom <n>   yakinlastirma (1=varsayilan, buyuk=yakin)
+      -- BACKDROP (koyu arka plan okluder):
+      /cam bdist <n>  ped'e uzaklik (yakin=buyuk gorunur) · bzoff <n> dikey · bhead <n> aci
+      /cam bmodel <model>  backdrop prop modelini degistir
 ]]
 RegisterCommand('cam', function(_, args)
     local p, v = args[1], tonumber(args[2])
-    if p and v and cam_cfg[p] ~= nil then
+    if p == 'bmodel' and args[2] then
+        Preview:SetCamera({ bmodel = args[2] })
+        print('^3[bitirim] backdrop model = ' .. args[2] .. '^7')
+        return
+    elseif p and v and cam_cfg[p] ~= nil then
         cam_cfg[p] = v
+        Preview:SetCamera({ [p] = v })
+    elseif p and v and (p == 'bdist' or p == 'bzoff' or p == 'bhead') then
         Preview:SetCamera({ [p] = v })
     end
     print(('^3[bitirim] cam dist=%.2f side=%.2f height=%.2f fov=%.1f lookz=%.2f zoom=%.2f (aktif:%s)^7')
