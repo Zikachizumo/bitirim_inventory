@@ -111,45 +111,30 @@ const Inventory: React.FC = () => {
   // katmanda clip-path (evenodd) DELIK olarak kesilir -> ped NET gorunur.
   const scrimRef = useRef<HTMLDivElement>(null);
   const windowBgRef = useRef<HTMLDivElement>(null);
-  // Son olcek (delik hesabi transform sonrasi gercek px ister).
-  const scaleRef = useRef(1);
   useLayoutEffect(() => {
     if (!inventoryVisible) return;
     const el = windowRef.current;
     if (!el) return;
     const updateHole = () => {
       const scrim = scrimRef.current;
-      const bg = windowBgRef.current;
       const view = document.querySelector('.bx-char-view') as HTMLElement | null;
-      const s = scaleRef.current || 1;
+      // SCRIM deligi — char-view bolgesinde BLUR uygulanmasin (ped NET). Karartma
+      // yok; sadece kenar+arka blur. Pencere/char-view %25 tint'i .bx-window-bg'den
+      // gelir (delik YOK -> karakter onizleme de %25 opak). Kap/drop acikken char
+      // yok -> delik yok (tam blur arka).
+      if (!scrim) return;
       if (!view) {
-        // Karakter paneli yok (kap/drop) -> delik yok. Kenar blur + pencere tam siyah.
-        if (scrim) { scrim.style.clipPath = 'none'; (scrim.style as any).webkitClipPath = 'none'; }
-        if (bg) { bg.style.clipPath = 'none'; (bg.style as any).webkitClipPath = 'none'; }
+        scrim.style.clipPath = 'none';
+        (scrim.style as any).webkitClipPath = 'none';
         return;
       }
       const v = view.getBoundingClientRect();
-      // 1) SCRIM deligi — viewport px (blur bu bolgede uygulanmasin -> ped net).
-      if (scrim) {
-        const L = Math.max(0, v.left), T = Math.max(0, v.top), R = v.right, B = v.bottom;
-        const poly =
-          `polygon(evenodd, 0px 0px, 100vw 0px, 100vw 100vh, 0px 100vh, 0px 0px, ` +
-          `${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
-        scrim.style.clipPath = poly;
-        (scrim.style as any).webkitClipPath = poly;
-      }
-      // 2) SIYAH KATMAN deligi — pencereye gore LOKAL (olceksiz) px, ki siyah ped'i
-      //    ortmesin. bg inset:0 -> pencere ic kutusu; koordinatlar transform ONCESI.
-      if (bg) {
-        const w = el.getBoundingClientRect();
-        const L = (v.left - w.left) / s, T = (v.top - w.top) / s;
-        const R = (v.right - w.left) / s, B = (v.bottom - w.top) / s;
-        const poly =
-          `polygon(evenodd, 0px 0px, 100% 0px, 100% 100%, 0px 100%, 0px 0px, ` +
-          `${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
-        bg.style.clipPath = poly;
-        (bg.style as any).webkitClipPath = poly;
-      }
+      const L = Math.max(0, v.left), T = Math.max(0, v.top), R = v.right, B = v.bottom;
+      const poly =
+        `polygon(evenodd, 0px 0px, 100vw 0px, 100vw 100vh, 0px 100vh, 0px 0px, ` +
+        `${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
+      scrim.style.clipPath = poly;
+      (scrim.style as any).webkitClipPath = poly;
     };
     const fit = () => {
       const w = el.offsetWidth;
@@ -158,7 +143,6 @@ const Inventory: React.FC = () => {
       // 1 tavan: 90px slot boyutunu buyutme, yalniz ekrana sigmiyorsa kucult.
       const s = Math.min(1, (window.innerWidth * 0.99) / w, (window.innerHeight * 0.985) / h);
       el.style.transform = `scale(${s})`;
-      scaleRef.current = s;
       updateHole(); // transform sonrasi gercek dikdortgeni oku
     };
     fit();
