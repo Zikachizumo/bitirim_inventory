@@ -164,6 +164,11 @@ local function openScene()
     -- Arka plan backdrop (dunyayi kapatir -> koyu zemin).
     spawnBackdrop()
 
+    -- KOYU ZEMIN: tum ekran void kamerasini gosterdigi icin yerel saati GECEYE
+    -- cevir -> gunes gider, backdrop + void kararir, parlak ufuk kaybolur. Sahne
+    -- kapaninca geri alinir (NetworkClearClockTimeOverride). Sadece bu client.
+    NetworkOverrideClockTime(1, 0, 0)
+
     cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
     topView = false
     -- Depth-of-field KAPALI (ped bulaniklasmasin).
@@ -201,7 +206,9 @@ local function openScene()
             -- gorunen yuzu aydinlanir (siyah void'de net durur).
             if cam then
                 local cp = GetCamCoord(cam)
-                DrawLightWithRange(cp.x, cp.y, cp.z, 255, 255, 255, CAM_DIST + 3.0, 2.2)
+                -- Menzil sadece ped'e yetsin (backdrop ~CAM_DIST+2.4 arkada) ki
+                -- gece zemininde parlak leke olmasin -> ped isikli, arka koyu.
+                DrawLightWithRange(cp.x, cp.y, cp.z, 255, 255, 255, CAM_DIST + 1.0, 2.0)
             end
             -- Seviye-renkli ust/arka GLOW (tema vurgusu).
             DrawLightWithRange(cx, cy, cz + 1.7, rgb[1], rgb[2], rgb[3], 4.5, 2.6)
@@ -246,6 +253,7 @@ local function closeScene()
     ClearTimecycleModifier()
     ClearExtraTimecycleModifier()
     ClearFocus()
+    NetworkClearClockTimeOverride() -- gece override'ini geri al
 
     -- Gercek oyuncuyu coz.
     if realPed and DoesEntityExist(realPed) then
