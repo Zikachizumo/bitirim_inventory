@@ -212,14 +212,92 @@ end
 ------------------------------------------------------------------------------
 -- YASAM DONGUSU
 ------------------------------------------------------------------------------
---- Onizlemeyi ac.
---- SADELESTIRME (kullanici istegi 08-07): scripted KAMERA + BACKDROP (konteyner) +
---- OK-TUSU canli ayari KALDIRILDI. Su an canta acilinca OYUN EKRANINA DOKUNULMAZ
---- (normal kamera, backdrop yok, klavye yok). Klon/kamera/idle/aynalama yardimci
---- fonksiyonlari korundu; adim adim kullanici tarifiyle geri eklenecek.
+--- Onizlemeyi ac: KLON (bir kez) + scripted kamera + idle + canli aynalama.
+--- TEMIZ kurulum: backdrop/gece/ek isik/klavye-ayar YOK. Klon oyuncunun ZEMINDEKI
+--- konumunda durur (arka plan = gercek dunya). Gercek ped gizlenir + dondurulur
+--- (WASD/hareket pasif). Kamera SADECE klonu cercever.
 local function CreatePreview(opts)
     if active then return end
-    -- (Temiz taban: adim adim eklenecek — klon, kamera, idle, aynalama...)
+    local ped = PlayerPedId()
+    if not ped or ped == 0 then return end
+    realPed = ped
+
+    -- Klon = oyuncunun TAM gorunumu (bilesen/prop/head-blend/tattoo kopyalanir).
+    previewPed = ClonePed(ped, GetEntityHeading(ped), true, true)
+    if not previewPed or previewPed == 0 or not DoesEntityExist(previewPed) then
+        print('^1[bitirim] PreviewManager: ClonePed BASARISIZ^7')
+        previewPed = nil
+        return
+    end
+    pcall(ClonePedToTarget, ped, previewPed)
+    SetEntityAsMissionEntity(previewPed, true, true) -- guvenli DeletePed
+
+    -- Klonu oyuncunun ZEMINDEKI konumunda tut (ucmaz, dogal durur).
+    local pos = GetEntityCoords(ped)
+    SetEntityCoordsNoOffset(previewPed, pos.x, pos.y, pos.z, false, false, false)
+    FreezeEntityPosition(previewPed, true)
+    SetEntityInvincible(previewPed, true)
+    SetEntityCollision(previewPed, false, false)
+    SetBlockingOfNonTemporaryEvents(previewPed, true)
+    SetEntityLodDist(previewPed, 1000)
+    heading = FIXED_DIR
+    SetEntityHeading(previewPed, heading)
+
+    -- Gercek oyuncuyu GIZLE + DONDUR -> klonla cakismaz + WASD/hareket pasif.
+    SetEntityVisible(realPed, false, false)
+    FreezeEntityPosition(realPed, true)
+
+    -- Scripted kamera (SADECE klonu cercever).
+    cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
+    SetCamUseShallowDofMode(cam, false)
+    SetCamDofStrength(cam, 0.0)
+    SetCamNearDof(cam, 0.0)
+    SetCamFarDof(cam, 1000.0)
+    positionCamera()
+    SetCamActive(cam, true)
+    RenderScriptCams(true, false, 0, true, true)
+    TriggerScreenblurFadeOut(0.0)
+
+    active = true
+    compCache = {}
+    curWeapon = nil
+
+    playIdle()
+    mirrorWeapon(true)
+
+    -- RENDER thread (Wait 0): WASD/hareket + zoom pasif + screenblur kapali.
+    -- (Ek isik / gece / backdrop / klavye-ayar YOK.)
+    CreateThread(function()
+        while active and previewPed and DoesEntityExist(previewPed) do
+            if IsScreenblurFadeRunning() then DisableScreenblurFade() end
+            TriggerScreenblurFadeOut(0.0)
+
+            -- HAREKET (WASD) pasif -> oyuncu envanter acikken yurumez.
+            DisableControlAction(0, 30, true)   -- INPUT_MOVE_LR (A/D)
+            DisableControlAction(0, 31, true)   -- INPUT_MOVE_UD (W/S)
+            DisableControlAction(0, 21, true)   -- sprint (SHIFT)
+            DisableControlAction(0, 22, true)   -- jump (SPACE)
+            DisableControlAction(0, 44, true)   -- cover (Q)
+            DisableControlAction(0, 20, true)   -- multiplayer info (Z)
+            -- Zoom/tekerlek/silah degistirme pasif.
+            DisableControlAction(0, 14, true);  DisableControlAction(0, 15, true)
+            DisableControlAction(0, 16, true);  DisableControlAction(0, 17, true)
+            DisableControlAction(0, 96, true);  DisableControlAction(0, 97, true)
+            DisableControlAction(0, 241, true); DisableControlAction(0, 242, true)
+            DisableControlAction(0, 261, true); DisableControlAction(0, 262, true)
+
+            Wait(0)
+        end
+    end)
+
+    -- MIRROR thread (~150ms): gercek ped -> preview canli aynalama (incremental).
+    CreateThread(function()
+        while active and previewPed and DoesEntityExist(previewPed) do
+            mirrorAppearance()
+            mirrorWeapon(false)
+            Wait(150)
+        end
+    end)
 end
 
 --- Onizlemeyi kapat: HER SEYI temizle (ped/cam/render/gece/gizleme).
