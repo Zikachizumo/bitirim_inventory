@@ -43,13 +43,13 @@ local cam_cfg = {
     dist   = 3.55, height = 0.20, side = -0.98, fov = 44.0, lookz = -0.05, zoom = 1.0,
 }
 
--- KLON KADRAJI: kamera OYNAMAZ (gameplay kamerasi kalir, ziplamaz). Bunun yerine
--- klon, sahne acilinca yakalanan gameplay kamerasinin ONUNE + SOLA yerlestirilir
+-- KLON KADRAJI: kamera OYNAMAZ (gameplay kamerasi kalir, ziplamaz). Klon OYUNCUNUN
+-- KONUMUNDA durur (kesin gorunur, kaybolmaz) ve kamera acisina gore YANA kaydirilir
 -- ki char-view (sol panel) icinde gorunsun. Chat yok -> OK TUSLARI ile ayarlanir.
-local FRAME_DIST = 2.4    -- kameranin ONUNE uzaklik (buyuk = uzak/kucuk gorunur)
-local FRAME_SIDE = -0.75  -- yatay: negatif = SOLA (sol panele)
+local FRAME_SIDE = -0.7   -- yatay: kamera sagina gore; negatif = SOLA (sol panele)
+local FRAME_FWD  = 0.0    -- ileri/geri: negatif = kameraya YAKIN (buyuk gorunur)
 local FRAME_Z    = 0.0    -- dikey (oyuncunun zemin Z'sine gore; + yukari)
-local FRAME_FACE = 180.0  -- klon heading = camYaw + bu (180 = kameraya bakar = on goruntu)
+local FRAME_FACE = 180.0  -- klon heading = camYaw + bu (180 = kameraya bakar = on)
 local KB_FRAME   = true   -- ok tuslariyla kadraj ayari acik
 
 -- STUDYO ISIK: KEY = kameradan beyaz on dolgu (ped parlak/net). Menzil KISA ->
@@ -87,9 +87,8 @@ local backdrop    = nil     -- koyu arka plan prop'u (gercek dunyayi kapatir)
 local cam         = nil
 local realPed     = nil
 local heading     = FIXED_DIR
-local frameCam    = nil     -- sahne acilinca yakalanan gameplay kamera KOORDINATI
-local frameYaw    = 0.0     -- ... ve YAW'i (acisi) — klon kadraji buna gore
-local groundZ     = 0.0     -- oyuncunun zemin Z'si (klon burada durur)
+local framePos    = nil     -- sahne acilinca yakalanan OYUNCU konumu (klon buna gore)
+local frameYaw    = 0.0     -- ... ve gameplay kamera YAW'i (yana kaydirma yonu)
 local compCache   = {}     -- aynalama diff onbellegi
 local curWeapon   = nil
 -- NOT: seviye-renkli arka glow artik CSS'te (.bx-char-view, --accent bag rengini
@@ -152,17 +151,17 @@ local function positionCamera()
     SetCamFov(cam, cam_cfg.fov)
 end
 
---- Klonu gameplay kamerasinin ONUNE + SOLA yerlestir (KAMERA OYNAMAZ; klon
---- char-view sol panelde gorunur). frameCam/frameYaw sahne acilinca yakalandi
---- -> sabit kadraj. Sadece KONUM ayarlar; heading ayri (RotatePreview).
+--- Klonu OYUNCUNUN konumuna koy + kamera acisina gore YANA/ileri kaydir (KAMERA
+--- OYNAMAZ; klon sol panelde gorunur, kaybolmaz). framePos/frameYaw sahne acilinca
+--- yakalandi -> sabit kadraj. Sadece KONUM; heading ayri (RotatePreview).
 local function positionFrame()
-    if not previewPed or not DoesEntityExist(previewPed) or not frameCam then return end
+    if not previewPed or not DoesEntityExist(previewPed) or not framePos then return end
     local h = math.rad(frameYaw)
-    local fx, fy = -math.sin(h), math.cos(h)  -- yatay ON (kameradan ileri)
-    local rx, ry = math.cos(h), math.sin(h)   -- saga vektor
-    local px = frameCam.x + fx * FRAME_DIST + rx * FRAME_SIDE
-    local py = frameCam.y + fy * FRAME_DIST + ry * FRAME_SIDE
-    SetEntityCoordsNoOffset(previewPed, px, py, groundZ + FRAME_Z, false, false, false)
+    local fx, fy = -math.sin(h), math.cos(h)  -- kamera ONU (yatay)
+    local rx, ry = math.cos(h), math.sin(h)   -- kamera SAGI
+    local px = framePos.x + rx * FRAME_SIDE + fx * FRAME_FWD
+    local py = framePos.y + ry * FRAME_SIDE + fy * FRAME_FWD
+    SetEntityCoordsNoOffset(previewPed, px, py, framePos.z + FRAME_Z, false, false, false)
 end
 
 ------------------------------------------------------------------------------
@@ -255,11 +254,11 @@ local function CreatePreview(opts)
     pcall(ClonePedToTarget, ped, previewPed)
     SetEntityAsMissionEntity(previewPed, true, true) -- guvenli DeletePed
 
-    -- GAMEPLAY kamerasini YAKALA (sahne acilinca) -> klon kadraji buna gore. Kamera
-    -- OYNAMAZ; bakis acisi degismez, ziplamaz, TP yok. Arkada oyun gorunur.
-    frameCam = GetGameplayCamCoord()
+    -- OYUNCU konumu + gameplay kamera yaw'i YAKALA (sahne acilinca) -> klon kadraji
+    -- buna gore. Kamera OYNAMAZ; bakis acisi degismez, ziplamaz, TP yok. Klon
+    -- oyuncunun konumunda (kesin gorunur), yana kaydirilarak sol panele alinir.
+    framePos = GetEntityCoords(ped)
     frameYaw = GetGameplayCamRot(2).z
-    groundZ  = GetEntityCoords(ped).z
 
     FreezeEntityPosition(previewPed, true)
     SetEntityInvincible(previewPed, true)
@@ -314,13 +313,13 @@ local function CreatePreview(opts)
             if KB_FRAME then
                 local function kp(c) return IsDisabledControlJustPressed(0, c) or IsControlJustPressed(0, c) end
                 local ch = false
-                if kp(174) then FRAME_SIDE = FRAME_SIDE - 0.05; ch = true end -- sol ok
-                if kp(175) then FRAME_SIDE = FRAME_SIDE + 0.05; ch = true end -- sag ok
-                if kp(172) then FRAME_DIST = FRAME_DIST + 0.05; ch = true end -- yukari ok (uzak/kucuk)
-                if kp(173) then FRAME_DIST = math.max(0.8, FRAME_DIST - 0.05); ch = true end -- asagi ok (yakin/buyuk)
+                if kp(174) then FRAME_SIDE = FRAME_SIDE - 0.05; ch = true end -- sol ok (sola)
+                if kp(175) then FRAME_SIDE = FRAME_SIDE + 0.05; ch = true end -- sag ok (saga)
+                if kp(172) then FRAME_FWD = FRAME_FWD + 0.05; ch = true end   -- yukari ok (uzak/kucuk)
+                if kp(173) then FRAME_FWD = FRAME_FWD - 0.05; ch = true end   -- asagi ok (yakin/buyuk)
                 if ch then
                     positionFrame()
-                    print(('^3[bitirim] kadraj dist=%.2f side=%.2f (ok tuslari)^7'):format(FRAME_DIST, FRAME_SIDE))
+                    print(('^3[bitirim] kadraj side=%.2f fwd=%.2f (ok tuslari)^7'):format(FRAME_SIDE, FRAME_FWD))
                 end
             end
 
