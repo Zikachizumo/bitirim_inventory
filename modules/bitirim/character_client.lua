@@ -37,6 +37,15 @@ local TOP_HEIGHT = 1.15   -- "ust" acisinda yukseklik
 -- ped kendi isiklarimizla aydinlanir. Gerekirse koyu (blur DEGIL) modifier dene.
 local DARK_TIMECYCLE = nil
 
+-- BACKDROP: klonun ARKASINA konan buyuk prop -> dunyayi kapatir, KOYU zemin verir.
+-- NOT: GTA'da ped SADECE dunyada render olur; render-target/DUI ped'i texture'a
+-- alamaz (onlar scaleform/web icin). Bu yuzden "pur siyah" yerine koyu backdrop +
+-- spot isik = mockup'taki "isikli void" gorunumu. /cam ile oyunda ayarlanabilir.
+local BACKDROP_MODEL   = `prop_container_01a` -- buyuk duz yuzey; /cam bmodel <model>
+local BACKDROP_DIST    = 2.4   -- ped'in ARKASINA (kameradan uzak yon) uzaklik
+local BACKDROP_ZOFF    = 0.0   -- dikey kaydirma (prop merkezini karede otur)
+local BACKDROP_HEADOFF = 90.0  -- prop'un DUZ yuzunu kameraya cevir
+
 -- Seviye -> spot isik RGB (tema paletiyle ayni: L0 gri ... L5 altin)
 local LEVEL_RGB = {
     [0] = { 139, 147, 167 },
@@ -52,6 +61,7 @@ local LEVEL_RGB = {
 ------------------------------------------------------------------------------
 local sceneActive = false
 local clone = nil
+local backdrop = nil      -- arka plan prop'u (dunyayi kapatir)
 local cam = nil
 local realPed = nil       -- gercek oyuncu (dondurulur, sahne suresince)
 local heading = 0.0       -- klonun bakis yonu (donmus)
@@ -63,6 +73,38 @@ local currentLevel = 0    -- spot isik rengi icin
 RegisterNetEvent('bitirim:client:bagLevel', function(level)
     currentLevel = math.max(0, math.min(5, math.floor(tonumber(level) or 0)))
 end)
+
+--- Backdrop'u klonun ARKASINA (kameradan uzak yon = -on vektor) yerlestir ve duz
+--- yuzunu kameraya cevir. Klon dondugunde de arkada kalir.
+local function positionBackdrop()
+    if not backdrop or not DoesEntityExist(backdrop) or not clone or not DoesEntityExist(clone) then return end
+    local cc = GetEntityCoords(clone)
+    local h = math.rad(GetEntityHeading(clone))
+    local fx, fy = -math.sin(h), math.cos(h) -- klonun ONU
+    SetEntityCoordsNoOffset(backdrop, cc.x - fx * BACKDROP_DIST, cc.y - fy * BACKDROP_DIST, cc.z + BACKDROP_ZOFF, false, false, false)
+    SetEntityHeading(backdrop, GetEntityHeading(clone) + BACKDROP_HEADOFF)
+end
+
+--- Backdrop prop'unu (yeniden) yarat: eskiyi sil, BACKDROP_MODEL'i yukle + koy.
+local function spawnBackdrop()
+    if backdrop and DoesEntityExist(backdrop) then DeleteEntity(backdrop) end
+    backdrop = nil
+    if not clone or BACKDROP_MODEL == 0 then return end
+    RequestModel(BACKDROP_MODEL)
+    local t = 0
+    while not HasModelLoaded(BACKDROP_MODEL) and t < 100 do Wait(10); t = t + 1 end
+    if not HasModelLoaded(BACKDROP_MODEL) then
+        print('^1[bitirim] backdrop model yuklenemedi^7'); return
+    end
+    local cc = GetEntityCoords(clone)
+    backdrop = CreateObject(BACKDROP_MODEL, cc.x, cc.y, cc.z + BACKDROP_ZOFF, false, false, false)
+    SetEntityInvincible(backdrop, true)
+    FreezeEntityPosition(backdrop, true)
+    SetEntityCollision(backdrop, false, false)
+    SetEntityLodDist(backdrop, 1000)
+    SetModelAsNoLongerNeeded(BACKDROP_MODEL)
+    positionBackdrop()
+end
 
 --- Kamerayi klonun onune yerlestir + klona baktir. Ped'i ekranin SOLUNA almak
 --- icin: kamera TAM ONDE durur, ama BAKIS HEDEFI saga kaydirilir (CAM_SIDE) ->
@@ -85,6 +127,7 @@ local function positionCamera()
     -- Bakis hedefi saga kaydik -> ped karede SOLA gelir. topView'da yukaridan bakar.
     PointCamAtCoord(cam, cx + rx * CAM_SIDE, cy + ry * CAM_SIDE, cz + (topView and 0.0 or CAM_LOOK_Z))
     SetCamFov(cam, CAM_FOV)
+    positionBackdrop()
 end
 
 --- Sahneyi ac: klon + kamera + void + koyu sahne.
@@ -118,6 +161,9 @@ local function openScene()
     RequestCollisionAtCoord(VOID.x, VOID.y, VOID.z)
     SetFocusPosAndVel(VOID.x, VOID.y, VOID.z, 0.0, 0.0, 0.0)
 
+    -- Arka plan backdrop (dunyayi kapatir -> koyu zemin).
+    spawnBackdrop()
+
     cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
     topView = false
     -- Depth-of-field KAPALI (ped bulaniklasmasin).
@@ -143,9 +189,9 @@ local function openScene()
 
     sceneActive = true
 
-    -- Spot isik + KLAVYE CANLI AYAR dongusu (yalniz sahne acikken). Envanter
-    -- acikken chat (T) acilmadigi icin kamera ok tuslari + fare tekerlegi ile
-    -- ayarlanir; degerler degisince F8'e yazilir (begenince bana soyle).
+    -- Spot isik + blur-kill + zoom-kilit dongusu (yalniz sahne acikken). Kamera
+    -- degerleri KALICI; canli klavye ayari kaldirildi (kazara zoom yapiyordu).
+    -- Backdrop/kamera ince ayari gerekirse /cam komutu (chat) ile yapilir.
     CreateThread(function()
         while sceneActive and clone and DoesEntityExist(clone) do
             local rgb = LEVEL_RGB[currentLevel] or LEVEL_RGB[0]
@@ -161,33 +207,24 @@ local function openScene()
             DrawLightWithRange(cx, cy, cz + 1.7, rgb[1], rgb[2], rgb[3], 4.5, 2.6)
             DrawLightWithRangeAndShadow(cx, cy, cz + 0.4, rgb[1], rgb[2], rgb[3], 3.5, 1.2, 0.0)
 
-            -- Canli ayar (ok tuslari + tekerlek). Hem enabled hem disabled kontrol
-            -- (NUI odakli iken bazi kontroller disabled olabilir). Kontroller:
-            -- 174/175 sol/sag ok, 172/173 yukari/asagi ok, 241/242 tekerlek, 96/97 pad.
-            local function pressed(c) return IsControlJustPressed(0, c) or IsDisabledControlJustPressed(0, c) end
-            local shift = IsControlPressed(0, 21) or IsDisabledControlPressed(0, 21) -- LSHIFT
-            local changed = false
-            if pressed(174) then CAM_SIDE = CAM_SIDE - 0.05; changed = true end
-            if pressed(175) then CAM_SIDE = CAM_SIDE + 0.05; changed = true end
-            -- Yukari/asagi ok: SHIFT'siz = kamera yuksekligi; SHIFT'li = ped'i karede
-            -- yukari/asagi al (lookz -> ayak hizasi). Shift+asagi = ayaklar ALTA.
-            if pressed(172) then
-                if shift then CAM_LOOK_Z = CAM_LOOK_Z - 0.03 else CAM_HEIGHT = CAM_HEIGHT + 0.05 end
-                changed = true
-            end
-            if pressed(173) then
-                if shift then CAM_LOOK_Z = CAM_LOOK_Z + 0.03 else CAM_HEIGHT = CAM_HEIGHT - 0.05 end
-                changed = true
-            end
-            -- Zoom (fare tekerlegi/dist) KALDIRILDI — sabit mesafe.
-            if pressed(96) then CAM_FOV = math.max(10.0, CAM_FOV - 1.0); changed = true end
-            if pressed(97) then CAM_FOV = math.min(90.0, CAM_FOV + 1.0); changed = true end
+            -- Ekran blur'unu (ox screenblur) her karede SIFIRDA tut. ox envanter
+            -- acilinca TriggerScreenblurFadeIn cagirir; tek seferlik FadeOut fade-in
+            -- ile yarisabiliyor -> her karede kapat = kesin cozum.
+            if IsScreenblurFadeRunning() then DisableScreenblurFade() end
+            TriggerScreenblurFadeOut(0.0)
 
-            if changed then
-                positionCamera()
-                print(('^3[bitirim] cam dist=%.2f side=%.2f height=%.2f fov=%.1f lookz=%.2f^7')
-                    :format(CAM_DIST, CAM_SIDE, CAM_HEIGHT, CAM_FOV, CAM_LOOK_Z))
-            end
+            -- ZOOM/tekerlek kontrollerini kapat (kazara yakinlastirma/uzaklastirma
+            -- olmasin). Kamera degerleri artik KALICI; canli klavye ayari kaldirildi.
+            DisableControlAction(0, 14, true)   -- weapon wheel next (tekerlek asagi)
+            DisableControlAction(0, 15, true)   -- weapon wheel prev (tekerlek yukari)
+            DisableControlAction(0, 16, true)   -- select next weapon
+            DisableControlAction(0, 17, true)   -- select prev weapon
+            DisableControlAction(0, 96, true)   -- "-" (INPUT_VEH_...)
+            DisableControlAction(0, 97, true)   -- "+"
+            DisableControlAction(0, 241, true)  -- cursor scroll up
+            DisableControlAction(0, 242, true)  -- cursor scroll down
+            DisableControlAction(0, 261, true)  -- look scroll
+            DisableControlAction(0, 262, true)
 
             Wait(0)
         end
@@ -201,6 +238,8 @@ local function closeScene()
 
     RenderScriptCams(false, false, 0, true, true)
     if cam then DestroyCam(cam, false); cam = nil end
+    if backdrop and DoesEntityExist(backdrop) then DeleteEntity(backdrop) end
+    backdrop = nil
     if clone and DoesEntityExist(clone) then DeleteEntity(clone) end
     clone = nil
 
@@ -261,7 +300,12 @@ end)
       /cam height <n>  kamera yuksekligi
       /cam fov <n>     gorus acisi (kucuk = yakinlasma)
       /cam lookz <n>   bakis hedefi yuksekligi (gogus/yuz)
-      /cam show        guncel degerleri F8'e yazar
+      -- BACKDROP (arka plan prop'u):
+      /cam bmodel <model>  backdrop prop modelini degistir (or: prop_container_01a)
+      /cam bdist <n>       backdrop'un ped arkasina uzakligi
+      /cam bzoff <n>       backdrop dikey kaydirma
+      /cam bhead <n>       backdrop yuzunun kameraya donme acisi
+      /cam show            guncel degerleri F8'e yazar
 ]]
 RegisterCommand('cam', function(_, args)
     local p, v = args[1], tonumber(args[2])
@@ -270,11 +314,19 @@ RegisterCommand('cam', function(_, args)
     elseif p == 'height' and v then CAM_HEIGHT = v
     elseif p == 'fov' and v then CAM_FOV = v
     elseif p == 'lookz' and v then CAM_LOOK_Z = v
+    elseif p == 'bdist' and v then BACKDROP_DIST = v
+    elseif p == 'bzoff' and v then BACKDROP_ZOFF = v
+    elseif p == 'bhead' and v then BACKDROP_HEADOFF = v
+    elseif p == 'bmodel' and args[2] then
+        BACKDROP_MODEL = GetHashKey(args[2])
+        if sceneActive then spawnBackdrop() end
+        print('^3[bitirim] backdrop model = '..args[2]..'^7')
+        return
     end
 
     positionCamera()
-    print(('^3[bitirim] cam dist=%.2f side=%.2f height=%.2f fov=%.1f lookz=%.2f (sahne:%s)^7')
-        :format(CAM_DIST, CAM_SIDE, CAM_HEIGHT, CAM_FOV, CAM_LOOK_Z, tostring(sceneActive)))
+    print(('^3[bitirim] cam dist=%.2f side=%.2f height=%.2f fov=%.1f lookz=%.2f | backdrop dist=%.2f zoff=%.2f head=%.1f (sahne:%s)^7')
+        :format(CAM_DIST, CAM_SIDE, CAM_HEIGHT, CAM_FOV, CAM_LOOK_Z, BACKDROP_DIST, BACKDROP_ZOFF, BACKDROP_HEADOFF, tostring(sceneActive)))
 end, false)
 
 -- Emniyet: kaynak durursa temizle.
