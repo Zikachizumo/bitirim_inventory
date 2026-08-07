@@ -777,17 +777,18 @@ body.inv-dragging {
   height: 100%;
 }
 
-/* Bitirim: tam-ekran KOYU+BLUR scrim. Oyun ekranini karartir + blurlar; karakter
-   penceresi (.bx-char-view) index.tsx'te clip-path (evenodd) ile DELIK olarak
-   kesilir -> orada ped NET kalir. pointer-events yok = tiklama/surukleme engellenmez. */
+/* Bitirim: tam-ekran scrim = SADECE BLUR (karartma YOK -> arka plan saydam, oyun
+   gorunur). Pencere disindaki (sag/sol) oyun blurlanir. Karakter penceresi
+   (.bx-char-view) index.tsx'te clip-path (evenodd) ile DELIK -> orada ped NET.
+   pointer-events yok = tiklama/surukleme engellenmez. */
 .bx-scrim {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: rgba(3, 2, 8, 0.92);
-  backdrop-filter: blur(22px) saturate(115%);
-  -webkit-backdrop-filter: blur(22px) saturate(115%);
+  background: transparent;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .bx-window {
@@ -797,9 +798,8 @@ body.inv-dragging {
   flex-direction: column;
   width: max-content;
   max-width: 99vw;
-  /* Bitirim: pencere SEFFAF -> karakter panelindeki bosluktan arkadaki (oyun)
-     canli 3B ped gorunur. Cam efekti (blur) her PANELE ayri verilir (asagida),
-     boylece orta karakter alani net kalir. */
+  /* Pencere kendisi SEFFAF; SIYAH gorunum .bx-window-bg katmanindan gelir (char-view
+     bolgesi clip-path ile DELIK -> ped gorunur). */
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 22px;
@@ -807,6 +807,22 @@ body.inv-dragging {
   overflow: hidden;
   /* Otomatik olcekleme (index.tsx) merkezden uygulanir. */
   transform-origin: center center;
+}
+
+/* Pencerenin SIYAH arka katmani (opak). index.tsx char-view'e gore clip-path DELIK
+   acar -> ped o delikten (scrim'in de deligi var) NET gorunur. */
+.bx-window-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: #05060b; /* neredeyse siyah */
+  pointer-events: none;
+}
+
+/* Tum pencere icerigi siyah katmanin USTUNDE. */
+.bx-window > *:not(.bx-window-bg) {
+  position: relative;
+  z-index: 1;
 }
 
 /* ---- ust bar ---- */
