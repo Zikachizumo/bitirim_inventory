@@ -28,7 +28,7 @@ local CAM_DIST   = 3.55   -- kameranin klona uzakligi
 local CAM_HEIGHT = 0.20   -- kamera yuksekligi (klon merkezine gore)
 local CAM_SIDE   = -0.93  -- YATAY: bakis hedefi kaydirma (ped ekranda sola)
 local CAM_FOV    = 44.0   -- gorus acisi
-local CAM_LOOK_Z = 0.10   -- bakis hedefi yuksekligi
+local CAM_LOOK_Z = 0.28   -- bakis hedefi yuksekligi (buyuk = ped karede ASAGI/ayaklar alta)
 
 local TOP_DIST   = 2.0    -- "ust" acisinda uzaklik
 local TOP_HEIGHT = 1.15   -- "ust" acisinda yukseklik
@@ -142,11 +142,20 @@ local function openScene()
             -- (NUI odakli iken bazi kontroller disabled olabilir). Kontroller:
             -- 174/175 sol/sag ok, 172/173 yukari/asagi ok, 241/242 tekerlek, 96/97 pad.
             local function pressed(c) return IsControlJustPressed(0, c) or IsDisabledControlJustPressed(0, c) end
+            local shift = IsControlPressed(0, 21) or IsDisabledControlPressed(0, 21) -- LSHIFT
             local changed = false
             if pressed(174) then CAM_SIDE = CAM_SIDE - 0.05; changed = true end
             if pressed(175) then CAM_SIDE = CAM_SIDE + 0.05; changed = true end
-            if pressed(172) then CAM_HEIGHT = CAM_HEIGHT + 0.05; changed = true end
-            if pressed(173) then CAM_HEIGHT = CAM_HEIGHT - 0.05; changed = true end
+            -- Yukari/asagi ok: SHIFT'siz = kamera yuksekligi; SHIFT'li = ped'i karede
+            -- yukari/asagi al (lookz -> ayak hizasi). Shift+asagi = ayaklar ALTA.
+            if pressed(172) then
+                if shift then CAM_LOOK_Z = CAM_LOOK_Z - 0.03 else CAM_HEIGHT = CAM_HEIGHT + 0.05 end
+                changed = true
+            end
+            if pressed(173) then
+                if shift then CAM_LOOK_Z = CAM_LOOK_Z + 0.03 else CAM_HEIGHT = CAM_HEIGHT - 0.05 end
+                changed = true
+            end
             if pressed(241) then CAM_DIST = math.max(0.5, CAM_DIST - 0.1); changed = true end
             if pressed(242) then CAM_DIST = CAM_DIST + 0.1; changed = true end
             if pressed(96) then CAM_FOV = math.max(10.0, CAM_FOV - 1.0); changed = true end
