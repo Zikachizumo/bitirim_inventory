@@ -999,20 +999,8 @@ body.inv-dragging {
   background: transparent;
   border-radius: var(--r);
   cursor: grab;
-  /* zeminde hafif seviye-renkli parilti (ped'in ayagi hizasi) */
-  &::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    bottom: 12%;
-    width: 62%;
-    height: 26%;
-    transform: translateX(-50%);
-    background: radial-gradient(ellipse at center, var(--accent-dim), transparent 70%);
-    filter: blur(6px);
-    pointer-events: none;
-    z-index: 0;
-  }
+  /* Onizleme arka plani TEMIZ/SAYDAM: zemin parilti glow'u (::after) kaldirildi
+     -> ped'in etrafinda haze/glow olmaz (kullanici istegi 08-07). */
   &:active {
     cursor: grabbing;
   }

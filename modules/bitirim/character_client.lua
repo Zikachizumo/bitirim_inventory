@@ -35,16 +35,6 @@ local TOP_HEIGHT = 1.15   -- "ust" acisinda yukseklik
 -- aydinlanir.
 local DARK_TIMECYCLE = nil
 
--- Seviye -> spot isik RGB (tema paletiyle ayni: L0 gri ... L5 altin)
-local LEVEL_RGB = {
-    [0] = { 139, 147, 167 },
-    [1] = { 223, 226, 238 },
-    [2] = { 47, 155, 255 },
-    [3] = { 192, 38, 211 },
-    [4] = { 255, 122, 26 },
-    [5] = { 245, 197, 24 },
-}
-
 ------------------------------------------------------------------------------
 -- DURUM
 ------------------------------------------------------------------------------
@@ -54,13 +44,6 @@ local cam = nil
 local realPed = nil       -- gercek oyuncu (dondurulur, sahne suresince)
 local heading = 0.0       -- klonun bakis yonu (donmus)
 local topView = false     -- ust aci acik/kapali
-local currentLevel = 0    -- spot isik rengi icin
-
--- Canta seviyesini dinle (isik rengi). Ayni event bag backend'inde de var; birden
--- fazla handler sorun degil.
-RegisterNetEvent('bitirim:client:bagLevel', function(level)
-    currentLevel = math.max(0, math.min(5, math.floor(tonumber(level) or 0)))
-end)
 
 --- Kamerayi klonun onune yerlestir + klona baktir. Ped'i ekranin SOLUNA almak
 --- icin: kamera TAM ONDE durur, ama BAKIS HEDEFI saga kaydirilir (CAM_SIDE) ->
@@ -142,24 +125,15 @@ local function openScene()
 
     sceneActive = true
 
-    -- Spot isik + blur-kill + zoom-kilit dongusu (yalniz sahne acikken). Kamera
-    -- degerleri KALICI; canli klavye ayari kaldirildi (kazara zoom yapiyordu).
-    -- Kamera ince ayari gerekirse /cam komutu (chat) ile yapilir.
+    -- Blur-kill + zoom-kilit dongusu (yalniz sahne acikken). Kamera degerleri
+    -- KALICI; kamera ince ayari gerekirse /cam komutu (chat) ile yapilir.
+    -- NOT: Ek/additive DrawLight YOK. Ped gercek dunya isigiyla (gunes/ortam)
+    -- aydinlanir -> karakter isigi degismez. Onceki beyaz dolgu (255,255,255) +
+    -- seviye-renkli glow zemine/havaya tasip ped'in etrafinda PARLAK HALE/HAZE
+    -- (bloom) olusturuyordu; kullanici istegiyle KALDIRILDI (temiz saydam arka
+    -- plan; karakter aynen kalir).
     CreateThread(function()
         while sceneActive and clone and DoesEntityExist(clone) do
-            local rgb = LEVEL_RGB[currentLevel] or LEVEL_RGB[0]
-            local cc = GetEntityCoords(clone)
-            local cx, cy, cz = cc.x, cc.y, cc.z
-            -- Beyaz ON DOLGU: kamera tarafindan -> ped hangi acida olursa olsun
-            -- gorunen yuzu aydinlanir (gercek dunya isiginda one cikar).
-            if cam then
-                local cp = GetCamCoord(cam)
-                DrawLightWithRange(cp.x, cp.y, cp.z, 255, 255, 255, CAM_DIST + 1.0, 2.0)
-            end
-            -- Seviye-renkli ust/arka GLOW (tema vurgusu).
-            DrawLightWithRange(cx, cy, cz + 1.7, rgb[1], rgb[2], rgb[3], 4.5, 2.6)
-            DrawLightWithRangeAndShadow(cx, cy, cz + 0.4, rgb[1], rgb[2], rgb[3], 3.5, 1.2, 0.0)
-
             -- Ekran blur'unu (ox screenblur) her karede SIFIRDA tut. ox envanter
             -- acilinca TriggerScreenblurFadeIn cagirir; tek seferlik FadeOut fade-in
             -- ile yarisabiliyor -> her karede kapat = kesin cozum.
