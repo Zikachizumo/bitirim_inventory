@@ -20,8 +20,9 @@
 ------------------------------------------------------------------------------
 -- AYAR SABITLERI (oyunda ekran goruntusuyle guncelle)
 ------------------------------------------------------------------------------
--- Bos void: haritanin cok uzagi/yuksegi -> etrafta bir sey akmaz, arka plan bos.
-local VOID = vector3(-1900.0, 5900.0, 500.0) -- AYARLA (bos bir yer)
+-- SIYAH VOID: yeralti (Z eksi) -> etrafta geometri yok/karanlik -> arka plan SIYAH.
+-- Klon burada spot + dolgu isigiyla aydinlatilir.
+local VOID = vector3(1000.0, 1000.0, -100.0)
 
 -- Kullanici oyunda dial etti (klavye canli-ayar). Kalici degerler:
 local CAM_DIST   = 3.55   -- kameranin klona uzakligi
@@ -32,7 +33,9 @@ local CAM_LOOK_Z = -0.05  -- bakis hedefi yuksekligi (buyuk = ped karede ASAGI/a
 
 local TOP_DIST   = 2.0    -- "ust" acisinda uzaklik
 local TOP_HEIGHT = 1.15   -- "ust" acisinda yukseklik
-local DARK_TIMECYCLE = 'hud_def_blur_Neutral' -- AYARLA (koyu bir modifier; yoksa nil birak)
+-- BLUR timecycle KULLANMA (karakter bulaniklasiyordu). Yeralti void zaten koyu;
+-- ped kendi isiklarimizla aydinlanir. Gerekirse koyu (blur DEGIL) modifier dene.
+local DARK_TIMECYCLE = nil
 
 -- Seviye -> spot isik RGB (tema paletiyle ayni: L0 gri ... L5 altin)
 local LEVEL_RGB = {
@@ -135,8 +138,15 @@ local function openScene()
             local rgb = LEVEL_RGB[currentLevel] or LEVEL_RGB[0]
             local cc = GetEntityCoords(clone)
             local cx, cy, cz = cc.x, cc.y, cc.z
-            DrawSpotLight(cx, cy - 1.4, cz + 1.4, 0.0, 0.7, -0.6, rgb[1], rgb[2], rgb[3], 9.0, 18.0, 0.0, 10.0, 1.5)
-            DrawLightWithRangeAndShadow(cx, cy - 0.8, cz + 0.4, rgb[1], rgb[2], rgb[3], 4.0, 6.0, 0.0)
+            -- Beyaz ON DOLGU: kamera tarafindan -> ped hangi acida olursa olsun
+            -- gorunen yuzu aydinlanir (siyah void'de net durur).
+            if cam then
+                local cp = GetCamCoord(cam)
+                DrawLightWithRange(cp.x, cp.y, cp.z, 255, 255, 255, CAM_DIST + 3.0, 2.2)
+            end
+            -- Seviye-renkli ust/arka GLOW (tema vurgusu).
+            DrawLightWithRange(cx, cy, cz + 1.7, rgb[1], rgb[2], rgb[3], 4.5, 2.6)
+            DrawLightWithRangeAndShadow(cx, cy, cz + 0.4, rgb[1], rgb[2], rgb[3], 3.5, 1.2, 0.0)
 
             -- Canli ayar (ok tuslari + tekerlek). Hem enabled hem disabled kontrol
             -- (NUI odakli iken bazi kontroller disabled olabilir). Kontroller:
