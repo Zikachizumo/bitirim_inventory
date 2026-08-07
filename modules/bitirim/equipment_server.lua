@@ -101,8 +101,10 @@ local function pushToClient(source)
 end
 
 --- Bir DB entry'sini (giyili parca) ENVANTERE iade et. apparel ise metadata ile,
---- legacy named item ise duz. @return boolean success
-local function giveBackEntry(source, entry)
+--- legacy named item ise duz. `toSlot` verilirse item O SLOTA konur (surukle-cikar
+--- ile birakilan slot -> siralama yok, istenilen yere). @return boolean success
+local function giveBackEntry(source, entry, toSlot)
+    toSlot = tonumber(toSlot)
     if entry.item == 'apparel' then
         local meta = {
             label = entry.label,
@@ -110,10 +112,10 @@ local function giveBackEntry(source, entry)
             rarity = entry.rarity,
             wear = entry.wear,
         }
-        local ok, addOk = pcall(function() return Inventory.AddItem(source, 'apparel', 1, meta) end)
+        local ok, addOk = pcall(function() return Inventory.AddItem(source, 'apparel', 1, meta, toSlot) end)
         return ok and addOk
     end
-    local ok, addOk = pcall(function() return Inventory.AddItem(source, entry.item, 1) end)
+    local ok, addOk = pcall(function() return Inventory.AddItem(source, entry.item, 1, nil, toSlot) end)
     return ok and addOk
 end
 
@@ -185,6 +187,9 @@ local function equip(source, itemName, useData)
         return notify(source, 'error', 'Parca takilamadi, tekrar dene.')
     end
 
+    -- Geldigi envanter slotunu sakla -> cikarinca (tik) AYNI slota doner (siralama yok).
+    piece.fromSlot = useData and tonumber(useData.slot) or nil
+
     -- Slota yaz -> ONCE uygula/gonder (aninda giyilsin), SONRA DB'ye yaz (bloke etmez).
     tbl[slotKey] = piece
     equipCache[cid] = tbl
@@ -196,9 +201,10 @@ local function equip(source, itemName, useData)
 end
 
 --[[
-    CIKARMA — panelden slot cikarilir. Item (apparel ise metadata'siyla) envantere iade.
+    CIKARMA — panelden slot cikarilir. Item (apparel ise metadata'siyla) envantere
+    iade. `toSlot` verilirse (envantere surukle-birak) item o slota konur.
 ]]
-local function unequip(source, slot)
+local function unequip(source, slot, toSlot)
     local cid = citizenidOf(source)
     if not cid then return false end
 
@@ -206,8 +212,12 @@ local function unequip(source, slot)
     local entry = tbl[slot]
     if not entry then return false end
 
-    -- Item'i envantere iade et; yer yoksa cikarma iptal (parca ustunde kalir).
-    if not giveBackEntry(source, entry) then
+    -- Hedef slot: surukle-birak slotu (toSlot) > yoksa geldigi slot (fromSlot) >
+    -- yoksa ilk bos. Boylece item "siralanmaz", eski/istenen yerine doner.
+    toSlot = tonumber(toSlot) or entry.fromSlot
+
+    -- Item'i envantere iade et (varsa birakilan/geldigi slota); yer yoksa iptal.
+    if not giveBackEntry(source, entry, toSlot) then
         notify(source, 'error', 'Envanterde yer yok; parca cikarilamadi.')
         return false
     end
@@ -243,10 +253,10 @@ CreateThread(function()
 end)
 
 -- Panelden gelen cikarma istegi (client NUI -> server).
-RegisterNetEvent('bitirim:server:unequip', function(slot)
+RegisterNetEvent('bitirim:server:unequip', function(slot, toSlot)
     local source = source
     if type(slot) ~= 'string' then return end
-    unequip(source, slot)
+    unequip(source, slot, toSlot)
 end)
 
 -- HIZLI GIYME yolu: cift-tik / surukle-giy bunu cagirir. ox'un `useItem` akisini

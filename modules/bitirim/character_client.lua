@@ -23,11 +23,12 @@
 -- Bos void: haritanin cok uzagi/yuksegi -> etrafta bir sey akmaz, arka plan bos.
 local VOID = vector3(-1900.0, 5900.0, 500.0) -- AYARLA (bos bir yer)
 
-local CAM_DIST   = 2.35   -- kameranin klona uzakligi (buyuk = daha uzak) AYARLA
-local CAM_HEIGHT = 0.15   -- kamera yuksekligi (klon merkezine gore) AYARLA
-local CAM_SIDE   = 0.62   -- YATAY kaydirma: klon ekranin SOLUNA gelsin diye AYARLA
-local CAM_FOV    = 32.0   -- gorus acisi (kucuk = yakinlasma) AYARLA
-local CAM_LOOK_Z = 0.10   -- bakis hedefi yuksekligi (gogus hizasi) AYARLA
+-- Kullanici oyunda dial etti (klavye canli-ayar). Kalici degerler:
+local CAM_DIST   = 3.55   -- kameranin klona uzakligi
+local CAM_HEIGHT = 0.20   -- kamera yuksekligi (klon merkezine gore)
+local CAM_SIDE   = -0.93  -- YATAY: bakis hedefi kaydirma (ped ekranda sola)
+local CAM_FOV    = 44.0   -- gorus acisi
+local CAM_LOOK_Z = 0.10   -- bakis hedefi yuksekligi
 
 local TOP_DIST   = 2.0    -- "ust" acisinda uzaklik
 local TOP_HEIGHT = 1.15   -- "ust" acisinda yukseklik

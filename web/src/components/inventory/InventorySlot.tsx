@@ -75,8 +75,11 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
       drop: (source, monitor) => {
         dispatch(closeTooltip());
         // Bitirim: karakter ekipman slotundan surukleyip envantere birakmak = CIKAR.
+        // Birakilan hedef slot (item.slot) da yollanir -> item o slota gider (siralama yok).
         if (monitor.getItemType() === 'EQUIP') {
-          if (typeof source?.slot === 'string') fetchNui('bitirim:unequip', { slot: source.slot }).catch(() => {});
+          if (typeof source?.slot === 'string') {
+            fetchNui('bitirim:unequip', { slot: source.slot, toSlot: item.slot }).catch(() => {});
+          }
           return;
         }
         switch (source.inventory) {
