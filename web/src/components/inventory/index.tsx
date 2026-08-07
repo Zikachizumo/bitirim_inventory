@@ -118,20 +118,19 @@ const Inventory: React.FC = () => {
     const el = windowRef.current;
     if (!el) return;
     const updateHole = () => {
-      // Canli karakter onizlemesi (klon) char-view'de NET gorunsun diye o bolgede
-      // scrim (blur) + window-bg (%75 tint) katmanlarina clip-path DELIK acilir.
+      // Kamera OYNAMAZ (gameplay kamerasi kalir); klon kameranin onune SOLA
+      // kaydirilarak char-view'de gorunur. O bolgede klon NET olsun diye scrim
+      // (blur) + window-bg (%75 tint) katmanlarina clip-path DELIK acilir.
       const scrim = scrimRef.current;
       const bg = windowBgRef.current;
       const view = document.querySelector('.bx-char-view') as HTMLElement | null;
       const s = scaleRef.current || 1;
       if (!view) {
-        // Karakter paneli yok (kap/drop) -> delik yok. Pencere tam %75, kenar blur.
         if (scrim) { scrim.style.clipPath = 'none'; (scrim.style as any).webkitClipPath = 'none'; }
         if (bg) { bg.style.clipPath = 'none'; (bg.style as any).webkitClipPath = 'none'; }
         return;
       }
       const v = view.getBoundingClientRect();
-      // 1) SCRIM deligi — viewport px (o bolgede blur yok -> klon net).
       if (scrim) {
         const L = Math.max(0, v.left), T = Math.max(0, v.top), R = v.right, B = v.bottom;
         const poly =
@@ -140,7 +139,6 @@ const Inventory: React.FC = () => {
         scrim.style.clipPath = poly;
         (scrim.style as any).webkitClipPath = poly;
       }
-      // 2) %75 TINT katmani deligi — pencereye gore LOKAL (olceksiz) px.
       if (bg) {
         const w = el.getBoundingClientRect();
         const L = (v.left - w.left) / s, T = (v.top - w.top) / s;
