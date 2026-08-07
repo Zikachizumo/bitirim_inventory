@@ -32,7 +32,8 @@
 ------------------------------------------------------------------------------
 -- Dedike onizleme sahnesi: YUKSEK irtifa void -> ped'in arkasi (yatay bakis)
 -- karanlik gokyuzu; sehir/isik kalabaligi karede degil. Gece override karartir.
-local SCENE      = vector3(1000.0, -2000.0, 1400.0)
+-- (VOID/gokyuzu KULLANILMIYOR: klon oyuncunun ZEMINDEKI konumunda durur -> yere
+-- iner, uçmaz. Backdrop arka dunyayi kapatir, gece override karartir.)
 local NIGHT_HOUR = 1        -- gece saati (0-4 en koyu). Her kare uygulanir (senkronu yener)
 local FIXED_DIR  = 180.0    -- kamera SABIT referans yonu (ped bu yone bakinca on-goruntu).
                             -- Klon heading'i degisince ped GORSEL doner (kamera sabit).
@@ -56,9 +57,13 @@ local KEY_INT, KEY_RANGE, KEY_ZOFF = 2.4, 3.6, 0.35
 -- ISIKLANDIRILMAZ (KEY menzili kisa) -> karanlikta dokusu gorunmez, temiz koyu zemin.
 -- Renkli glow/gradyan CSS'ten gelir (.bx-char-view). /cam bdist/bzoff/bhead/bmodel.
 local BACKDROP_MODEL   = `prop_container_01a`
-local BACKDROP_DIST    = 1.4   -- ped'in ARKASINA (kameradan uzak) uzaklik (yakin=buyuk)
-local BACKDROP_ZOFF    = 0.2   -- dikey kaydirma (kareyi doldur)
+local BACKDROP_DIST    = 1.0   -- ped'in ARKASINA (kameradan uzak) uzaklik (yakin=buyuk)
+local BACKDROP_ZOFF    = 0.4   -- dikey kaydirma (kareyi doldur)
 local BACKDROP_HEADOFF = 90.0  -- duz yuzu kameraya cevir
+-- Chat (T) NUI odakli iken acilmadigi icin backdrop'u KLAVYE ile ayarla (sahne
+-- acikken): ok tuslari. SOL/SAG ok = uzaklik -/+ (yakinlik/boyut), YUKARI/ASAGI
+-- ok = dikey kaydirma. Degerler F8'e yazilir; begenince bana soyle, kalici yaparim.
+local KB_TUNE = true
 
 -- Idle animasyonlari (cinsiyete gore). Donuk gorunmesin: nefes/kucuk salinim.
 local IDLE_M = { dict = 'anim@heists@heist_corona@team_idles@male_a',   anim = 'idle' }
@@ -224,8 +229,10 @@ local function CreatePreview(opts)
     pcall(ClonePedToTarget, ped, previewPed) -- emniyet: bilesen/prop tam kopya
     SetEntityAsMissionEntity(previewPed, true, true) -- sahiplen -> guvenli DeletePed
 
-    -- Dedike sahneye tasi + dondur/gizle.
-    SetEntityCoordsNoOffset(previewPed, SCENE.x, SCENE.y, SCENE.z, false, false, false)
+    -- YERE indir: klonu oyuncunun ZEMINDEKI konumunda tut (gokyuzu/void YOK ->
+    -- ped havada asili kalmaz, dogal durur). Backdrop arka dunyayi kapatir.
+    local pos = GetEntityCoords(ped)
+    SetEntityCoordsNoOffset(previewPed, pos.x, pos.y, pos.z, false, false, false)
     FreezeEntityPosition(previewPed, true)
     SetEntityInvincible(previewPed, true)
     SetEntityCollision(previewPed, false, false)
@@ -238,10 +245,7 @@ local function CreatePreview(opts)
     SetEntityVisible(realPed, false, false)
     FreezeEntityPosition(realPed, true)
 
-    RequestCollisionAtCoord(SCENE.x, SCENE.y, SCENE.z)
-    SetFocusPosAndVel(SCENE.x, SCENE.y, SCENE.z, 0.0, 0.0, 0.0)
-
-    -- Koyu backdrop (gercek dunyayi kapatir -> temiz koyu zemin).
+    -- Koyu backdrop (arka dunyayi/sehri kapatir -> temiz koyu zemin).
     spawnBackdrop()
 
     -- Kamera (SADECE preview ped'i cercever).
@@ -277,6 +281,21 @@ local function CreatePreview(opts)
             if cam then
                 local cp = GetCamCoord(cam)
                 DrawLightWithRange(cp.x, cp.y, cp.z + KEY_ZOFF, 255, 252, 246, KEY_RANGE, KEY_INT)
+            end
+
+            -- KLAVYE CANLI AYAR (chat yok): ok tuslariyla backdrop. Zoom yapan
+            -- +/-/tekerlek KULLANILMAZ (sadece oklar) -> kazara zoom olmaz.
+            if KB_TUNE then
+                local function kp(c) return IsDisabledControlJustPressed(0, c) or IsControlJustPressed(0, c) end
+                local ch = false
+                if kp(174) then BACKDROP_DIST = math.max(0.3, BACKDROP_DIST - 0.1); ch = true end -- sol ok
+                if kp(175) then BACKDROP_DIST = BACKDROP_DIST + 0.1; ch = true end                -- sag ok
+                if kp(172) then BACKDROP_ZOFF = BACKDROP_ZOFF + 0.1; ch = true end                -- yukari ok
+                if kp(173) then BACKDROP_ZOFF = BACKDROP_ZOFF - 0.1; ch = true end                -- asagi ok
+                if ch then
+                    positionBackdrop()
+                    print(('^3[bitirim] backdrop dist=%.2f zoff=%.2f (ok tuslari)^7'):format(BACKDROP_DIST, BACKDROP_ZOFF))
+                end
             end
 
             -- ox screenblur kapali tut (ped net).
