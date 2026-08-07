@@ -107,10 +107,11 @@ RegisterNetEvent('bitirim:client:equipment', function(payload)
     pushToNui()
 end)
 
--- Panelden cikarma istegi (dolu equip slotuna tik) -> server'a ilet.
+-- Panelden cikarma istegi (dolu equip slotuna tik / envantere surukle) -> server.
+-- data.toSlot: envantere SURUKLENIP birakilan hedef slot (varsa item oraya gider).
 RegisterNUICallback('bitirim:unequip', function(data, cb)
     if type(data) == 'table' and type(data.slot) == 'string' then
-        TriggerServerEvent('bitirim:server:unequip', data.slot)
+        TriggerServerEvent('bitirim:server:unequip', data.slot, tonumber(data.toSlot))
     end
     cb(1)
 end)
