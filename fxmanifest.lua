@@ -57,7 +57,10 @@ client_scripts {
     'modules/bitirim/client.lua',
     -- Bitirim: giyili ekipmani ped'e uygular + panele yollar + unequip
     'modules/bitirim/equipment_client.lua',
-    -- Bitirim: envanterde canli 3B karakter onizlemesi (klon + kamera + isik)
+    -- Bitirim: YENIDEN KULLANILABILIR canli karakter onizleme modulu (klon +
+    -- kamera + canli aynalama + idle). Export API; character_client'ten ONCE.
+    'modules/bitirim/preview_manager.lua',
+    -- Bitirim: envanter <-> PreviewManager koprusu (NUI olaylari + /cam)
     'modules/bitirim/character_client.lua',
 }
 
