@@ -105,10 +105,37 @@ const Inventory: React.FC = () => {
   // Bitirim: OTOMATIK OLCEKLEME — pencereyi ekrana sigacak/dolduracak sekilde
   // olcekle (tam ekran his). Dogal boyutu olcup min(vw,vh) orani ile scale eder.
   const windowRef = useRef<HTMLDivElement>(null);
+  // Bitirim: tam-ekran KOYU+BLUR scrim (oyun ekranini karartir/blurlar). Karakter
+  // penceresi (.bx-char-view) bir DELIK olarak kesilir (clip-path evenodd) ->
+  // orada ped NET kalir ("spotlight"). Kap/drop acikken char-view yok = delik yok.
+  const scrimRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (!inventoryVisible) return;
     const el = windowRef.current;
     if (!el) return;
+    // Scrim deliğini char-view'in GERCEK (olceklenmis) ekran dikdortgenine gore ac.
+    const updateHole = () => {
+      const scrim = scrimRef.current;
+      if (!scrim) return;
+      const view = document.querySelector('.bx-char-view') as HTMLElement | null;
+      if (!view) {
+        // Karakter paneli yok (kap/drop) -> delik yok, tam koyu+blur.
+        scrim.style.clipPath = 'none';
+        (scrim.style as any).webkitClipPath = 'none';
+        return;
+      }
+      const r = view.getBoundingClientRect();
+      const L = Math.max(0, r.left);
+      const T = Math.max(0, r.top);
+      const R = r.right;
+      const B = r.bottom;
+      // Dis dikdortgen (tum ekran) + ic dikdortgen (char-view) -> evenodd ile ic = DELIK.
+      const poly =
+        `polygon(evenodd, 0px 0px, 100vw 0px, 100vw 100vh, 0px 100vh, 0px 0px, ` +
+        `${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
+      scrim.style.clipPath = poly;
+      (scrim.style as any).webkitClipPath = poly;
+    };
     const fit = () => {
       const w = el.offsetWidth;
       const h = el.offsetHeight;
@@ -116,12 +143,15 @@ const Inventory: React.FC = () => {
       // 1 tavan: 90px slot boyutunu buyutme, yalniz ekrana sigmiyorsa kucult.
       const s = Math.min(1, (window.innerWidth * 0.99) / w, (window.innerHeight * 0.985) / h);
       el.style.transform = `scale(${s})`;
+      updateHole(); // transform sonrasi gercek dikdortgeni oku
     };
     fit();
     const t = window.setTimeout(fit, 60); // layout otursun
+    const t2 = window.setTimeout(updateHole, 180); // ekipman/gorsel oturunca yeniden
     window.addEventListener('resize', fit);
     return () => {
       window.clearTimeout(t);
+      window.clearTimeout(t2);
       window.removeEventListener('resize', fit);
     };
   }, [inventoryVisible, isDrop, hasContainer]);
@@ -130,6 +160,8 @@ const Inventory: React.FC = () => {
     <>
       <Fade in={inventoryVisible}>
         <div className="inventory-wrapper">
+          {/* Tam-ekran koyu+blur scrim; char-view deligi clip-path ile acilir. */}
+          <div className="bx-scrim" ref={scrimRef} />
           <div className="bx-window" ref={windowRef}>
             <BitirimTopBar />
 
