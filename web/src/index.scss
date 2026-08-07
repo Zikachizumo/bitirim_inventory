@@ -777,7 +777,22 @@ body.inv-dragging {
   height: 100%;
 }
 
+/* Bitirim: tam-ekran KOYU+BLUR scrim. Oyun ekranini karartir + blurlar; karakter
+   penceresi (.bx-char-view) index.tsx'te clip-path (evenodd) ile DELIK olarak
+   kesilir -> orada ped NET kalir. pointer-events yok = tiklama/surukleme engellenmez. */
+.bx-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: rgba(3, 2, 8, 0.92);
+  backdrop-filter: blur(22px) saturate(115%);
+  -webkit-backdrop-filter: blur(22px) saturate(115%);
+}
+
 .bx-window {
+  position: relative;
+  z-index: 1; /* scrim'in (z:0) ustunde */
   display: flex;
   flex-direction: column;
   width: max-content;
