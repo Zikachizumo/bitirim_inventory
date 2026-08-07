@@ -222,11 +222,6 @@ const CharacterPanel: React.FC = () => {
     [sourceItem]
   );
 
-  // Donme kontrolleri -> client (character_client.lua) klonu/kamerayi cevirir.
-  const rotate = useCallback((mode: 'left' | 'right' | 'top') => {
-    fetchNui('bitirim:charRotate', { mode }).catch(() => {});
-  }, []);
-
   // Orta pencerede fareyle surukle-dondur.
   const dragX = useRef<number | null>(null);
   const onViewDown = (e: React.MouseEvent) => {
@@ -286,26 +281,14 @@ const CharacterPanel: React.FC = () => {
         <div className="bx-eq-col">{LEFT_SLOTS.map(renderSlot)}</div>
 
         {/* Orta: ped OYUN tarafinda arkada render edilir; burasi SEFFAF penceredir.
-            Fareyle surukleyerek dondur; altta 3 aci butonu. */}
+            Dondurme: fareyle surukle (butonlar kaldirildi). */}
         <div
           className="bx-char-view"
           onMouseDown={onViewDown}
           onMouseMove={onViewMove}
           onMouseUp={onViewUp}
           onMouseLeave={onViewUp}
-        >
-          <div className="bx-char-rotate">
-            <button type="button" title="Sola döndür" onClick={() => rotate('left')}>
-              ◀
-            </button>
-            <button type="button" title="Üstten göster" onClick={() => rotate('top')}>
-              ▲
-            </button>
-            <button type="button" title="Sağa döndür" onClick={() => rotate('right')}>
-              ▶
-            </button>
-          </div>
-        </div>
+        />
 
         <div className="bx-eq-col">{RIGHT_SLOTS.map(renderSlot)}</div>
       </div>
