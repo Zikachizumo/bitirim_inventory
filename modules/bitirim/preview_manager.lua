@@ -359,12 +359,13 @@ end
 --- Ped'i dondur (kamera SABIT -> gorsel donme). mode: left/right/drag/reset.
 local function RotatePreview(mode, value)
     if not active or not previewPed or not DoesEntityExist(previewPed) then return end
+    -- Isaret duzeltildi: fareyle SAGA cekince ped SAGA doner (eskiden tersti).
     if mode == 'left' then
-        heading = (heading + 45.0) % 360.0
-    elseif mode == 'right' then
         heading = (heading - 45.0) % 360.0
+    elseif mode == 'right' then
+        heading = (heading + 45.0) % 360.0
     elseif mode == 'drag' then
-        heading = (heading - (tonumber(value) or 0.0) * 0.4) % 360.0
+        heading = (heading + (tonumber(value) or 0.0) * 0.4) % 360.0
     elseif mode == 'reset' then
         heading = FIXED_DIR
     end
