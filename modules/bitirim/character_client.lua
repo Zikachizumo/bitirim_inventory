@@ -129,11 +129,14 @@ local function openScene()
     SetCamActive(cam, true)
     RenderScriptCams(true, false, 0, true, true)
 
-    -- Onceki oturumdan kalmis olabilecek TUM timecycle modifier'lari temizle
-    -- (eski BLUR modifier'i takili kaliyordu -> karakter bulanik). ClearFocus'suz.
     ClearTimecycleModifier()
     ClearExtraTimecycleModifier()
     if DARK_TIMECYCLE then pcall(SetTimecycleModifier, DARK_TIMECYCLE) end
+
+    -- ASIL BULANIKLIK SEBEBI: ox envanter acilinca TriggerScreenblurFadeIn cagirir
+    -- (tum oyunu, ped'i de bulanaklastirir). Karakter onizlemesi net olsun diye
+    -- ekran blur'unu KAPAT.
+    TriggerScreenblurFadeOut(0.0)
 
     -- Gercek oyuncu sahne suresince dondurulur (NUI input aciklen kaymasin).
     FreezeEntityPosition(realPed, true)
@@ -176,8 +179,7 @@ local function openScene()
                 if shift then CAM_LOOK_Z = CAM_LOOK_Z + 0.03 else CAM_HEIGHT = CAM_HEIGHT - 0.05 end
                 changed = true
             end
-            if pressed(241) then CAM_DIST = math.max(0.5, CAM_DIST - 0.1); changed = true end
-            if pressed(242) then CAM_DIST = CAM_DIST + 0.1; changed = true end
+            -- Zoom (fare tekerlegi/dist) KALDIRILDI — sabit mesafe.
             if pressed(96) then CAM_FOV = math.max(10.0, CAM_FOV - 1.0); changed = true end
             if pressed(97) then CAM_FOV = math.min(90.0, CAM_FOV + 1.0); changed = true end
 
