@@ -23,8 +23,10 @@
 ------------------------------------------------------------------------------
 -- AYAR SABITLERI (oyunda /cam ile ayarlanabilir)
 ------------------------------------------------------------------------------
--- VOID: gizli/bos sahne konumu. Backdrop dunyayi kapatir, gece override karartir.
-local VOID = vector3(1000.0, -2000.0, 250.0)
+-- VOID: gizli/bos sahne konumu. YUKSEK irtifa -> ped'in arkasi (yatay bakis)
+-- karanlik gokyuzu/ufuk; sehir/isik kalabaligi karede degil. Gece override karartir,
+-- backdrop aura'yi yakalar.
+local VOID = vector3(1000.0, -2000.0, 900.0)
 
 -- Kamera (kullanici oyunda dial etti — kalici degerler)
 local CAM_DIST   = 3.55   -- kameranin klona uzakligi
@@ -195,6 +197,11 @@ local function openScene()
     -- STUDYO ISIK + blur-kill + zoom-kilit dongusu (yalniz sahne acikken).
     CreateThread(function()
         while sceneActive and clone and DoesEntityExist(clone) do
+            -- GECE override'ini HER KARE yeniden uygula. Sunucunun zaman/hava
+            -- senkronu (weathersync vb.) tek seferlik override'i eziyordu -> sahne
+            -- gunduz kaliyordu. Her kare cagirmak senkronu yener -> koyu studyo.
+            NetworkOverrideClockTime(NIGHT_HOUR, 0, 0)
+
             local rgb = LEVEL_RGB[currentLevel] or LEVEL_RGB[0]
             local cc = GetEntityCoords(clone)
             local h = math.rad(GetEntityHeading(clone))
