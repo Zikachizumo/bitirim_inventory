@@ -20,9 +20,9 @@
 ------------------------------------------------------------------------------
 -- AYAR SABITLERI (oyunda ekran goruntusuyle guncelle)
 ------------------------------------------------------------------------------
--- SIYAH VOID: yeralti (Z eksi) -> etrafta geometri yok/karanlik -> arka plan SIYAH.
--- Klon burada spot + dolgu isigiyla aydinlatilir.
-local VOID = vector3(1000.0, 1000.0, -100.0)
+-- SIYAH VOID: haritanin DISI (bounds ~-4000..4500). Uzak dis koordinatta terrain
+-- akmaz -> arka plan SIYAH. Klon spot + beyaz dolgu isigiyla aydinlatilir.
+local VOID = vector3(-6500.0, -6500.0, 100.0)
 
 -- Kullanici oyunda dial etti (klavye canli-ayar). Kalici degerler:
 local CAM_DIST   = 3.55   -- kameranin klona uzakligi
@@ -110,6 +110,7 @@ local function openScene()
     SetEntityInvincible(clone, true)
     SetEntityCollision(clone, false, false)
     SetBlockingOfNonTemporaryEvents(clone, true)
+    SetEntityLodDist(clone, 1000) -- uzak void'de klon net kalsin
     heading = 180.0 -- kameraya donuk baslasin (AYARLA)
     SetEntityHeading(clone, heading)
 
@@ -119,10 +120,19 @@ local function openScene()
 
     cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
     topView = false
+    -- Depth-of-field KAPALI (ped bulaniklasmasin).
+    SetCamUseShallowDofMode(cam, false)
+    SetCamDofStrength(cam, 0.0)
+    SetCamNearDof(cam, 0.0)
+    SetCamFarDof(cam, 1000.0)
     positionCamera()
     SetCamActive(cam, true)
     RenderScriptCams(true, false, 0, true, true)
 
+    -- Onceki oturumdan kalmis olabilecek TUM timecycle modifier'lari temizle
+    -- (eski BLUR modifier'i takili kaliyordu -> karakter bulanik). ClearFocus'suz.
+    ClearTimecycleModifier()
+    ClearExtraTimecycleModifier()
     if DARK_TIMECYCLE then pcall(SetTimecycleModifier, DARK_TIMECYCLE) end
 
     -- Gercek oyuncu sahne suresince dondurulur (NUI input aciklen kaymasin).
@@ -192,7 +202,8 @@ local function closeScene()
     if clone and DoesEntityExist(clone) then DeleteEntity(clone) end
     clone = nil
 
-    if DARK_TIMECYCLE then pcall(ClearTimecycleModifier, DARK_TIMECYCLE) end
+    ClearTimecycleModifier()
+    ClearExtraTimecycleModifier()
     ClearFocus()
 
     -- Gercek oyuncuyu coz.
