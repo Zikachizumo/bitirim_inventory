@@ -26,9 +26,9 @@ local VOID = vector3(-1900.0, 5900.0, 500.0) -- AYARLA (bos bir yer)
 -- Kullanici oyunda dial etti (klavye canli-ayar). Kalici degerler:
 local CAM_DIST   = 3.55   -- kameranin klona uzakligi
 local CAM_HEIGHT = 0.20   -- kamera yuksekligi (klon merkezine gore)
-local CAM_SIDE   = -0.93  -- YATAY: bakis hedefi kaydirma (ped ekranda sola)
+local CAM_SIDE   = -0.98  -- YATAY: bakis hedefi kaydirma (ped ekranda sola)
 local CAM_FOV    = 44.0   -- gorus acisi
-local CAM_LOOK_Z = 0.28   -- bakis hedefi yuksekligi (buyuk = ped karede ASAGI/ayaklar alta)
+local CAM_LOOK_Z = -0.05  -- bakis hedefi yuksekligi (buyuk = ped karede ASAGI/ayaklar alta)
 
 local TOP_DIST   = 2.0    -- "ust" acisinda uzaklik
 local TOP_HEIGHT = 1.15   -- "ust" acisinda yukseklik
