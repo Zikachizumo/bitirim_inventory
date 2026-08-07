@@ -999,37 +999,9 @@ body.inv-dragging {
   background: transparent;
   border-radius: var(--r);
   cursor: grab;
-  /* Referans (1.jpg) gibi TASARLANMIS studyo zemini. Oyun tarafi koyu backdrop
-     (gercek dunyayi kapatir); buradaki CSS o koyu zemine SEVIYE-RENKLI (--accent,
-     canta seviyesine gore degisir) yumusak radyal AURA + ayak alti yuvarlak golge
-     ekler. ::before = arka aura glow, ::after = zemin golgesi. */
-  &::before {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 12%;
-    width: 90%;
-    height: 76%;
-    transform: translateX(-50%);
-    background: radial-gradient(ellipse 58% 52% at 50% 38%, var(--accent), transparent 62%);
-    opacity: 0.22;
-    filter: blur(26px);
-    pointer-events: none;
-    z-index: 0;
-  }
-  &::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    bottom: 6%;
-    width: 52%;
-    height: 12%;
-    transform: translateX(-50%);
-    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.5), transparent 70%);
-    filter: blur(7px);
-    pointer-events: none;
-    z-index: 0;
-  }
+  /* SADELESTIRME (kullanici istegi): onizleme kaldirildi -> arka aura glow ve zemin
+     golgesi (::before/::after) KALDIRILDI. Karakter bolgesi artik envanterle ayni
+     (seffaf dikdortgen yok). Onizleme adim adim geri eklenince tekrar dusunulecek. */
   &:active {
     cursor: grabbing;
   }

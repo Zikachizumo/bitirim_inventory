@@ -118,38 +118,14 @@ const Inventory: React.FC = () => {
     const el = windowRef.current;
     if (!el) return;
     const updateHole = () => {
+      // SADELESTIRME (kullanici istegi): onizleme kaldirildi -> char-view DELIGI de
+      // KAPATILDI. Boylece karakter bolgesi de envanterle AYNI (%75 tint + kenar
+      // blur) olur; ortada seffaf/koyu dikdortgen kalmaz. Onizleme adim adim geri
+      // eklenince delik yeniden acilacak.
       const scrim = scrimRef.current;
       const bg = windowBgRef.current;
-      const view = document.querySelector('.bx-char-view') as HTMLElement | null;
-      const s = scaleRef.current || 1;
-      if (!view) {
-        // Karakter paneli yok (kap/drop) -> delik yok. Pencere tam %75, kenar blur.
-        if (scrim) { scrim.style.clipPath = 'none'; (scrim.style as any).webkitClipPath = 'none'; }
-        if (bg) { bg.style.clipPath = 'none'; (bg.style as any).webkitClipPath = 'none'; }
-        return;
-      }
-      const v = view.getBoundingClientRect();
-      // 1) SCRIM deligi — viewport px (o bolgede blur yok -> ped/oyun net).
-      if (scrim) {
-        const L = Math.max(0, v.left), T = Math.max(0, v.top), R = v.right, B = v.bottom;
-        const poly =
-          `polygon(evenodd, 0px 0px, 100vw 0px, 100vw 100vh, 0px 100vh, 0px 0px, ` +
-          `${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
-        scrim.style.clipPath = poly;
-        (scrim.style as any).webkitClipPath = poly;
-      }
-      // 2) %75 TINT katmani deligi — pencereye gore LOKAL (olceksiz) px, ki koyu
-      //    tint char-view'i ortmesin -> arka planda TAM PARLAKLIK oyun gorunur.
-      if (bg) {
-        const w = el.getBoundingClientRect();
-        const L = (v.left - w.left) / s, T = (v.top - w.top) / s;
-        const R = (v.right - w.left) / s, B = (v.bottom - w.top) / s;
-        const poly =
-          `polygon(evenodd, 0px 0px, 100% 0px, 100% 100%, 0px 100%, 0px 0px, ` +
-          `${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
-        bg.style.clipPath = poly;
-        (bg.style as any).webkitClipPath = poly;
-      }
+      if (scrim) { scrim.style.clipPath = 'none'; (scrim.style as any).webkitClipPath = 'none'; }
+      if (bg) { bg.style.clipPath = 'none'; (bg.style as any).webkitClipPath = 'none'; }
     };
     const fit = () => {
       const w = el.offsetWidth;
