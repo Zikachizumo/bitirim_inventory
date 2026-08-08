@@ -40,6 +40,23 @@ RegisterNUICallback('bitirim:charRotate', function(data, cb)
     Preview:RotatePreview(mode, type(data) == 'table' and data.value or nil)
 end)
 
+-- KLAVYE CANLI AYAR (onizleme acikken chat/F8 acilamadigi icin). index.tsx ok
+-- tuslarini + Numpad 2/5'i yakalayip yollar. GAMEPLAY KAMERASI DEGISMEZ — sadece
+-- klonun sabit kamera onundeki yerlesimini (side/down/dist) kaydirir.
+RegisterNUICallback('bitirim:charTune', function(data, cb)
+    cb(1)
+    local a = type(data) == 'table' and data.action or nil
+    if a == 'left' then      cam_cfg.side = cam_cfg.side - 0.05; Preview:SetCamera({ side = cam_cfg.side })
+    elseif a == 'right' then cam_cfg.side = cam_cfg.side + 0.05; Preview:SetCamera({ side = cam_cfg.side })
+    elseif a == 'up' then    cam_cfg.down = cam_cfg.down + 0.05; Preview:SetCamera({ down = cam_cfg.down })
+    elseif a == 'down' then  cam_cfg.down = cam_cfg.down - 0.05; Preview:SetCamera({ down = cam_cfg.down })
+    elseif a == 'zoomin' then  cam_cfg.dist = math.max(0.6, cam_cfg.dist - 0.10); Preview:SetCamera({ dist = cam_cfg.dist })
+    elseif a == 'zoomout' then cam_cfg.dist = cam_cfg.dist + 0.10; Preview:SetCamera({ dist = cam_cfg.dist })
+    else return end
+    print(('^3[bitirim] cam dist=%.2f side=%.2f down=%.2f (F8: begenince bu degerleri bana soyle)^7')
+        :format(cam_cfg.dist, cam_cfg.side, cam_cfg.down))
+end)
+
 --[[
     /cam — KLON YERLESIMI + BACKDROP (onizleme acikken). GAMEPLAY KAMERASI DEGISMEZ.
     Begenince degerleri bana soyle, kalici yaparim.

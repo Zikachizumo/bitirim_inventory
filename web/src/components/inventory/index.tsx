@@ -62,6 +62,31 @@ const Inventory: React.FC = () => {
     fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
   }, [inventoryVisible, isDrop, hasContainer]);
 
+  // Bitirim: KLAVYE CANLI AYAR — onizleme acikken chat/F8 acilamadigi icin klon
+  // yerlesimini ok tuslari (yukari/asagi/sag/sol) + Numpad 5/2 (zoom in/out) ile
+  // ayarla. Sadece karakter sahnesi acikken dinlenir; client Lua kamerayi DEGISTIRMEZ.
+  useEffect(() => {
+    const showChar = inventoryVisible && !isDrop && !hasContainer;
+    if (!showChar) return;
+    const onKey = (e: KeyboardEvent) => {
+      let action: string | null = null;
+      switch (e.code) {
+        case 'ArrowLeft': action = 'left'; break;
+        case 'ArrowRight': action = 'right'; break;
+        case 'ArrowUp': action = 'up'; break;
+        case 'ArrowDown': action = 'down'; break;
+        case 'Numpad5': action = 'zoomin'; break;
+        case 'Numpad2': action = 'zoomout'; break;
+      }
+      if (action) {
+        e.preventDefault();
+        fetchNui('bitirim:charTune', { action }).catch(() => {});
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [inventoryVisible, isDrop, hasContainer]);
+
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
     setInventoryVisible(false);

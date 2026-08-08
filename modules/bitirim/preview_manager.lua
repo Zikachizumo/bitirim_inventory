@@ -57,7 +57,7 @@ local UNARMED    = `WEAPON_UNARMED`
 local active      = false
 local previewPed  = nil
 local backdrop    = nil     -- koyu arka plan objesi (klonun arkasinda)
-local bdropCtrOff = 0.0     -- backdrop modelinin origin->dikey merkez ofseti (ortalama icin)
+local bdropCx, bdropCy, bdropCz = 0.0, 0.0, 0.0  -- backdrop origin->merkez ofseti (3D ortalama)
 local realPed     = nil     -- referans (aynalama) + LOKAL gizlenir
 local dragYaw     = 0.0     -- kullanici surukleme/donme ofseti
 local compCache   = {}      -- aynalama diff onbellegi
@@ -96,12 +96,18 @@ local function positionScene()
     SetEntityCoordsNoOffset(previewPed, base.x, base.y, base.z, false, false, false)
     SetEntityHeading(previewPed, (camYaw + 180.0 + dragYaw) % 360.0) -- kameraya bak + surukleme
     if backdrop and DoesEntityExist(backdrop) then
-        -- Klonun HEMEN arkasina, GOVDE ortasina hizali (modelin origin'i nerede olursa
-        -- olsun bdropCtrOff ile modelin DIKEY MERKEZI = base.z + cfg.bz'ye oturur) ->
-        -- klonu guvenilir sekilde ortar, arkadaki dunya (korkuluk vb.) sizmaz.
-        local b = base + f * cfg.bdist
-        SetEntityCoordsNoOffset(backdrop, b.x, b.y, base.z + cfg.bz - bdropCtrOff, false, false, false)
-        SetEntityHeading(backdrop, (camYaw + cfg.bhead) % 360.0)
+        -- Klonun HEMEN arkasina, GOVDE ortasina TAM HIZALI. Modelin origin'i nerede
+        -- olursa olsun (konteyner gibi kosede olabilir) modelin 3D MERKEZINI hedef
+        -- noktaya oturturuz: yatay merkez ofseti heading ile dondurulup cikarilir,
+        -- dikey merkez z'den cikarilir -> klonu tam ortar, arkadaki dunya sizmaz.
+        local bh = (camYaw + cfg.bhead) % 360.0
+        local hr = math.rad(bh)
+        local rx = bdropCx * math.cos(hr) - bdropCy * math.sin(hr)
+        local ry = bdropCx * math.sin(hr) + bdropCy * math.cos(hr)
+        local px = base.x + f.x * cfg.bdist
+        local py = base.y + f.y * cfg.bdist
+        SetEntityCoordsNoOffset(backdrop, px - rx, py - ry, base.z + cfg.bz - bdropCz, false, false, false)
+        SetEntityHeading(backdrop, bh)
     end
 end
 
@@ -175,9 +181,11 @@ local function spawnBackdrop()
     if backdrop and DoesEntityExist(backdrop) then return end
     local mh = loadModel(cfg.bmodel)
     if not mh then return end -- model yuklenmezse backdrop atlanir (klon dunyada gorunur)
-    -- Modelin origin->dikey merkez ofseti (ortalama icin; her prop'ta origin farkli).
+    -- Modelin origin->3D merkez ofseti (ortalama icin; her prop'ta origin farkli).
     local mn, mx = GetModelDimensions(mh)
-    bdropCtrOff = (mn.z + mx.z) * 0.5
+    bdropCx = (mn.x + mx.x) * 0.5
+    bdropCy = (mn.y + mx.y) * 0.5
+    bdropCz = (mn.z + mx.z) * 0.5
     local camPos, f = camBasis()
     local b = camPos + f * (cfg.dist + cfg.bdist)
     backdrop = CreateObject(mh, b.x, b.y, b.z, false, false, false)
