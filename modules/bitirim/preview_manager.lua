@@ -45,27 +45,6 @@ local cfg = {
     bmodel = false,
 }
 
--- 8 KEY ISIK. Her biri kamera-uzayinda ofset (ox=sag, oy=on/derinlik, oz=yukari) +
--- intensity; klonun govde merkezine dogru bakar (yon otomatik). Tuslar:
---   1-8            = kontrol edilecek isigi SEC
---   ok tuslari     = secili isigin konumu (sol/sag=ox, yukari/asagi=oz)
---   Numpad 5/2     = zoom (derinlik, oy)
---   Numpad 8/7     = secili isigin parlaklik ac/kis
--- Isik 1 (ust->alt) varsayilan ACIK; digerleri KAPALI (secip Numpad8 ile ac).
-local LIGHT_DIST   = 8.0    -- spot erisim mesafesi
-local LIGHT_RADIUS = 11.0   -- spot koni yaricapi
-local lights = {
-    { ox = 0.0,  oy = 0.0, oz = 2.4,  intensity = 40.0 }, -- 1 ust -> alt (korundu, ACIK)
-    { ox = 0.0,  oy = 0.0, oz = -2.4, intensity = 0.0  }, -- 2 alt -> ust
-    { ox = -2.4, oy = 0.0, oz = 0.0,  intensity = 0.0  }, -- 3 sol -> sag
-    { ox = 2.4,  oy = 0.0, oz = 0.0,  intensity = 0.0  }, -- 4 sag -> sol
-    { ox = -2.0, oy = 0.0, oz = 2.0,  intensity = 0.0  }, -- 5 sol-ust -> sag-alt
-    { ox = 2.0,  oy = 0.0, oz = 2.0,  intensity = 0.0  }, -- 6 sag-ust -> sol-alt
-    { ox = -2.0, oy = 0.0, oz = -2.0, intensity = 0.0  }, -- 7 sol-alt -> sag-ust
-    { ox = 2.0,  oy = 0.0, oz = -2.0, intensity = 0.0  }, -- 8 sag-alt -> sol-ust
-}
-local activeLight = 1  -- klavye ile kontrol edilen isik
-
 -- Idle (klon temiz durus, mid-run donma olmasin). Cinsiyete gore.
 local IDLE_M = { dict = 'anim@heists@heist_corona@team_idles@male_a',   anim = 'idle' }
 local IDLE_F = { dict = 'anim@heists@heist_corona@team_idles@female_a', anim = 'idle' }
@@ -133,52 +112,6 @@ local function positionScene()
         SetEntityCoordsNoOffset(backdrop, px - rx, py - ry, base.z + cfg.bz - bdropCz, false, false, false)
         SetEntityHeading(backdrop, bh)
     end
-end
-
---- 8 KEY isigi ciz (her frame; DrawSpotLight kaliciligi icin). Her isik klonun govde
---- merkezine (feet + ~1m) dogru bakar; konumu ox(sag)/oz(yukari)/oy(derinlik) ofsetiyle.
---- Sadece intensity > 0 olanlar cizilir.
-local function drawLights()
-    if not previewPed or not DoesEntityExist(previewPed) then return end
-    local _, f, r, u = camBasis()
-    local cc = GetEntityCoords(previewPed)
-    local ctx, cty, ctz = cc.x, cc.y, cc.z + 1.0 -- govde merkezi (hedef)
-    for i = 1, #lights do
-        local L = lights[i]
-        if L.intensity > 0.0 then
-            local lx = ctx + r.x * L.ox + u.x * L.oz + f.x * L.oy
-            local ly = cty + r.y * L.ox + u.y * L.oz + f.y * L.oy
-            local lz = ctz + r.z * L.ox + u.z * L.oz + f.z * L.oy
-            local dx, dy, dz = ctx - lx, cty - ly, ctz - lz -- isiktan govdeye yon
-            local m = math.sqrt(dx * dx + dy * dy + dz * dz)
-            if m > 0.001 then dx, dy, dz = dx / m, dy / m, dz / m else dx, dy, dz = 0.0, 0.0, -1.0 end
-            DrawSpotLight(lx, ly, lz, dx, dy, dz, 255, 255, 255, LIGHT_DIST, L.intensity, 0.0, LIGHT_RADIUS, 1.0)
-        end
-    end
-end
-
---- Klavye ile isik ayari (index.tsx -> NUI -> buraya). '1'..'8' = isik SEC;
---- ok tuslari konum, Numpad2/5 zoom, Numpad7/8 parlaklik -> SECILI isigi degistirir.
-local function LightTune(action)
-    local sel = tonumber(action)
-    if sel and sel >= 1 and sel <= #lights then
-        activeLight = sel
-        print(('^3[bitirim] AKTIF ISIK = %d (parlaklik=%.0f)^7'):format(sel, lights[sel].intensity))
-        return
-    end
-    local L = lights[activeLight]
-    if not L then return end
-    if action == 'bright' then     L.intensity = L.intensity + 5.0
-    elseif action == 'dim' then    L.intensity = math.max(0.0, L.intensity - 5.0)
-    elseif action == 'left' then   L.ox = L.ox - 0.15
-    elseif action == 'right' then  L.ox = L.ox + 0.15
-    elseif action == 'up' then     L.oz = L.oz + 0.15
-    elseif action == 'down' then   L.oz = L.oz - 0.15
-    elseif action == 'zoomin' then L.oy = L.oy + 0.15
-    elseif action == 'zoomout' then L.oy = L.oy - 0.15
-    else return end
-    print(('^3[bitirim] isik %d: parlaklik=%.0f ox=%.2f oy=%.2f oz=%.2f (begenince soyle)^7')
-        :format(activeLight, L.intensity, L.ox, L.oy, L.oz))
 end
 
 ------------------------------------------------------------------------------
@@ -316,7 +249,6 @@ local function CreatePreview()
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
             positionScene()
-            drawLights() -- 8 KEY isik (secili olan klavyeyle ayarlanir)
             if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
             TriggerScreenblurFadeOut(0.0)
@@ -468,7 +400,6 @@ exports('UpdateOutfit',    UpdateOutfit)
 exports('SyncFromPlayer',  SyncFromPlayer)
 exports('RotatePreview',   RotatePreview)
 exports('SetCamera',       SetCamera)
-exports('LightTune',       LightTune)
 
 -- Emniyet: kaynak durursa temizle.
 AddEventHandler('onResourceStop', function(res)

@@ -62,40 +62,6 @@ const Inventory: React.FC = () => {
     fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
   }, [inventoryVisible, isDrop, hasContainer]);
 
-  // Bitirim: 8 KEY ISIK klavye ayari (karakter sahnesi acikken). 1-8 = isik SEC;
-  // ok tuslari = konum, Numpad 5/2 = zoom (derinlik), Numpad 8/7 = parlaklik ac/kis.
-  // client Lua secili isigi klon uzerinde ayarlar; GAMEPLAY KAMERASI DEGISMEZ.
-  useEffect(() => {
-    const showChar = inventoryVisible && !isDrop && !hasContainer;
-    if (!showChar) return;
-    const onKey = (e: KeyboardEvent) => {
-      let action: string | null = null;
-      switch (e.code) {
-        case 'ArrowLeft': action = 'left'; break;
-        case 'ArrowRight': action = 'right'; break;
-        case 'ArrowUp': action = 'up'; break;
-        case 'ArrowDown': action = 'down'; break;
-        case 'Numpad8': action = 'bright'; break;
-        case 'Numpad7': action = 'dim'; break;
-        case 'Numpad5': action = 'zoomin'; break;
-        case 'Numpad2': action = 'zoomout'; break;
-        case 'Digit1': action = '1'; break;
-        case 'Digit2': action = '2'; break;
-        case 'Digit3': action = '3'; break;
-        case 'Digit4': action = '4'; break;
-        case 'Digit5': action = '5'; break;
-        case 'Digit6': action = '6'; break;
-        case 'Digit7': action = '7'; break;
-        case 'Digit8': action = '8'; break;
-      }
-      if (action) {
-        e.preventDefault();
-        fetchNui('bitirim:lightTune', { action }).catch(() => {});
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [inventoryVisible, isDrop, hasContainer]);
 
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
@@ -153,13 +119,38 @@ const Inventory: React.FC = () => {
     const el = windowRef.current;
     if (!el) return;
     const updateHole = () => {
-      // Bitirim (kullanici istegi): char-view'de clip-path DELIK ACILMAZ -> scrim +
-      // window-bg katmanlari char-view'i de aynen kaplar. Boylece karakter bolgesi
-      // envanterin geri kalaniyla EŞIT (tek parca), ayri delik/kare yok.
+      // Bitirim (ChatGPT yaklasimi): char-view'de scrim + window-bg katmanlarina clip-path
+      // DELIK acilir -> orada bu iki katman YOK. Karakter (oyun render'i) gorunur; arkasindaki
+      // gameworld'u KARAKTER paneli cami (var(--surface) ~%75 koyu) karartir -> dunya soluk/
+      // geride, karakter net/onde. Kamera DEGISMEZ. Kap/drop acikken char-view yok -> delik yok.
       const scrim = scrimRef.current;
       const bg = windowBgRef.current;
-      if (scrim) { scrim.style.clipPath = 'none'; (scrim.style as any).webkitClipPath = 'none'; }
-      if (bg) { bg.style.clipPath = 'none'; (bg.style as any).webkitClipPath = 'none'; }
+      const view = document.querySelector('.bx-char-view') as HTMLElement | null;
+      const s = scaleRef.current || 1;
+      if (!view) {
+        if (scrim) { scrim.style.clipPath = 'none'; (scrim.style as any).webkitClipPath = 'none'; }
+        if (bg) { bg.style.clipPath = 'none'; (bg.style as any).webkitClipPath = 'none'; }
+        return;
+      }
+      const v = view.getBoundingClientRect();
+      if (scrim) {
+        const L = Math.max(0, v.left), T = Math.max(0, v.top), R = v.right, B = v.bottom;
+        const poly =
+          `polygon(evenodd, 0px 0px, 100vw 0px, 100vw 100vh, 0px 100vh, 0px 0px, ` +
+          `${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
+        scrim.style.clipPath = poly;
+        (scrim.style as any).webkitClipPath = poly;
+      }
+      if (bg) {
+        const w = el.getBoundingClientRect();
+        const L = (v.left - w.left) / s, T = (v.top - w.top) / s;
+        const R = (v.right - w.left) / s, B = (v.bottom - w.top) / s;
+        const poly =
+          `polygon(evenodd, 0px 0px, 100% 0px, 100% 100%, 0px 100%, 0px 0px, ` +
+          `${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
+        bg.style.clipPath = poly;
+        (bg.style as any).webkitClipPath = poly;
+      }
     };
     const fit = () => {
       const w = el.offsetWidth;

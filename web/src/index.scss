@@ -993,9 +993,10 @@ body.inv-dragging {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  /* Bitirim (kullanici istegi): char-view'in KENDI rengi YOK (seffaf) + delik yok
-     (index.tsx) -> arkadaki scrim + window-bg katmanlari char-view'i de aynen kaplar.
-     Boylece envanterin geri kalaniyla BIREBIR ayni ton = TEK PARCA siyah, ayri kare yok. */
+  /* Bitirim (ChatGPT yaklasimi): char-view SEFFAF. scrim + window-bg'de DELIK var
+     (index.tsx) -> karakter (oyun render'i) gorunur; arkasindaki gameworld'u KARAKTER
+     paneli cami (var(--surface) ~%75 koyu) karartir -> dunya soluk/geride, karakter
+     net/onde. Kamera DEGISMEZ. Ayri obje/sahte gorsel YOK. */
   background: transparent;
   border-radius: var(--r);
   cursor: grab;
