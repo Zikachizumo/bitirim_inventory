@@ -7,17 +7,17 @@
 
         NUI 'bitirim:charScene'  {open}          -> CreatePreview / DestroyPreview
         NUI 'bitirim:charRotate' {mode,value}    -> RotatePreview
-        /cam ...                                 -> SetCamera (kamera kompozisyonu)
+        /cam ...                                 -> SetCamera (klon yerlesimi + backdrop)
 
     Mevcut NUI event isimleri/UI davranisi DEGISMEDI (index.tsx aynen calisir).
+    GAMEPLAY KAMERASINA DOKUNULMAZ — /cam yalnizca klonun sabit kamera onundeki
+    YERLESIMINI ve backdrop objesini ayarlar.
 ]]
 
 local Preview = exports[GetCurrentResourceName()]
 
--- Kamera kompozisyonu (yalniz /cam ekrani icin yerel kopya; kaynak PreviewManager).
--- near/far/strength = DOF (arka plan bulanikligi) knob'lari.
-local cam_cfg = { dist = 3.55, height = 0.20, side = -0.98, fov = 44.0, lookz = -0.05, zoom = 1.0,
-                  near = 2.6, far = 5.0, strength = 1.0 }
+-- Klon yerlesimi + backdrop (yalniz /cam ekrani icin yerel kopya; kaynak PreviewManager).
+local cam_cfg = { dist = 2.4, side = -0.30, down = -0.90, bdist = 1.4, bz = 1.0, bhead = 0.0 }
 
 ------------------------------------------------------------------------------
 -- NUI KOPRUSU (index.tsx bunlari yollar — isimler AYNEN korundu)
@@ -41,26 +41,28 @@ RegisterNUICallback('bitirim:charRotate', function(data, cb)
 end)
 
 --[[
-    /cam — CANLI KAMERA KOMPOZISYONU (onizleme acikken). Begenince degerleri
-    bana soyle, kalici yaparim.
-      /cam dist <n>   ped uzakligi (buyuk = kucuk/uzak)
-      /cam side <n>   yatay: buyuk = ped daha SOLA
-      /cam height <n> kamera yuksekligi
-      /cam fov <n>    gorus acisi (35-45)
-      /cam lookz <n>  bakis hedefi yuksekligi
-      /cam zoom <n>   yakinlastirma (1=varsayilan, buyuk=yakin)
-      -- DOF (arka plan bulanikligi — klon net kalir):
-      /cam near <n>     net araligin YAKIN siniri (klondan once)
-      /cam far <n>      net araligin UZAK siniri (bunun otesi bulanik)
-      /cam strength <n> bulaniklik siddeti (0=kapali .. 1=tam)
+    /cam — KLON YERLESIMI + BACKDROP (onizleme acikken). GAMEPLAY KAMERASI DEGISMEZ.
+    Begenince degerleri bana soyle, kalici yaparim.
+      /cam dist <n>   klon kameranin ONUNDE kac metre (buyuk = uzak/kucuk)
+      /cam side <n>   YATAY ofset (negatif = ekranda sola)
+      /cam down <n>   DIKEY ofset (negatif = klon asagi; ayak-bas ortala)
+      -- BACKDROP (koyu arka plan objesi):
+      /cam bdist <n>  backdrop klonun ARKASINDA kac metre
+      /cam bz <n>     backdrop dikey merkez
+      /cam bhead <n>  backdrop aci ofseti
+      /cam bmodel <model>  backdrop prop modelini degistir (orn: prop_container_01a)
 ]]
 RegisterCommand('cam', function(_, args)
     local p, v = args[1], tonumber(args[2])
-    if p and v and cam_cfg[p] ~= nil then
+    if p == 'bmodel' and args[2] then
+        Preview:SetCamera({ bmodel = args[2] })
+        print('^3[bitirim] backdrop model = ' .. args[2] .. '^7')
+        return
+    elseif p and v and cam_cfg[p] ~= nil then
         cam_cfg[p] = v
         Preview:SetCamera({ [p] = v })
     end
-    print(('^3[bitirim] cam dist=%.2f side=%.2f height=%.2f fov=%.1f lookz=%.2f zoom=%.2f | DOF near=%.2f far=%.2f str=%.2f (aktif:%s)^7')
-        :format(cam_cfg.dist, cam_cfg.side, cam_cfg.height, cam_cfg.fov, cam_cfg.lookz, cam_cfg.zoom,
-            cam_cfg.near, cam_cfg.far, cam_cfg.strength, tostring(Preview:IsPreviewActive())))
+    print(('^3[bitirim] cam dist=%.2f side=%.2f down=%.2f | backdrop dist=%.2f bz=%.2f bhead=%.1f (aktif:%s)^7')
+        :format(cam_cfg.dist, cam_cfg.side, cam_cfg.down, cam_cfg.bdist, cam_cfg.bz, cam_cfg.bhead,
+            tostring(Preview:IsPreviewActive())))
 end, false)
