@@ -40,6 +40,14 @@ RegisterNUICallback('bitirim:charRotate', function(data, cb)
     Preview:RotatePreview(mode, type(data) == 'table' and data.value or nil)
 end)
 
+-- KEY ISIK klavye ayari (index.tsx yollar): Numpad7/8 parlaklik, ok tuslari konum,
+-- Numpad2/5 zoom. GAMEPLAY KAMERASI DEGISMEZ — sadece klon uzerindeki isik.
+RegisterNUICallback('bitirim:lightTune', function(data, cb)
+    cb(1)
+    local a = type(data) == 'table' and data.action or nil
+    if a then Preview:LightTune(a) end
+end)
+
 --[[
     /cam — KLON YERLESIMI + BACKDROP (onizleme acikken). GAMEPLAY KAMERASI DEGISMEZ.
     Begenince degerleri bana soyle, kalici yaparim.

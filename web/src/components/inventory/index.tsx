@@ -62,6 +62,33 @@ const Inventory: React.FC = () => {
     fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
   }, [inventoryVisible, isDrop, hasContainer]);
 
+  // Bitirim: KEY ISIK klavye ayari (karakter sahnesi acikken). Numpad 7/8 = parlaklik
+  // (kis/ac), ok tuslari = isik konumu, Numpad 5/2 = zoom (derinlik). client Lua
+  // isigi klon uzerinde ayarlar; GAMEPLAY KAMERASI DEGISMEZ.
+  useEffect(() => {
+    const showChar = inventoryVisible && !isDrop && !hasContainer;
+    if (!showChar) return;
+    const onKey = (e: KeyboardEvent) => {
+      let action: string | null = null;
+      switch (e.code) {
+        case 'ArrowLeft': action = 'left'; break;
+        case 'ArrowRight': action = 'right'; break;
+        case 'ArrowUp': action = 'up'; break;
+        case 'ArrowDown': action = 'down'; break;
+        case 'Numpad8': action = 'bright'; break;
+        case 'Numpad7': action = 'dim'; break;
+        case 'Numpad5': action = 'zoomin'; break;
+        case 'Numpad2': action = 'zoomout'; break;
+      }
+      if (action) {
+        e.preventDefault();
+        fetchNui('bitirim:lightTune', { action }).catch(() => {});
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [inventoryVisible, isDrop, hasContainer]);
+
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
     setInventoryVisible(false);

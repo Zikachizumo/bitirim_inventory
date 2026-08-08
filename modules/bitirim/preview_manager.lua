@@ -45,6 +45,18 @@ local cfg = {
     bmodel = false,
 }
 
+-- KEY ISIK (klonun USTUNDEN asagi bakan beyaz spot). Klavye ile dial edilir:
+-- Numpad 7/8 = parlaklik (kis/ac), ok tuslari = konum, Numpad 2/5 = zoom (derinlik).
+-- ox/oy/oz = kamera-uzayinda ofset (sag / on / yukari); intensity = parlaklik.
+local light_cfg = {
+    ox = 0.0,          -- YATAY ofset (kamera sagi)
+    oy = 0.0,          -- DERINLIK ofset (kamera onu; zoom in/out)
+    oz = 2.2,          -- YUKARI ofset (klonun ustu -> asagi bakan isik)
+    intensity = 12.0,  -- parlaklik
+    distance = 6.0,    -- isigin erisim mesafesi
+    radius = 14.0,     -- spot koni yaricapi
+}
+
 -- Idle (klon temiz durus, mid-run donma olmasin). Cinsiyete gore.
 local IDLE_M = { dict = 'anim@heists@heist_corona@team_idles@male_a',   anim = 'idle' }
 local IDLE_F = { dict = 'anim@heists@heist_corona@team_idles@female_a', anim = 'idle' }
@@ -112,6 +124,35 @@ local function positionScene()
         SetEntityCoordsNoOffset(backdrop, px - rx, py - ry, base.z + cfg.bz - bdropCz, false, false, false)
         SetEntityHeading(backdrop, bh)
     end
+end
+
+--- Klonun USTUNDEN asagi bakan beyaz KEY isik. Her karede cagrilir (DrawSpotLight
+--- kalicilik icin her frame lazim). ox/oy/oz kamera-uzayinda ofset; asagi (0,0,-1) bakar.
+local function drawLight()
+    if not previewPed or not DoesEntityExist(previewPed) then return end
+    local _, f, r = camBasis()
+    local cc = GetEntityCoords(previewPed)
+    local lx = cc.x + r.x * light_cfg.ox + f.x * light_cfg.oy
+    local ly = cc.y + r.y * light_cfg.ox + f.y * light_cfg.oy
+    local lz = cc.z + light_cfg.oz
+    DrawSpotLight(lx, ly, lz, 0.0, 0.0, -1.0, 255, 255, 255,
+        light_cfg.distance, light_cfg.intensity, 0.0, light_cfg.radius, 1.0)
+end
+
+--- Klavye ile isik ayari (index.tsx -> NUI -> buraya). Numpad7/8 parlaklik,
+--- ok tuslari konum, Numpad2/5 zoom (derinlik).
+local function LightTune(action)
+    if action == 'bright' then     light_cfg.intensity = light_cfg.intensity + 1.0
+    elseif action == 'dim' then    light_cfg.intensity = math.max(0.0, light_cfg.intensity - 1.0)
+    elseif action == 'left' then   light_cfg.ox = light_cfg.ox - 0.10
+    elseif action == 'right' then  light_cfg.ox = light_cfg.ox + 0.10
+    elseif action == 'up' then     light_cfg.oz = light_cfg.oz + 0.10
+    elseif action == 'down' then   light_cfg.oz = light_cfg.oz - 0.10
+    elseif action == 'zoomin' then light_cfg.oy = light_cfg.oy + 0.10
+    elseif action == 'zoomout' then light_cfg.oy = light_cfg.oy - 0.10
+    else return end
+    print(('^3[bitirim] isik: parlaklik=%.1f ox=%.2f oy=%.2f oz=%.2f (begenince soyle)^7')
+        :format(light_cfg.intensity, light_cfg.ox, light_cfg.oy, light_cfg.oz))
 end
 
 ------------------------------------------------------------------------------
@@ -249,6 +290,7 @@ local function CreatePreview()
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
             positionScene()
+            drawLight() -- klonun ustunden asagi beyaz KEY isik
             if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
             TriggerScreenblurFadeOut(0.0)
@@ -400,6 +442,7 @@ exports('UpdateOutfit',    UpdateOutfit)
 exports('SyncFromPlayer',  SyncFromPlayer)
 exports('RotatePreview',   RotatePreview)
 exports('SetCamera',       SetCamera)
+exports('LightTune',       LightTune)
 
 -- Emniyet: kaynak durursa temizle.
 AddEventHandler('onResourceStop', function(res)
