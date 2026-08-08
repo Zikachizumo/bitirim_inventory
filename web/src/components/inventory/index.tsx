@@ -62,9 +62,9 @@ const Inventory: React.FC = () => {
     fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
   }, [inventoryVisible, isDrop, hasContainer]);
 
-  // Bitirim: KEY ISIK klavye ayari (karakter sahnesi acikken). Numpad 7/8 = parlaklik
-  // (kis/ac), ok tuslari = isik konumu, Numpad 5/2 = zoom (derinlik). client Lua
-  // isigi klon uzerinde ayarlar; GAMEPLAY KAMERASI DEGISMEZ.
+  // Bitirim: 8 KEY ISIK klavye ayari (karakter sahnesi acikken). 1-8 = isik SEC;
+  // ok tuslari = konum, Numpad 5/2 = zoom (derinlik), Numpad 8/7 = parlaklik ac/kis.
+  // client Lua secili isigi klon uzerinde ayarlar; GAMEPLAY KAMERASI DEGISMEZ.
   useEffect(() => {
     const showChar = inventoryVisible && !isDrop && !hasContainer;
     if (!showChar) return;
@@ -79,6 +79,14 @@ const Inventory: React.FC = () => {
         case 'Numpad7': action = 'dim'; break;
         case 'Numpad5': action = 'zoomin'; break;
         case 'Numpad2': action = 'zoomout'; break;
+        case 'Digit1': action = '1'; break;
+        case 'Digit2': action = '2'; break;
+        case 'Digit3': action = '3'; break;
+        case 'Digit4': action = '4'; break;
+        case 'Digit5': action = '5'; break;
+        case 'Digit6': action = '6'; break;
+        case 'Digit7': action = '7'; break;
+        case 'Digit8': action = '8'; break;
       }
       if (action) {
         e.preventDefault();
