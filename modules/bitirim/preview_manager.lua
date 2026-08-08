@@ -33,13 +33,13 @@ local FIXED_DIR = 180.0   -- klonun kameraya karsi referans yonu (reset icin)
 
 -- Klon YERLESIMI (gameplay kamerasina GORE; kamera-uzayinda ofsetler) + BACKDROP.
 local cfg = {
-    dist = 2.4,    -- klon kameranin kac metre ONUNDE (tam boy sigsin)
+    dist = 3.4,    -- klon kameranin kac metre ONUNDE (tam boy sigsin)
     side = -0.30,  -- YATAY ofset (char-view sol kolon -> ekranda sola)
-    down = -0.90,  -- DIKEY ofset (ayak-bas kadraja ortalansin; feet asagi)
-    bdist = 1.4,   -- BACKDROP klonun kac metre ARKASINDA (kameradan daha uzak)
-    bz    = 1.0,   -- BACKDROP dikey merkez (govde ortasi)
+    down = -0.70,  -- DIKEY ofset (ayak-bas kadraja ortalansin; feet asagi)
+    bdist = 1.0,   -- BACKDROP klonun kac metre ARKASINDA (kameradan daha uzak)
+    bz    = 1.0,   -- BACKDROP dikey merkez (klon govdesi; ayak+bz)
     bhead = 0.0,   -- BACKDROP aci ofseti (camYaw + bhead)
-    bmodel = 'prop_container_01a', -- koyu/duz backdrop; /cam bmodel ile degistir
+    bmodel = 'prop_container_01a', -- backdrop; /cam bmodel ile degistir (koyu prop dene)
 }
 
 -- Idle (klon temiz durus, mid-run donma olmasin). Cinsiyete gore.
@@ -57,6 +57,7 @@ local UNARMED    = `WEAPON_UNARMED`
 local active      = false
 local previewPed  = nil
 local backdrop    = nil     -- koyu arka plan objesi (klonun arkasinda)
+local bdropCtrOff = 0.0     -- backdrop modelinin origin->dikey merkez ofseti (ortalama icin)
 local realPed     = nil     -- referans (aynalama) + LOKAL gizlenir
 local dragYaw     = 0.0     -- kullanici surukleme/donme ofseti
 local compCache   = {}      -- aynalama diff onbellegi
@@ -95,8 +96,11 @@ local function positionScene()
     SetEntityCoordsNoOffset(previewPed, base.x, base.y, base.z, false, false, false)
     SetEntityHeading(previewPed, (camYaw + 180.0 + dragYaw) % 360.0) -- kameraya bak + surukleme
     if backdrop and DoesEntityExist(backdrop) then
-        local b = base + f * cfg.bdist + vector3(0.0, 0.0, cfg.bz)
-        SetEntityCoordsNoOffset(backdrop, b.x, b.y, b.z, false, false, false)
+        -- Klonun HEMEN arkasina, GOVDE ortasina hizali (modelin origin'i nerede olursa
+        -- olsun bdropCtrOff ile modelin DIKEY MERKEZI = base.z + cfg.bz'ye oturur) ->
+        -- klonu guvenilir sekilde ortar, arkadaki dunya (korkuluk vb.) sizmaz.
+        local b = base + f * cfg.bdist
+        SetEntityCoordsNoOffset(backdrop, b.x, b.y, base.z + cfg.bz - bdropCtrOff, false, false, false)
         SetEntityHeading(backdrop, (camYaw + cfg.bhead) % 360.0)
     end
 end
@@ -171,6 +175,9 @@ local function spawnBackdrop()
     if backdrop and DoesEntityExist(backdrop) then return end
     local mh = loadModel(cfg.bmodel)
     if not mh then return end -- model yuklenmezse backdrop atlanir (klon dunyada gorunur)
+    -- Modelin origin->dikey merkez ofseti (ortalama icin; her prop'ta origin farkli).
+    local mn, mx = GetModelDimensions(mh)
+    bdropCtrOff = (mn.z + mx.z) * 0.5
     local camPos, f = camBasis()
     local b = camPos + f * (cfg.dist + cfg.bdist)
     backdrop = CreateObject(mh, b.x, b.y, b.z, false, false, false)
