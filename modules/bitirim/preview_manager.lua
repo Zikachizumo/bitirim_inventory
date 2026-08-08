@@ -5,9 +5,12 @@
         GERCEK OYUNCU (mevcut appearance) ──► Gercek Player Ped  (DOKUNULMAZ)
                                           └──► Preview Clone Ped  (onizlemede)
 
-    - Gercek oyuncu ped'i oyun dunyasinda KALIR: gizlenmez, silinmez, teleport
-      edilmez, FREEZE EDILMEZ, appearance'i degistirilmez.
-    - Klon = oyuncunun O ANKI gorunumunun kopyasi; ayri bir sahnede durur.
+    - Gercek oyuncu ped'i oyun dunyasinda KALIR: silinmez, teleport edilmez, FREEZE
+      EDILMEZ, appearance'i degistirilmez, network state'i degismez. Temiz onizleme
+      icin SADECE LOKAL gizlenir (SetEntityVisible/SetEntityLocallyInvisible) -> yalniz
+      kendi ekranimizi etkiler, diger oyuncular gormeye devam eder.
+    - Klon = oyuncunun O ANKI gorunumunun kopyasi; oyuncunun DURDUGU YERDE durur
+      (havaya tasima YOK); arka planda gercek dunya DOF ile bulaniklastirilir.
     - GAMEPLAY kamerasi DEGISTIRILMEZ: envanter acilinca state'i (pos/rot/fov)
       kaydedilir; onizleme icin AYRI bir scripted preview-kamera kullanilir;
       envanter kapaninca gameplay kamerasina SMOOTH (interp) geri donulur ->
@@ -26,10 +29,10 @@
 ------------------------------------------------------------------------------
 -- YAPILANDIRMA
 ------------------------------------------------------------------------------
--- Klon SAHNESI: oyuncunun konumunun UST'u (yuksek irtifa) -> gercek oyuncuyla
--- CAKISMAZ, near-stream (net texture). Preview kamera SADECE klonu cercever.
-local PREVIEW_ZUP  = 6.0    -- klon oyuncunun kac metre ustunde (cakisma yok; kucuk
-                            -- tutuldu ki gameplay->preview gecisi kisa/yumusak olsun)
+-- Klon SAHNESI: klon oyuncunun TAM durdugu yerde olusturulur (havaya/6m yukari
+-- TASIMA YOK). Gercek oyuncu ile cakisma, gercek ped'in SADECE LOKAL gizlenmesiyle
+-- onlenir (dunya/network/pozisyon/appearance DOKUNULMAZ). Preview kamera SADECE
+-- klonu cercever; arka planda GERCEK DUNYA gorunur, DOF ile bulaniklastirilir.
 local TRANSITION_MS = 550   -- gameplay <-> preview kamera SMOOTH gecis suresi (ms)
 local FIXED_DIR    = 180.0  -- preview kamera referans yonu (ped bu yone bakinca on).
 
@@ -37,6 +40,11 @@ local FIXED_DIR    = 180.0  -- preview kamera referans yonu (ped bu yone bakinca
 local cam_cfg = {
     dist = 3.55, height = 0.20, side = -0.98, fov = 44.0, lookz = -0.05, zoom = 1.0,
 }
+
+-- DOF (Depth of Field) — referans gorunum: KLON net (odakta), ARKA PLAN bulanik.
+-- near/far = net kalan derinlik araligi (klonun mesafesi ~cam_cfg.dist icine alinir);
+-- strength = bulaniklik siddeti. /cam near|far|strength ile in-game dial edilir.
+local dof_cfg = { near = 2.6, far = 5.0, strength = 1.0 }
 
 -- Idle (klon donuk gorunmesin: yerinde nefes/kucuk salinim). Cinsiyete gore.
 local IDLE_M = { dict = 'anim@heists@heist_corona@team_idles@male_a',   anim = 'idle' }
@@ -76,6 +84,16 @@ local function positionCamera()
     SetCamCoord(cam, cx + fx * dist, cy + fy * dist, cz + cam_cfg.height)
     PointCamAtCoord(cam, cx + rx * cam_cfg.side, cy + ry * cam_cfg.side, cz + cam_cfg.lookz)
     SetCamFov(cam, cam_cfg.fov)
+end
+
+--- DOF'u uygula: sig-DOF modu + klonun mesafesine gore net araligi. Arka plan
+--- (bina/sokak) bulanik, klon net. Render loop'ta SetUseHiDof() ile pekistirir.
+local function applyDof()
+    if not cam or not DoesCamExist(cam) then return end
+    SetCamUseShallowDofMode(cam, true)
+    SetCamNearDof(cam, dof_cfg.near)
+    SetCamFarDof(cam, dof_cfg.far)
+    SetCamDofStrength(cam, dof_cfg.strength)
 end
 
 ------------------------------------------------------------------------------
@@ -140,7 +158,7 @@ local function CreatePreview()
     if active then return end
     local ped = PlayerPedId()
     if not ped or ped == 0 then return end
-    realPed = ped -- SADECE referans; gercek ped'e DOKUNULMAZ (gizleme/freeze/tp YOK)
+    realPed = ped -- referans (aynalama) + SADECE LOKAL gizlenir; silme/freeze/tp/network YOK
 
     -- 1) GAMEPLAY kamera state'ini KAYDET (kapanista geri yuklenir).
     savedCamCoord = GetGameplayCamCoord()
@@ -157,9 +175,15 @@ local function CreatePreview()
     pcall(ClonePedToTarget, ped, previewPed)
     SetEntityAsMissionEntity(previewPed, true, true) -- guvenli DeletePed
 
-    -- 3) KLONU (oyuncuyu DEGIL) preview sahnesine tasi (oyuncunun ustu; cakisma yok).
+    -- 2b) GERCEK ped'i SADECE LOKAL gizle -> klon ile cakismasin. Bu sadece kendi
+    --     ekranimizi etkiler: entity silinmez/teleport/freeze YOK, diger oyuncular
+    --     ve network state DEGISMEZ. Kapanista (klon silindikten sonra) geri acilir.
+    SetEntityVisible(ped, false, false)
+
+    -- 3) KLON oyuncunun TAM konumunda kalir (havaya/6m yukari TASIMA YOK) -> arka
+    --    planda gercek dunya gorunur; kamera DOF ile arkasini bulaniklastirir.
     local pos = GetEntityCoords(ped)
-    local sx, sy, sz = pos.x, pos.y, pos.z + PREVIEW_ZUP
+    local sx, sy, sz = pos.x, pos.y, pos.z
     SetEntityCoordsNoOffset(previewPed, sx, sy, sz, false, false, false)
     FreezeEntityPosition(previewPed, true)  -- KLON freeze (oyuncu DEGIL)
     SetEntityInvincible(previewPed, true)
@@ -174,9 +198,8 @@ local function CreatePreview()
     -- 4) AYRI scripted preview kamera (SADECE klonu cercever). Gameplay kamerasindan
     --    SMOOTH interpolate ile devralinir (RenderScriptCams ease=true) -> ziplama yok.
     cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
-    SetCamUseShallowDofMode(cam, false)
-    SetCamDofStrength(cam, 0.0); SetCamNearDof(cam, 0.0); SetCamFarDof(cam, 1000.0)
     positionCamera()
+    applyDof()               -- referans gorunum: klon net, arka plan bulanik (DOF)
     SetCamActive(cam, true)
     RenderScriptCams(true, true, TRANSITION_MS, true, true) -- gameplay -> preview (smooth)
 
@@ -186,11 +209,16 @@ local function CreatePreview()
     playIdle()
     mirrorWeapon(true)
 
-    -- RENDER thread: sadece ox screenblur'u kapali tut (klon net). Minimal.
+    -- RENDER thread: (a) gercek ped'i her kare LOKAL gizli tut (SetEntityVisible
+    -- bazi durumlarda geri acilabilir; garanti icin pekistir), (b) ox screenblur'u
+    -- kapat (klon net kalsin), (c) SetUseHiDof ile yuksek kaliteli DOF'u zorla
+    -- (arka plan bulanik). Minimal, sadece onizleme acikken.
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
+            if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
             TriggerScreenblurFadeOut(0.0)
+            SetUseHiDof()
             Wait(0)
         end
     end)
@@ -214,7 +242,9 @@ local function DestroyPreview()
     RenderScriptCams(false, true, TRANSITION_MS, true, true)
 
     -- Klon + kamera GECIS BITINCE temizlenir (klon gecis boyunca gorunur kalsin).
-    local doomedCam, doomedPed = cam, previewPed
+    -- Gercek ped'in LOKAL gorunurlugu, KLON silindikten SONRA geri verilir ->
+    -- gecis boyunca gercek ped ile klon cakismaz (temiz swap).
+    local doomedCam, doomedPed, doomedReal = cam, previewPed, realPed
     cam, previewPed = nil, nil
     CreateThread(function()
         Wait(TRANSITION_MS + 80)
@@ -223,10 +253,13 @@ local function DestroyPreview()
             SetEntityAsMissionEntity(doomedPed, true, true)
             DeletePed(doomedPed)
         end
+        if doomedReal and DoesEntityExist(doomedReal) then
+            SetEntityVisible(doomedReal, true, false) -- LOKAL gorunurlugu geri ver
+        end
         ClearFocus()
     end)
 
-    realPed = nil -- gercek ped'e DOKUNULMADI -> geri alinacak bir sey yok
+    realPed = nil -- artik dongulerde referans verilmesin (gorunurluk yukarida geri alinir)
     compCache = {}
     curWeapon = nil
     heading = FIXED_DIR
@@ -308,7 +341,12 @@ local function SetCamera(cfg)
     if cfg.fov    then cam_cfg.fov    = cfg.fov    + 0.0 end
     if cfg.lookz  then cam_cfg.lookz  = cfg.lookz  + 0.0 end
     if cfg.zoom   then cam_cfg.zoom   = math.max(0.4, cfg.zoom + 0.0) end
+    -- DOF (arka plan bulanikligi) tunable'lari.
+    if cfg.near     then dof_cfg.near     = math.max(0.0, cfg.near + 0.0) end
+    if cfg.far      then dof_cfg.far      = math.max(0.1, cfg.far  + 0.0) end
+    if cfg.strength then dof_cfg.strength = math.max(0.0, cfg.strength + 0.0) end
     positionCamera()
+    applyDof()
 end
 
 local function IsPreviewActive() return active end

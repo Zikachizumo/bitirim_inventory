@@ -15,7 +15,9 @@
 local Preview = exports[GetCurrentResourceName()]
 
 -- Kamera kompozisyonu (yalniz /cam ekrani icin yerel kopya; kaynak PreviewManager).
-local cam_cfg = { dist = 3.55, height = 0.20, side = -0.98, fov = 44.0, lookz = -0.05, zoom = 1.0 }
+-- near/far/strength = DOF (arka plan bulanikligi) knob'lari.
+local cam_cfg = { dist = 3.55, height = 0.20, side = -0.98, fov = 44.0, lookz = -0.05, zoom = 1.0,
+                  near = 2.6, far = 5.0, strength = 1.0 }
 
 ------------------------------------------------------------------------------
 -- NUI KOPRUSU (index.tsx bunlari yollar — isimler AYNEN korundu)
@@ -47,23 +49,18 @@ end)
       /cam fov <n>    gorus acisi (35-45)
       /cam lookz <n>  bakis hedefi yuksekligi
       /cam zoom <n>   yakinlastirma (1=varsayilan, buyuk=yakin)
-      -- BACKDROP (koyu arka plan okluder):
-      /cam bdist <n>  ped'e uzaklik (yakin=buyuk gorunur) · bzoff <n> dikey · bhead <n> aci
-      /cam bmodel <model>  backdrop prop modelini degistir
+      -- DOF (arka plan bulanikligi — klon net kalir):
+      /cam near <n>     net araligin YAKIN siniri (klondan once)
+      /cam far <n>      net araligin UZAK siniri (bunun otesi bulanik)
+      /cam strength <n> bulaniklik siddeti (0=kapali .. 1=tam)
 ]]
 RegisterCommand('cam', function(_, args)
     local p, v = args[1], tonumber(args[2])
-    if p == 'bmodel' and args[2] then
-        Preview:SetCamera({ bmodel = args[2] })
-        print('^3[bitirim] backdrop model = ' .. args[2] .. '^7')
-        return
-    elseif p and v and cam_cfg[p] ~= nil then
+    if p and v and cam_cfg[p] ~= nil then
         cam_cfg[p] = v
         Preview:SetCamera({ [p] = v })
-    elseif p and v and (p == 'bdist' or p == 'bzoff' or p == 'bhead') then
-        Preview:SetCamera({ [p] = v })
     end
-    print(('^3[bitirim] cam dist=%.2f side=%.2f height=%.2f fov=%.1f lookz=%.2f zoom=%.2f (aktif:%s)^7')
+    print(('^3[bitirim] cam dist=%.2f side=%.2f height=%.2f fov=%.1f lookz=%.2f zoom=%.2f | DOF near=%.2f far=%.2f str=%.2f (aktif:%s)^7')
         :format(cam_cfg.dist, cam_cfg.side, cam_cfg.height, cam_cfg.fov, cam_cfg.lookz, cam_cfg.zoom,
-            tostring(Preview:IsPreviewActive())))
+            cam_cfg.near, cam_cfg.far, cam_cfg.strength, tostring(Preview:IsPreviewActive())))
 end, false)
