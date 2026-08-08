@@ -785,7 +785,7 @@ body.inv-dragging {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: rgba(0, 0, 0, 0.5); /* game world %50 opak */
+  background: rgba(0, 0, 0, 0.75); /* game world %75 opak */
 }
 
 .bx-window {
@@ -813,7 +813,7 @@ body.inv-dragging {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: rgba(5, 6, 11, 0.5); /* canta ici %50 opak */
+  background: rgba(5, 6, 11, 0.75); /* canta ici %75 opak */
   pointer-events: none;
 }
 
