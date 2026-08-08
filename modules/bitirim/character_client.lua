@@ -17,7 +17,7 @@
 local Preview = exports[GetCurrentResourceName()]
 
 -- Klon yerlesimi + backdrop (yalniz /cam ekrani icin yerel kopya; kaynak PreviewManager).
-local cam_cfg = { dist = 3.4, side = -0.30, down = -0.70, bdist = 1.0, bz = 1.0, bhead = 0.0 }
+local cam_cfg = { dist = 3.70, side = -1.20, down = 0.00, bdist = 1.0, bz = 1.0, bhead = 0.0 }
 
 ------------------------------------------------------------------------------
 -- NUI KOPRUSU (index.tsx bunlari yollar — isimler AYNEN korundu)
