@@ -234,105 +234,32 @@ end
 ------------------------------------------------------------------------------
 -- YASAM DONGUSU
 ------------------------------------------------------------------------------
---- Onizlemeyi ac: KLON (bir kez) + scripted kamera + idle + canli aynalama.
---- TEMIZ kurulum: backdrop/gece/ek isik/klavye-ayar YOK. Klon oyuncunun ZEMINDEKI
---- konumunda durur (arka plan = gercek dunya). Gercek ped gizlenir + dondurulur
---- (WASD/hareket pasif). Kamera SADECE klonu cercever.
+--- Onizlemeyi ac.
+--- KULLANICI ISTEGI: ONIZLEME/KLON KAPALI -> canta acilinca panelde ayri bir
+--- karakter GORUNMEZ; sadece OYUN ICI karakter (gercek ped) gorunur. Kamera
+--- OYNAMAZ. Gercek ped, envanter acikken yurumesin diye DONDURULUR (WASD pasif),
+--- gizlenmez. (Klon/kamera/idle/aynalama yardimci fonksiyonlari dormant kalir.)
 local function CreatePreview(opts)
     if active then return end
     local ped = PlayerPedId()
     if not ped or ped == 0 then return end
     realPed = ped
+    active = true
 
-    -- Klon = oyuncunun TAM gorunumu (bilesen/prop/head-blend/tattoo kopyalanir).
-    previewPed = ClonePed(ped, GetEntityHeading(ped), true, true)
-    if not previewPed or previewPed == 0 or not DoesEntityExist(previewPed) then
-        print('^1[bitirim] PreviewManager: ClonePed BASARISIZ^7')
-        previewPed = nil
-        return
-    end
-    pcall(ClonePedToTarget, ped, previewPed)
-    SetEntityAsMissionEntity(previewPed, true, true) -- guvenli DeletePed
-
-    -- OYUNCU konumu + gameplay kamera yaw'i YAKALA (sahne acilinca) -> klon kadraji
-    -- buna gore. Kamera OYNAMAZ; bakis acisi degismez, ziplamaz, TP yok. Klon
-    -- oyuncunun konumunda (kesin gorunur), yana kaydirilarak sol panele alinir.
-    framePos = GetEntityCoords(ped)
-    frameYaw = GetGameplayCamRot(2).z
-
-    FreezeEntityPosition(previewPed, true)
-    SetEntityInvincible(previewPed, true)
-    SetEntityCollision(previewPed, false, false)
-    SetBlockingOfNonTemporaryEvents(previewPed, true)
-    SetEntityLodDist(previewPed, 1000)
-    -- Klonu gameplay kamerasinin ONUNE + SOLA yerlestir (char-view sol panelde).
-    positionFrame()
-    -- Klon kameraya bakar (on goruntu). RotatePreview ile dondurulebilir.
-    heading = (frameYaw + FRAME_FACE) % 360.0
-    SetEntityHeading(previewPed, heading)
-
-    -- Gercek oyuncuyu GIZLE + DONDUR -> klonla cakismaz + WASD/hareket pasif.
-    SetEntityVisible(realPed, false, false)
+    -- Oyuncuyu dondur (WASD/hareket pasif). Gizleme/klon/kamera YOK -> oyun ici
+    -- karakter oldugu yerde gorunur kalir.
     FreezeEntityPosition(realPed, true)
 
-    -- KAMERA OLUSTURULMAZ: gameplay kamerasi oldugu gibi kalir (ziplamaz).
-    cam = nil
-    TriggerScreenblurFadeOut(0.0)
-
-    active = true
-    compCache = {}
-    curWeapon = nil
-
-    playIdle()
-    mirrorWeapon(true)
-
-    -- RENDER thread (Wait 0): WASD/hareket + zoom pasif + screenblur kapali.
-    -- (Ek isik / gece / backdrop / klavye-ayar YOK.)
+    -- WASD/hareket pasif dongusu.
     CreateThread(function()
-        while active and previewPed and DoesEntityExist(previewPed) do
-            if IsScreenblurFadeRunning() then DisableScreenblurFade() end
-            TriggerScreenblurFadeOut(0.0)
-
-            -- HAREKET (WASD) pasif -> oyuncu envanter acikken yurumez.
+        while active do
             DisableControlAction(0, 30, true)   -- INPUT_MOVE_LR (A/D)
             DisableControlAction(0, 31, true)   -- INPUT_MOVE_UD (W/S)
             DisableControlAction(0, 21, true)   -- sprint (SHIFT)
             DisableControlAction(0, 22, true)   -- jump (SPACE)
             DisableControlAction(0, 44, true)   -- cover (Q)
             DisableControlAction(0, 20, true)   -- multiplayer info (Z)
-            -- Zoom/tekerlek/silah degistirme pasif.
-            DisableControlAction(0, 14, true);  DisableControlAction(0, 15, true)
-            DisableControlAction(0, 16, true);  DisableControlAction(0, 17, true)
-            DisableControlAction(0, 96, true);  DisableControlAction(0, 97, true)
-            DisableControlAction(0, 241, true); DisableControlAction(0, 242, true)
-            DisableControlAction(0, 261, true); DisableControlAction(0, 262, true)
-
-            -- KADRAJ AYARI (chat yok): OK TUSLARI ile klonun kadrajini oturt.
-            -- Sol/Sag ok = SOL/SAG (yatay konum), Yukari/Asagi ok = UZAK/YAKIN
-            -- (boyut). Zoom yapan tuslar KULLANILMAZ (sadece oklar).
-            if KB_FRAME then
-                local function kp(c) return IsDisabledControlJustPressed(0, c) or IsControlJustPressed(0, c) end
-                local ch = false
-                if kp(174) then FRAME_SIDE = FRAME_SIDE - 0.05; ch = true end -- sol ok (sola)
-                if kp(175) then FRAME_SIDE = FRAME_SIDE + 0.05; ch = true end -- sag ok (saga)
-                if kp(172) then FRAME_FWD = FRAME_FWD + 0.05; ch = true end   -- yukari ok (uzak/kucuk)
-                if kp(173) then FRAME_FWD = FRAME_FWD - 0.05; ch = true end   -- asagi ok (yakin/buyuk)
-                if ch then
-                    positionFrame()
-                    print(('^3[bitirim] kadraj side=%.2f fwd=%.2f (ok tuslari)^7'):format(FRAME_SIDE, FRAME_FWD))
-                end
-            end
-
             Wait(0)
-        end
-    end)
-
-    -- MIRROR thread (~150ms): gercek ped -> preview canli aynalama (incremental).
-    CreateThread(function()
-        while active and previewPed and DoesEntityExist(previewPed) do
-            mirrorAppearance()
-            mirrorWeapon(false)
-            Wait(150)
         end
     end)
 end
