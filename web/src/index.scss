@@ -995,9 +995,10 @@ body.inv-dragging {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  /* Bitirim (kullanici istegi): char-view TAM OPAK SIYAH -> canta ekraniyla esit.
-     Karakter gorunmese de sorun degil (kullanici debug ediyor). Obje/prop/void YOK. */
-  background: rgb(5, 6, 11);
+  /* Bitirim (kullanici istegi): char-view'in KENDI rengi YOK (seffaf) + delik yok
+     (index.tsx) -> arkadaki scrim + window-bg katmanlari char-view'i de aynen kaplar.
+     Boylece envanterin geri kalaniyla BIREBIR ayni ton = TEK PARCA siyah, ayri kare yok. */
+  background: transparent;
   border-radius: var(--r);
   cursor: grab;
   &:active {
