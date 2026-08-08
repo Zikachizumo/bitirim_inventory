@@ -930,13 +930,11 @@ body.inv-dragging {
   padding: 16px;
 }
 
-/* Karakter paneli: TAM SEFFAF (cam yok) -> arkadaki canli ped net gorunur.
-   Slotlar/statlar kendi arka planlariyla void uzerinde "yuzer". */
+/* Karakter paneli: sagdaki ENVANTER paneliyle AYNI kutu (boyut + opaklik) — kendi
+   ozel override'i YOK, .bx-panel tabanini (var(--surface) cam + blur + border +
+   radius + padding) aynen miras alir. Boylece iki panel simetrik kutu gorunur. */
 .bx-panel.bx-character {
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border-color: transparent;
+  /* .bx-panel ile birebir ayni; ek stil yok. */
 }
 
 .bx-panel-title {
