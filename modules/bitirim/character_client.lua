@@ -40,6 +40,14 @@ RegisterNUICallback('bitirim:charRotate', function(data, cb)
     Preview:RotatePreview(mode, type(data) == 'table' and data.value or nil)
 end)
 
+-- BACKDROP OBJE klavye ayari (index.tsx yollar): ok tuslari=konum, Numpad 5/2=zoom,
+-- Numpad 8/7=prop degistir. GAMEPLAY KAMERASI DEGISMEZ.
+RegisterNUICallback('bitirim:bdTune', function(data, cb)
+    cb(1)
+    local a = type(data) == 'table' and data.action or nil
+    if a then Preview:BdTune(a) end
+end)
+
 --[[
     /cam — KLON YERLESIMI + BACKDROP (onizleme acikken). GAMEPLAY KAMERASI DEGISMEZ.
     Begenince degerleri bana soyle, kalici yaparim.
