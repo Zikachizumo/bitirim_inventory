@@ -1498,6 +1498,18 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 				EnableControlAction(0, 30, true)
 				EnableControlAction(0, 31, true)
 			end
+
+			-- Bitirim: envanter/karakter acikken KARAKTER HAREKET ETMESIN. enablekeys
+			-- (server convar) hareket tuslari icerse bile burada (enable'lardan SONRA)
+			-- WASD/analog/kosma/ziplama KAPATILIR -> preview net kalir, oyuncu kaymaz.
+			DisableControlAction(0, 30, true)  -- move LR (A/D analog)
+			DisableControlAction(0, 31, true)  -- move UD (W/S analog)
+			DisableControlAction(0, 32, true)  -- W
+			DisableControlAction(0, 33, true)  -- S
+			DisableControlAction(0, 34, true)  -- A
+			DisableControlAction(0, 35, true)  -- D
+			DisableControlAction(0, 21, true)  -- sprint (shift)
+			DisableControlAction(0, 22, true)  -- jump (space)
 		else
 			if invBusy then
 				DisableControlAction(0, 23, true)
