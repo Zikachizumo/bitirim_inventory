@@ -813,7 +813,7 @@ body.inv-dragging {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: rgb(5, 6, 11); /* tam opak (canta ici siyah) */
+  background: rgba(5, 6, 11, 0.5); /* canta ici %50 opak */
   pointer-events: none;
 }
 
