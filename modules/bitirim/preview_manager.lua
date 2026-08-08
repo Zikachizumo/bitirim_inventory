@@ -1,24 +1,25 @@
 --[[
-    Bitirim — PREVIEW MANAGER (STATIK KARAKTER ONIZLEMESI, "Sabit Kamera")
-    =====================================================================
-    YENI MIMARI (kullanici spec'i — 2026-08-08):
-        GERCEK OYUNCU (mevcut appearance) ──► Gercek Player Ped  (LOKAL gizli)
-                                          └──► Preview Clone Ped  (onizlemede)
+    Bitirim — PREVIEW MANAGER (STUDYO: PREVIEW KAMERASI + KARANLIK VOID)
+    ===================================================================
+    YAKLASIM (kullanici karari 2026-08-08): karakter onizlemesi %100 SIYAH zemin
+    uzerinde gorunsun. FiveM'de bir ped'i arka planindan izole etmenin TEK guvenilir
+    yolu: klonu bos/karanlik bir VOID'e alip ONA BAKAN gecici (scripted) bir kamera
+    ile cercevelemek.
 
-    EN ONEMLI KURAL: GAMEPLAY KAMERASINA HIC DOKUNULMAZ.
-    - Scripted kamera OLUSTURULMAZ, RenderScriptCams CAGRILMAZ, FOV/rot/pos/focus
-      DEGISTIRILMEZ. Envanter acilinca oyuncu hangi acidan bakiyorsa oyle kalir;
-      kapaninca da ayni. Kamera restore'a bile gerek yok (hic degismedi).
-    - Klon, SABIT gameplay kamerasinin ONUNE yerlestirilir (kamerayi okuruz,
-      DEGISTIRMEYIZ): cam-onu * dist + yatay/dikey ofset -> char-view deligine
-      girer. Klon kameraya bakar (heading = camYaw+180). 6m/havaya TASIMA YOK.
-    - ARKA PLAN: NUI (.bx-scrim) tum oyun dunyasini OPAK SIYAH ile kapatir; sadece
-      char-view'de clip-path DELIK vardir. Deligin arkasinda dunya gorunmesin diye
-      klonun HEMEN ARKASINA koyu bir BACKDROP objesi konur -> klon koyu zemin uzerinde.
-      DOF/blur KULLANILMAZ.
-    - Appearance senkron: tek kaynak = gercek ped. ~150ms diff-loop ile klona
-      AYNALANIR (sadece DEGISEN component/prop/silah). Movement/anim AYNALANMAZ.
-    - Kapaninca klon + backdrop silinir, gercek ped lokal gorunur olur.
+        GERCEK OYUNCU (mevcut appearance) ──► Gercek Player Ped  (DUNYADA, DOKUNULMAZ)
+                                          └──► Preview Clone Ped  (VOID'de, onizleme)
+
+    GAMEPLAY KAMERASI DOKUNULMAZ: scripted kamera SADECE render'i gecici devralir
+    (RenderScriptCams). Gameplay kamerasinin pos/rot/fov'u DEGISTIRILMEZ -> envanter
+    kapaninca RenderScriptCams(false) ile oyuncu ONCEKI acisina BIREBIR doner (smooth,
+    ziplama yok). Kaydetme/geri-yukleme gerekmez (hic degismedi).
+
+    %100 SIYAH: klon uzak VOID'de + GECE override + isiklar kapali (blackout) +
+    klona KEY isik (gorunur olsun) + arkasinda BACKDROP objesi. Char-view NUI deligi
+    zaten scripted kamera goruntusunu gosterir; kenarlar opak siyah scrim.
+
+    Appearance senkron: tek kaynak = gercek ped. ~150ms diff-loop ile klona AYNALANIR
+    (sadece DEGISEN component/prop/silah). Movement/anim AYNALANMAZ (klon STATIK).
 
     EXPORT API (exports.ox_inventory:<fn>):
         CreatePreview() DestroyPreview() IsPreviewActive()
@@ -27,29 +28,27 @@
 ]]
 
 ------------------------------------------------------------------------------
--- YAPILANDIRMA (hepsi /cam ile in-game dial edilir)
+-- YAPILANDIRMA
 ------------------------------------------------------------------------------
-local FIXED_DIR = 180.0   -- klonun kameraya karsi referans yonu (reset icin)
+local VOID        = vector3(1000.0, -3000.0, 500.0) -- bos/uzak sahne (near-stream, izole)
+local FIXED_DIR   = 180.0    -- klonun kameraya karsi referans yonu (reset icin)
+local TRANSITION_MS = 500    -- gameplay <-> preview kamera SMOOTH gecis suresi (ms)
 
--- Klon YERLESIMI (gameplay kamerasina GORE; kamera-uzayinda ofsetler) + BACKDROP.
-local cfg = {
-    dist = 3.70,   -- klon kameranin kac metre ONUNDE (in-game dial edildi)
-    side = -1.20,  -- YATAY ofset (char-view sol kolon -> ekranda sola) (dial edildi)
-    down = 0.00,   -- DIKEY ofset (ayak-bas kadraja ortalansin) (dial edildi)
-    bdist = 1.0,   -- BACKDROP klonun kac metre ARKASINDA (kameradan daha uzak)
-    bz    = 1.0,   -- BACKDROP dikey merkez (klon govdesi; ayak+bz)
-    bhead = 0.0,   -- BACKDROP aci ofseti (camYaw + bhead)
-    -- BACKDROP KAPALI (kullanici istegi): konteyner cok buyuk olup kamerayi iceri
-    -- aliyordu -> "demir cubuk" gibi bozuk render. Klon artik gercek dunya onunde
-    -- gorunur (kenarlar zaten siyah overlay). /cam bmodel <prop> ile tekrar acilir.
-    bmodel = false,
+-- Preview kamera kompozisyonu (dial edildi — char-view soluna oturuyor).
+local cam_cfg = {
+    dist = 3.55, height = 0.20, side = -0.98, fov = 44.0, lookz = -0.05, zoom = 1.0,
 }
+
+-- Backdrop (klonun ARKASINDA, kameradan UZAKTA -> asla kamerayi sarmaz). Gece'de koyu.
+local bd_cfg = { model = 'prop_container_01a', dist = 1.6, z = 1.0, head = 90.0 }
+
+-- KEY isik (klon karanlik void'de gorunur olsun; kameradan klona dogru, yumusak).
+local key_cfg = { r = 240, g = 244, b = 255, range = 6.0, intensity = 2.2, zoff = 0.35 }
 
 -- Idle (klon temiz durus, mid-run donma olmasin). Cinsiyete gore.
 local IDLE_M = { dict = 'anim@heists@heist_corona@team_idles@male_a',   anim = 'idle' }
 local IDLE_F = { dict = 'anim@heists@heist_corona@team_idles@female_a', anim = 'idle' }
 
--- Aynalanan ped bilesenleri / proplari (illenium + GTA standart).
 local COMPONENTS = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }
 local PROPS      = { 0, 1, 2, 6, 7 }
 local UNARMED    = `WEAPON_UNARMED`
@@ -59,58 +58,84 @@ local UNARMED    = `WEAPON_UNARMED`
 ------------------------------------------------------------------------------
 local active      = false
 local previewPed  = nil
-local backdrop    = nil     -- koyu arka plan objesi (klonun arkasinda)
-local bdropCx, bdropCy, bdropCz = 0.0, 0.0, 0.0  -- backdrop origin->merkez ofseti (3D ortalama)
-local realPed     = nil     -- referans (aynalama) + LOKAL gizlenir
-local dragYaw     = 0.0     -- kullanici surukleme/donme ofseti
-local compCache   = {}      -- aynalama diff onbellegi
+local backdrop    = nil
+local bdCx, bdCy, bdCz = 0.0, 0.0, 0.0  -- backdrop origin->merkez ofseti (3D ortalama)
+local cam         = nil
+local realPed     = nil     -- referans (aynalama); gercek ped DOKUNULMAZ
+local dragYaw     = 0.0
+local compCache   = {}
 local curWeapon   = nil
 
 ------------------------------------------------------------------------------
--- VEKTOR YARDIMCILARI + KAMERA TABANI (SADECE OKUR)
+-- SCRIPTED PREVIEW KAMERA (klonu VOID'de cercever; gameplay kamerasi DEGISMEZ)
 ------------------------------------------------------------------------------
-local function crossv(a, b)
-    return vector3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
-end
-local function normv(v)
-    local m = #v
-    if m > 0.0001 then return v / m end
-    return v
-end
-
---- Gameplay kamerasinin (DOKUNULMADAN okunan) pos + forward/right/up + yaw'i.
-local function camBasis()
-    local rot = GetGameplayCamRot(2)
-    local zr, xr = math.rad(rot.z), math.rad(rot.x)
-    local cx = math.cos(xr)
-    local forward = vector3(-math.sin(zr) * cx, math.cos(zr) * cx, math.sin(xr))
-    local right = normv(crossv(forward, vector3(0.0, 0.0, 1.0)))
-    local up = crossv(right, forward)
-    return GetGameplayCamCoord(), forward, right, up, rot.z
+local function positionCamera()
+    if not cam or not previewPed or not DoesEntityExist(previewPed) then return end
+    local cc = GetEntityCoords(previewPed)
+    local cx, cy, cz = cc.x, cc.y, cc.z
+    local h = math.rad(FIXED_DIR)
+    local fx, fy = -math.sin(h), math.cos(h)   -- referans on (kamera bu yonde)
+    local rx, ry = math.cos(h), math.sin(h)    -- saga vektor
+    local dist = cam_cfg.dist / (cam_cfg.zoom > 0 and cam_cfg.zoom or 1.0)
+    SetCamCoord(cam, cx + fx * dist, cy + fy * dist, cz + cam_cfg.height)
+    PointCamAtCoord(cam, cx + rx * cam_cfg.side, cy + ry * cam_cfg.side, cz + cam_cfg.lookz)
+    SetCamFov(cam, cam_cfg.fov)
 end
 
---- Klonu (ve backdrop'i) SABIT gameplay kamerasinin onune yerlestir. Kamera
---- DEGISTIRILMEZ; sadece okunur. Her karede cagrilir (kamera oynasa bile klon
---- char-view deliginde kalir; NUI focus'ta kamera zaten sabittir).
-local function positionScene()
+--- KEY isigi kameradan klona dogru ciz (klonu aydinlat; backdrop uzak -> koyu kalir).
+local function drawKeyLight()
     if not previewPed or not DoesEntityExist(previewPed) then return end
-    local camPos, f, r, u, camYaw = camBasis()
-    local base = camPos + f * cfg.dist + r * cfg.side + u * cfg.down
-    SetEntityCoordsNoOffset(previewPed, base.x, base.y, base.z, false, false, false)
-    SetEntityHeading(previewPed, (camYaw + 180.0 + dragYaw) % 360.0) -- kameraya bak + surukleme
+    local cc = GetEntityCoords(previewPed)
+    local h = math.rad(FIXED_DIR)
+    local fx, fy = -math.sin(h), math.cos(h)
+    local lx, ly, lz = cc.x + fx * 1.5, cc.y + fy * 1.5, cc.z + key_cfg.zoff + 0.6
+    DrawLightWithRange(lx, ly, lz, key_cfg.r, key_cfg.g, key_cfg.b, key_cfg.range, key_cfg.intensity)
+end
+
+------------------------------------------------------------------------------
+-- BACKDROP (koyu arka plan objesi — klonun ARKASINDA, kameradan uzakta)
+------------------------------------------------------------------------------
+local function loadModel(m)
+    local hsh = (type(m) == 'number') and m or GetHashKey(m)
+    RequestModel(hsh)
+    local t = 0
+    while not HasModelLoaded(hsh) and t < 100 do Wait(10); t = t + 1 end
+    return HasModelLoaded(hsh) and hsh or nil
+end
+
+--- Backdrop'i klonun ARKASINA (kameranin TERS yonune) 3D-ortali yerlestir.
+local function positionBackdrop()
+    if not backdrop or not DoesEntityExist(backdrop) or not previewPed then return end
+    local cc = GetEntityCoords(previewPed)
+    local h = math.rad(FIXED_DIR)
+    local fx, fy = -math.sin(h), math.cos(h)          -- kamera yonu
+    -- backdrop klonun ARKASINDA = kameranin TERSI (-f) yonunde
+    local bh = (FIXED_DIR + bd_cfg.head) % 360.0
+    local hr = math.rad(bh)
+    local rx = bdCx * math.cos(hr) - bdCy * math.sin(hr)
+    local ry = bdCx * math.sin(hr) + bdCy * math.cos(hr)
+    local px = cc.x - fx * bd_cfg.dist
+    local py = cc.y - fy * bd_cfg.dist
+    SetEntityCoordsNoOffset(backdrop, px - rx, py - ry, cc.z + bd_cfg.z - bdCz, false, false, false)
+    SetEntityHeading(backdrop, bh)
+end
+
+local function spawnBackdrop()
+    if backdrop and DoesEntityExist(backdrop) then return end
+    if not bd_cfg.model or bd_cfg.model == '' then return end
+    local mh = loadModel(bd_cfg.model)
+    if not mh then return end
+    local mn, mx = GetModelDimensions(mh)
+    bdCx = (mn.x + mx.x) * 0.5
+    bdCy = (mn.y + mx.y) * 0.5
+    bdCz = (mn.z + mx.z) * 0.5
+    backdrop = CreateObject(mh, VOID.x, VOID.y, VOID.z, false, false, false)
+    SetModelAsNoLongerNeeded(mh)
     if backdrop and DoesEntityExist(backdrop) then
-        -- Klonun HEMEN arkasina, GOVDE ortasina TAM HIZALI. Modelin origin'i nerede
-        -- olursa olsun (konteyner gibi kosede olabilir) modelin 3D MERKEZINI hedef
-        -- noktaya oturturuz: yatay merkez ofseti heading ile dondurulup cikarilir,
-        -- dikey merkez z'den cikarilir -> klonu tam ortar, arkadaki dunya sizmaz.
-        local bh = (camYaw + cfg.bhead) % 360.0
-        local hr = math.rad(bh)
-        local rx = bdropCx * math.cos(hr) - bdropCy * math.sin(hr)
-        local ry = bdropCx * math.sin(hr) + bdropCy * math.cos(hr)
-        local px = base.x + f.x * cfg.bdist
-        local py = base.y + f.y * cfg.bdist
-        SetEntityCoordsNoOffset(backdrop, px - rx, py - ry, base.z + cfg.bz - bdropCz, false, false, false)
-        SetEntityHeading(backdrop, bh)
+        SetEntityCollision(backdrop, false, false)
+        FreezeEntityPosition(backdrop, true)
+        SetEntityInvincible(backdrop, true)
+        SetEntityLodDist(backdrop, 1000)
     end
 end
 
@@ -128,7 +153,6 @@ local function playIdle()
     end
 end
 
---- Bilesen + prop diff: gercek ped -> klon. Sadece DEGISEN slot yazilir (perf).
 local function mirrorAppearance()
     if not previewPed or not DoesEntityExist(previewPed) or not realPed or not DoesEntityExist(realPed) then return end
     for i = 1, #COMPONENTS do
@@ -151,7 +175,6 @@ local function mirrorAppearance()
     end
 end
 
---- Silah aynalama: gercek ped'in secili silahi -> klon (elinde gorunur).
 local function mirrorWeapon(force)
     if not previewPed or not DoesEntityExist(previewPed) or not realPed or not DoesEntityExist(realPed) then return end
     local w = GetSelectedPedWeapon(realPed)
@@ -170,86 +193,60 @@ local function mirrorWeapon(force)
 end
 
 ------------------------------------------------------------------------------
--- BACKDROP (koyu arka plan objesi — klonun arkasinda)
-------------------------------------------------------------------------------
-local function loadModel(m)
-    local h = (type(m) == 'number') and m or GetHashKey(m)
-    RequestModel(h)
-    local t = 0
-    while not HasModelLoaded(h) and t < 100 do Wait(10); t = t + 1 end
-    return HasModelLoaded(h) and h or nil
-end
-
-local function spawnBackdrop()
-    if backdrop and DoesEntityExist(backdrop) then return end
-    if not cfg.bmodel or cfg.bmodel == '' then return end -- backdrop KAPALI -> klon dunyada
-    local mh = loadModel(cfg.bmodel)
-    if not mh then return end -- model yuklenmezse backdrop atlanir (klon dunyada gorunur)
-    -- Modelin origin->3D merkez ofseti (ortalama icin; her prop'ta origin farkli).
-    local mn, mx = GetModelDimensions(mh)
-    bdropCx = (mn.x + mx.x) * 0.5
-    bdropCy = (mn.y + mx.y) * 0.5
-    bdropCz = (mn.z + mx.z) * 0.5
-    local camPos, f = camBasis()
-    local b = camPos + f * (cfg.dist + cfg.bdist)
-    backdrop = CreateObject(mh, b.x, b.y, b.z, false, false, false)
-    SetModelAsNoLongerNeeded(mh)
-    if backdrop and DoesEntityExist(backdrop) then
-        SetEntityCollision(backdrop, false, false)
-        FreezeEntityPosition(backdrop, true)
-        SetEntityInvincible(backdrop, true)
-        SetEntityLodDist(backdrop, 1000)
-    end
-end
-
-------------------------------------------------------------------------------
 -- YASAM DONGUSU
 ------------------------------------------------------------------------------
 local function CreatePreview()
     if active then return end
     local ped = PlayerPedId()
     if not ped or ped == 0 then return end
-    realPed = ped -- referans (aynalama) + LOKAL gizlenir; dunya/network DOKUNULMAZ
+    realPed = ped -- SADECE referans; gercek ped'e DOKUNULMAZ (dunyada kalir)
 
-    -- 1) GERCEK ped'i SADECE LOKAL gizle (klon ile cakismasin). Kapanista geri acilir.
-    SetEntityVisible(ped, false, false)
-
-    -- 2) Klon = oyuncunun O ANKI gorunumu (component/prop/head-blend/tattoo kopya).
+    -- 1) Klon = oyuncunun O ANKI gorunumu (component/prop/head-blend/tattoo kopya).
     previewPed = ClonePed(ped, GetEntityHeading(ped), true, true)
     if not previewPed or previewPed == 0 or not DoesEntityExist(previewPed) then
         print('^1[bitirim] PreviewManager: ClonePed BASARISIZ^7')
         previewPed = nil
-        SetEntityVisible(ped, true, false)
         return
     end
     pcall(ClonePedToTarget, ped, previewPed)
-    SetEntityAsMissionEntity(previewPed, true, true) -- guvenli DeletePed
+    SetEntityAsMissionEntity(previewPed, true, true)
+
+    -- 2) Klonu VOID'e tasi (gercek oyuncu DUNYADA kalir; klon izole/karanlik sahnede).
+    active = true
+    dragYaw = 0.0
+    SetEntityCoordsNoOffset(previewPed, VOID.x, VOID.y, VOID.z, false, false, false)
     FreezeEntityPosition(previewPed, true)  -- KLON statik (movement YOK)
     SetEntityInvincible(previewPed, true)
     SetEntityCollision(previewPed, false, false)
     SetBlockingOfNonTemporaryEvents(previewPed, true)
     SetEntityLodDist(previewPed, 1000)
+    SetEntityHeading(previewPed, FIXED_DIR)
 
-    -- 3) BACKDROP (koyu arka plan) + ilk yerlesim. GAMEPLAY KAMERASINA DOKUNULMAZ.
-    active = true
-    dragYaw = 0.0
+    -- 3) VOID'i stream'e sok (klon+backdrop yuklensin) + backdrop olustur.
+    RequestCollisionAtCoord(VOID.x, VOID.y, VOID.z)
+    SetFocusPosAndVel(VOID.x, VOID.y, VOID.z, 0.0, 0.0, 0.0)
     spawnBackdrop()
-    positionScene()
-    local camPos = GetGameplayCamCoord()
-    SetFocusPosAndVel(camPos.x, camPos.y, camPos.z, 0.0, 0.0, 0.0) -- sahne texture'lari otursun
+    positionBackdrop()
+
+    -- 4) Scripted preview kamera: SADECE render'i devralir. DOF KAPALI.
+    cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
+    SetCamUseShallowDofMode(cam, false)
+    positionCamera()
+    SetCamActive(cam, true)
+    RenderScriptCams(true, true, TRANSITION_MS, true, true) -- gameplay -> preview (smooth)
 
     compCache = {}
     curWeapon = nil
     playIdle()
     mirrorWeapon(true)
 
-    -- RENDER thread (Wait 0): (a) klonu+backdrop'i sabit kameranin onunde tut,
-    -- (b) gercek ped'i lokal gizli tut, (c) ox screenblur'u kapat (klon net).
-    -- KAMERA/DOF'a DOKUNULMAZ.
+    -- RENDER thread (Wait 0): GECE override + blackout (arka plan %100 koyu) + KEY isik
+    -- (klon gorunur) + ox screenblur kapali (klon net). GAMEPLAY KAMERASINA DOKUNULMAZ.
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
-            positionScene()
-            if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
+            NetworkOverrideClockTime(0, 0, 0)      -- weathersync her frame ezer -> tekrar zorla
+            SetArtificialLightsState(true)          -- sehir isiklari kapali (karanlik void)
+            drawKeyLight()
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
             TriggerScreenblurFadeOut(0.0)
             Wait(0)
@@ -270,28 +267,28 @@ local function DestroyPreview()
     if not active then return end
     active = false -- thread'ler cikar
 
-    if backdrop and DoesEntityExist(backdrop) then
-        SetEntityAsMissionEntity(backdrop, true, true)
-        DeleteObject(backdrop)
-    end
-    backdrop = nil
+    -- SMOOTH geri donus: gameplay kamerasi hic DEGISMEDI -> onceki acisina birebir doner.
+    RenderScriptCams(false, true, TRANSITION_MS, true, true)
+    SetArtificialLightsState(false) -- sehir isiklari geri (gece override kendiliginden resync)
 
-    if previewPed and DoesEntityExist(previewPed) then
-        SetEntityAsMissionEntity(previewPed, true, true)
-        DeletePed(previewPed)
-    end
-    previewPed = nil
+    local doomedCam, doomedPed, doomedBd = cam, previewPed, backdrop
+    cam, previewPed, backdrop = nil, nil, nil
+    CreateThread(function()
+        Wait(TRANSITION_MS + 80) -- gecis bitene kadar klon gorunur kalsin
+        if doomedCam and DoesCamExist(doomedCam) then DestroyCam(doomedCam, false) end
+        if doomedPed and DoesEntityExist(doomedPed) then
+            SetEntityAsMissionEntity(doomedPed, true, true); DeletePed(doomedPed)
+        end
+        if doomedBd and DoesEntityExist(doomedBd) then
+            SetEntityAsMissionEntity(doomedBd, true, true); DeleteObject(doomedBd)
+        end
+        ClearFocus()
+    end)
 
-    if realPed and DoesEntityExist(realPed) then
-        SetEntityVisible(realPed, true, false) -- LOKAL gorunurlugu geri ver
-    end
     realPed = nil
-
-    ClearFocus()
     compCache = {}
     curWeapon = nil
     dragYaw = 0.0
-    -- Kamera restore YOK: gameplay kamerasi hic degistirilmedi.
 end
 
 ------------------------------------------------------------------------------
@@ -330,7 +327,6 @@ local function UpdateWeapon(weaponHash)
     end)
 end
 
---- Tam yeniden esitle (gercek ped -> klon). Berber/estetik/magaza sonrasi cagir.
 local function UpdateOutfit()
     if not active or not previewPed or not DoesEntityExist(previewPed) then return end
     pcall(ClonePedToTarget, realPed, previewPed)
@@ -339,16 +335,14 @@ local function UpdateOutfit()
     mirrorWeapon(true)
 end
 
---- Disaridan cagrilabilen genel aynalama (bilesen+prop+silah).
 local function SyncFromPlayer()
     mirrorAppearance()
     mirrorWeapon(false)
 end
 
 ------------------------------------------------------------------------------
--- DONME / YERLESIM API
+-- DONME / KAMERA API
 ------------------------------------------------------------------------------
---- Klonu dondur (kendi ekseninde) — kamera DEGISMEZ, sadece klon heading ofseti.
 local function RotatePreview(mode, value)
     if not active or not previewPed or not DoesEntityExist(previewPed) then return end
     if mode == 'left' then
@@ -360,15 +354,25 @@ local function RotatePreview(mode, value)
     elseif mode == 'reset' then
         dragYaw = 0.0
     end
-    positionScene()
+    SetEntityHeading(previewPed, (FIXED_DIR + dragYaw) % 360.0)
 end
 
---- Klon yerlesimi + backdrop ayari (KAMERA DEGISMEZ). /cam ile dial edilir.
-local function SetCamera(cfgIn)
-    if type(cfgIn) ~= 'table' then return end
-    if cfgIn.bmodel then
-        cfg.bmodel = cfgIn.bmodel
-        if active then -- backdrop'i yeni modelle yeniden olustur
+local function SetCamera(cfg)
+    if type(cfg) ~= 'table' then return end
+    if cfg.dist   then cam_cfg.dist   = cfg.dist   + 0.0 end
+    if cfg.height then cam_cfg.height = cfg.height + 0.0 end
+    if cfg.side   then cam_cfg.side   = cfg.side   + 0.0 end
+    if cfg.fov    then cam_cfg.fov    = cfg.fov    + 0.0 end
+    if cfg.lookz  then cam_cfg.lookz  = cfg.lookz  + 0.0 end
+    if cfg.zoom   then cam_cfg.zoom   = math.max(0.4, cfg.zoom + 0.0) end
+    -- backdrop + isik knob'lari
+    if cfg.bdist  then bd_cfg.dist  = cfg.bdist + 0.0 end
+    if cfg.bz     then bd_cfg.z     = cfg.bz    + 0.0 end
+    if cfg.bhead  then bd_cfg.head  = cfg.bhead + 0.0 end
+    if cfg.keyint then key_cfg.intensity = cfg.keyint + 0.0 end
+    if cfg.bmodel then
+        bd_cfg.model = cfg.bmodel
+        if active then
             if backdrop and DoesEntityExist(backdrop) then
                 SetEntityAsMissionEntity(backdrop, true, true); DeleteObject(backdrop)
             end
@@ -376,19 +380,14 @@ local function SetCamera(cfgIn)
             spawnBackdrop()
         end
     end
-    if cfgIn.dist  then cfg.dist  = cfgIn.dist  + 0.0 end
-    if cfgIn.side  then cfg.side  = cfgIn.side  + 0.0 end
-    if cfgIn.down  then cfg.down  = cfgIn.down  + 0.0 end
-    if cfgIn.bdist then cfg.bdist = cfgIn.bdist + 0.0 end
-    if cfgIn.bz    then cfg.bz    = cfgIn.bz    + 0.0 end
-    if cfgIn.bhead then cfg.bhead = cfgIn.bhead + 0.0 end
-    positionScene()
+    positionCamera()
+    positionBackdrop()
 end
 
 local function IsPreviewActive() return active end
 
 ------------------------------------------------------------------------------
--- EXPORT'LAR (tek iletisim yolu)
+-- EXPORT'LAR
 ------------------------------------------------------------------------------
 exports('CreatePreview',   CreatePreview)
 exports('DestroyPreview',  DestroyPreview)
@@ -401,7 +400,6 @@ exports('SyncFromPlayer',  SyncFromPlayer)
 exports('RotatePreview',   RotatePreview)
 exports('SetCamera',       SetCamera)
 
--- Emniyet: kaynak durursa temizle.
 AddEventHandler('onResourceStop', function(res)
     if res == GetCurrentResourceName() then DestroyPreview() end
 end)
