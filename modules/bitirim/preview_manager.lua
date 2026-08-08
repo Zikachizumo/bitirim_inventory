@@ -52,9 +52,9 @@ local light_cfg = {
     ox = 0.0,          -- YATAY ofset (kamera sagi)
     oy = 0.0,          -- DERINLIK ofset (kamera onu; zoom in/out)
     oz = 2.2,          -- YUKARI ofset (klonun ustu -> asagi bakan isik)
-    intensity = 12.0,  -- parlaklik
-    distance = 6.0,    -- isigin erisim mesafesi
-    radius = 14.0,     -- spot koni yaricapi
+    intensity = 40.0,  -- parlaklik (gunduz isigini yenmesi icin yuksek; Numpad7 ile kis)
+    distance = 8.0,    -- isigin erisim mesafesi
+    radius = 10.0,     -- spot koni yaricapi (dar = daha belirgin highlight)
 }
 
 -- Idle (klon temiz durus, mid-run donma olmasin). Cinsiyete gore.
@@ -142,8 +142,8 @@ end
 --- Klavye ile isik ayari (index.tsx -> NUI -> buraya). Numpad7/8 parlaklik,
 --- ok tuslari konum, Numpad2/5 zoom (derinlik).
 local function LightTune(action)
-    if action == 'bright' then     light_cfg.intensity = light_cfg.intensity + 1.0
-    elseif action == 'dim' then    light_cfg.intensity = math.max(0.0, light_cfg.intensity - 1.0)
+    if action == 'bright' then     light_cfg.intensity = light_cfg.intensity + 5.0
+    elseif action == 'dim' then    light_cfg.intensity = math.max(0.0, light_cfg.intensity - 5.0)
     elseif action == 'left' then   light_cfg.ox = light_cfg.ox - 0.10
     elseif action == 'right' then  light_cfg.ox = light_cfg.ox + 0.10
     elseif action == 'up' then     light_cfg.oz = light_cfg.oz + 0.10
