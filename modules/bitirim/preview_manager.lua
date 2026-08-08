@@ -39,7 +39,10 @@ local cfg = {
     bdist = 1.0,   -- BACKDROP klonun kac metre ARKASINDA (kameradan daha uzak)
     bz    = 1.0,   -- BACKDROP dikey merkez (klon govdesi; ayak+bz)
     bhead = 0.0,   -- BACKDROP aci ofseti (camYaw + bhead)
-    bmodel = 'prop_container_01a', -- backdrop; /cam bmodel ile degistir (koyu prop dene)
+    -- BACKDROP KAPALI (kullanici istegi): konteyner cok buyuk olup kamerayi iceri
+    -- aliyordu -> "demir cubuk" gibi bozuk render. Klon artik gercek dunya onunde
+    -- gorunur (kenarlar zaten siyah overlay). /cam bmodel <prop> ile tekrar acilir.
+    bmodel = false,
 }
 
 -- Idle (klon temiz durus, mid-run donma olmasin). Cinsiyete gore.
@@ -179,6 +182,7 @@ end
 
 local function spawnBackdrop()
     if backdrop and DoesEntityExist(backdrop) then return end
+    if not cfg.bmodel or cfg.bmodel == '' then return end -- backdrop KAPALI -> klon dunyada
     local mh = loadModel(cfg.bmodel)
     if not mh then return end -- model yuklenmezse backdrop atlanir (klon dunyada gorunur)
     -- Modelin origin->3D merkez ofseti (ortalama icin; her prop'ta origin farkli).
