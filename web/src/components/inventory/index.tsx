@@ -118,13 +118,38 @@ const Inventory: React.FC = () => {
     const el = windowRef.current;
     if (!el) return;
     const updateHole = () => {
-      // Bitirim (kullanici istegi): char-view'de clip-path DELIK ACILMAZ -> scrim +
-      // window-bg katmanlari char-view'i de aynen kaplar. Boylece karakter bolgesi
-      // envanterin geri kalaniyla BIREBIR ayni tonda (tek parca siyah), ayri kare yok.
+      // Bitirim (kullanici istegi): review karakter 1.PLANDA gorunsun (item'lar gibi).
+      // char-view bolgesinde scrim (%50) + window-bg (%50) katmanlarina clip-path DELIK
+      // acilir -> orada overlay YOK, karakter (oyun render'i) NET/on planda gorunur.
+      // Cevredeki %50 opaklik arka planda kalir. Kap/drop acikken char-view yok -> delik yok.
       const scrim = scrimRef.current;
       const bg = windowBgRef.current;
-      if (scrim) { scrim.style.clipPath = 'none'; (scrim.style as any).webkitClipPath = 'none'; }
-      if (bg) { bg.style.clipPath = 'none'; (bg.style as any).webkitClipPath = 'none'; }
+      const view = document.querySelector('.bx-char-view') as HTMLElement | null;
+      const s = scaleRef.current || 1;
+      if (!view) {
+        if (scrim) { scrim.style.clipPath = 'none'; (scrim.style as any).webkitClipPath = 'none'; }
+        if (bg) { bg.style.clipPath = 'none'; (bg.style as any).webkitClipPath = 'none'; }
+        return;
+      }
+      const v = view.getBoundingClientRect();
+      if (scrim) {
+        const L = Math.max(0, v.left), T = Math.max(0, v.top), R = v.right, B = v.bottom;
+        const poly =
+          `polygon(evenodd, 0px 0px, 100vw 0px, 100vw 100vh, 0px 100vh, 0px 0px, ` +
+          `${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
+        scrim.style.clipPath = poly;
+        (scrim.style as any).webkitClipPath = poly;
+      }
+      if (bg) {
+        const w = el.getBoundingClientRect();
+        const L = (v.left - w.left) / s, T = (v.top - w.top) / s;
+        const R = (v.right - w.left) / s, B = (v.bottom - w.top) / s;
+        const poly =
+          `polygon(evenodd, 0px 0px, 100% 0px, 100% 100%, 0px 100%, 0px 0px, ` +
+          `${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
+        bg.style.clipPath = poly;
+        (bg.style as any).webkitClipPath = poly;
+      }
     };
     const fit = () => {
       const w = el.offsetWidth;
