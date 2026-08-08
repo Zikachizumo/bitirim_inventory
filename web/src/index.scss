@@ -777,18 +777,17 @@ body.inv-dragging {
   height: 100%;
 }
 
-/* Bitirim: tam-ekran scrim = SADECE BLUR (karartma YOK -> arka plan saydam, oyun
-   gorunur). Pencere disindaki (sag/sol) oyun blurlanir. Karakter penceresi
-   (.bx-char-view) index.tsx'te clip-path (evenodd) ile DELIK -> orada ped NET.
+/* Bitirim: tam-ekran scrim = OPAK SIYAH overlay -> arkadaki GTA dunyasini TAMAMEN
+   kapatir (blur/DOF YOK, duz siyah). Karakter penceresi (.bx-char-view) index.tsx'te
+   clip-path (evenodd) ile DELIK -> orada klon gorunur (arkasinda koyu backdrop objesi
+   var, client tarafi). Kap/drop acikken char-view yok -> delik yok -> tam siyah.
    pointer-events yok = tiklama/surukleme engellenmez. */
 .bx-scrim {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: transparent;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: #000;
 }
 
 .bx-window {
