@@ -33,9 +33,9 @@ local FIXED_DIR = 180.0   -- klonun kameraya karsi referans yonu (reset icin)
 
 -- Klon YERLESIMI (gameplay kamerasina GORE; kamera-uzayinda ofsetler) + BACKDROP.
 local cfg = {
-    dist = 3.4,    -- klon kameranin kac metre ONUNDE (tam boy sigsin)
-    side = -0.30,  -- YATAY ofset (char-view sol kolon -> ekranda sola)
-    down = -0.70,  -- DIKEY ofset (ayak-bas kadraja ortalansin; feet asagi)
+    dist = 3.70,   -- klon kameranin kac metre ONUNDE (in-game dial edildi)
+    side = -1.20,  -- YATAY ofset (char-view sol kolon -> ekranda sola) (dial edildi)
+    down = 0.00,   -- DIKEY ofset (ayak-bas kadraja ortalansin) (dial edildi)
     bdist = 1.0,   -- BACKDROP klonun kac metre ARKASINDA (kameradan daha uzak)
     bz    = 1.0,   -- BACKDROP dikey merkez (klon govdesi; ayak+bz)
     bhead = 0.0,   -- BACKDROP aci ofseti (camYaw + bhead)
