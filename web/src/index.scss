@@ -777,17 +777,15 @@ body.inv-dragging {
   height: 100%;
 }
 
-/* Bitirim: tam-ekran scrim = OPAK SIYAH overlay -> arkadaki GTA dunyasini TAMAMEN
-   kapatir (blur/DOF YOK, duz siyah). Karakter penceresi (.bx-char-view) index.tsx'te
-   clip-path (evenodd) ile DELIK -> orada klon gorunur (arkasinda koyu backdrop objesi
-   var, client tarafi). Kap/drop acikken char-view yok -> delik yok -> tam siyah.
-   pointer-events yok = tiklama/surukleme engellenmez. */
+/* Bitirim: tam-ekran scrim = pencere DISINDAKI game world overlay'i. %50 OPAK siyah
+   -> oyun dunyasi arkadan %50 gorunur (canta ICI degil). Pencere ici (canta) opak
+   kalir cunku window-bg tam opak (asagi). pointer-events yok. */
 .bx-scrim {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: #000;
+  background: rgba(0, 0, 0, 0.5); /* game world %50 opak */
 }
 
 .bx-window {
@@ -808,14 +806,14 @@ body.inv-dragging {
   transform-origin: center center;
 }
 
-/* Pencerenin arka katmani = %75 OPAK koyu cam (oyun %25 arkadan gorunur).
-   Karakter onizleme de dahil TUM pencereye uniform %75 tint verir. Ped scrim'in
-   deligi sayesinde NET kalir (bu katman blur YAPMAZ, sadece renk tinti). */
+/* Pencerenin (canta ICI) arka katmani = TAM OPAK koyu -> canta ici siyah kalir,
+   scrim %50 olsa bile oyun pencere ardindan SIZMAZ. char-view de bu katmanla kaplanir
+   (delik yok) -> envanterle tek parca siyah. */
 .bx-window-bg {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: rgba(5, 6, 11, 0.75); /* %75 opak */
+  background: rgb(5, 6, 11); /* tam opak (canta ici siyah) */
   pointer-events: none;
 }
 
