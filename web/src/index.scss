@@ -930,11 +930,14 @@ body.inv-dragging {
   padding: 16px;
 }
 
-/* Karakter paneli: sagdaki ENVANTER paneliyle AYNI kutu (boyut + opaklik) — kendi
-   ozel override'i YOK, .bx-panel tabanini (var(--surface) cam + blur + border +
-   radius + padding) aynen miras alir. Boylece iki panel simetrik kutu gorunur. */
+/* Karakter paneli: kutu CERCEVESI (border/baslik/boyut) ENVANTER ile ayni kalir, AMA
+   ic dolgu SEFFAF + backdrop-filter YOK. Cunku panel cami (blur) char-view'deki
+   karakteri de BULANIKLASTIRIYORDU. Simdi char-view temiz -> karakter NET (B: arka
+   plani backdrop OBJESI verir, panel degil). */
 .bx-panel.bx-character {
-  /* .bx-panel ile birebir ayni; ek stil yok. */
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .bx-panel-title {
