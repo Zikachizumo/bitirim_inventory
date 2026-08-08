@@ -786,6 +786,8 @@ body.inv-dragging {
   z-index: 0;
   pointer-events: none;
   background: rgba(0, 0, 0, 0.25); /* game world %25 opak */
+  backdrop-filter: blur(14px); /* oyun ekrani bulaniklik (opaklik bozulmaz) */
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .bx-window {
@@ -814,6 +816,8 @@ body.inv-dragging {
   inset: 0;
   z-index: 0;
   background: rgba(5, 6, 11, 0.25); /* canta ici %25 opak */
+  backdrop-filter: blur(14px); /* canta ici bulaniklik (opaklik bozulmaz) */
+  -webkit-backdrop-filter: blur(14px);
   pointer-events: none;
 }
 
