@@ -62,7 +62,35 @@ const Inventory: React.FC = () => {
     fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
   }, [inventoryVisible, isDrop, hasContainer]);
 
-
+  // Bitirim: karakter sahnesi klavye ayari (yalniz sahne acikken). Ok tuslari =
+  // klonun kadraj ici konumu (side/down), Numpad 1/2 = zoom (dist),
+  // Numpad 4/5 = backdrop acisi (bhead), Numpad 7/8 = backdrop saydamligi (alpha).
+  // GAMEPLAY KAMERASI DEGISMEZ; client Lua sadece cfg degerlerini gunceller.
+  useEffect(() => {
+    const showChar = inventoryVisible && !isDrop && !hasContainer;
+    if (!showChar) return;
+    const onKey = (e: KeyboardEvent) => {
+      let action: string | null = null;
+      switch (e.code) {
+        case 'ArrowLeft': action = 'left'; break;
+        case 'ArrowRight': action = 'right'; break;
+        case 'ArrowUp': action = 'up'; break;
+        case 'ArrowDown': action = 'down'; break;
+        case 'Numpad1': action = 'zoomin'; break;
+        case 'Numpad2': action = 'zoomout'; break;
+        case 'Numpad4': action = 'bheadleft'; break;
+        case 'Numpad5': action = 'bheadright'; break;
+        case 'Numpad7': action = 'alphadown'; break;
+        case 'Numpad8': action = 'alphaup'; break;
+      }
+      if (action) {
+        e.preventDefault();
+        fetchNui('bitirim:charTune', { action }).catch(() => {});
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [inventoryVisible, isDrop, hasContainer]);
 
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
