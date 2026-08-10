@@ -39,8 +39,7 @@ local FIXED_DIR = 180.0   -- klonun kameraya karsi referans yonu (reset icin)
 -- Yeni ozel prop eklemek: .ydr'yi stream/'e koy, ismi bitirim_props.ytyp'e archetype
 -- olarak ekle (ytypgen araci), sonra ismini buraya yaz.
 local BD_MODELS = {
-    'bitirim_backdrop01',         -- VARSAYILAN: ozel koyu panel
-    'hei_mph_cntl2_glass01',      -- alternatif: heist cami
+    'bitirim_backdrop01',         -- TEK backdrop: ozel 50m koyu panel (heist cami kaldirildi)
 }
 local bdIndex = 1
 
@@ -103,29 +102,44 @@ local function camBasis()
     return GetGameplayCamCoord(), forward, right, up, rot.z
 end
 
---- Klonu (ve backdrop'i) SABIT gameplay kamerasinin onune yerlestir. Kamera
---- DEGISTIRILMEZ; sadece okunur. Her karede cagrilir (kamera oynasa bile klon
---- char-view deliginde kalir; NUI focus'ta kamera zaten sabittir).
+--- Klonu + backdrop'i yerlestir. Kamera DEGISTIRILMEZ; sadece okunur.
+--- KLON: kamera PITCH'i YOK SAYILIR (yaw-only "level" taban) -> yukari/asagi bakinca
+---   klon ustten gorunup bulanmaz; dikey olarak oyuncunun AYAK seviyesine sabitlenir
+---   (ekranda yukari/asagi kaymaz). Sadece dragYaw ile sag/sola doner.
+--- BACKDROP: gercek bakis ekseni (pitch DAHIL) boyunca yerlestirilir -> panel merkezi
+---   EKRAN ORTASINA denk gelir; kameraya bakar. 50m panel tum ekrani kaplar.
 local function positionScene()
     if not previewPed or not DoesEntityExist(previewPed) then return end
-    local camPos, f, r, u, camYaw = camBasis()
-    local base = camPos + f * cfg.dist + r * cfg.side + u * cfg.down
-    SetEntityCoordsNoOffset(previewPed, base.x, base.y, base.z, false, false, false)
-    SetEntityHeading(previewPed, (camYaw + 180.0 + dragYaw) % 360.0) -- kameraya bak + surukleme
+    local camPos, fReal = camBasis()                 -- fReal: pitch DAHIL (backdrop ekran-ortasi)
+    local rot = GetGameplayCamRot(2)
+    local zr = math.rad(rot.z)
+    local fL = vector3(-math.sin(zr), math.cos(zr), 0.0)  -- yaw-only ileri (level)
+    local rL = vector3(math.cos(zr),  math.sin(zr), 0.0)  -- yaw-only sag (level)
+    local camYaw = rot.z
+
+    local footZ = (realPed and DoesEntityExist(realPed)) and GetEntityCoords(realPed).z or camPos.z
+    local bxp = camPos.x + fL.x * cfg.dist + rL.x * cfg.side
+    local byp = camPos.y + fL.y * cfg.dist + rL.y * cfg.side
+    local bzp = footZ + cfg.down
+    SetEntityCoordsNoOffset(previewPed, bxp, byp, bzp, false, false, false)
+    SetEntityHeading(previewPed, (camYaw + 180.0 + dragYaw) % 360.0)
+
     if backdrop and DoesEntityExist(backdrop) then
-        -- Klonun HEMEN arkasina, GOVDE ortasina TAM HIZALI. Modelin origin'i nerede
-        -- olursa olsun (konteyner gibi kosede olabilir) modelin 3D MERKEZINI hedef
-        -- noktaya oturturuz: yatay merkez ofseti heading ile dondurulup cikarilir,
-        -- dikey merkez z'den cikarilir -> klonu tam ortar, arkadaki dunya sizmaz.
-        local bh = (camYaw + cfg.bhead) % 360.0
-        local hr = math.rad(bh)
-        local rx = bdropCx * math.cos(hr) - bdropCy * math.sin(hr)
-        local ry = bdropCx * math.sin(hr) + bdropCy * math.cos(hr)
-        local px = base.x + f.x * cfg.bdist + r.x * cfg.bx
-        local py = base.y + f.y * cfg.bdist + r.y * cfg.bx
-        SetEntityCoordsNoOffset(backdrop, px - rx, py - ry, base.z + cfg.bz - bdropCz, false, false, false)
-        SetEntityHeading(backdrop, bh)
+        local D = cfg.dist + cfg.bdist
+        SetEntityCoordsNoOffset(backdrop,
+            camPos.x + fReal.x * D, camPos.y + fReal.y * D, camPos.z + fReal.z * D,
+            false, false, false)
+        SetEntityHeading(backdrop, (camYaw + 180.0) % 360.0)
     end
+end
+
+--- Klonun ayaklarinin altina SIYAH YUVARLAK zemin (yassi disk) ciz. Her karede cagrilir.
+local function drawFloorDisc()
+    if not previewPed or not DoesEntityExist(previewPed) then return end
+    local p = GetEntityCoords(previewPed)
+    -- type 1 = silindir; scaleZ cok kucuk -> yere yatik yuvarlak disk. Siyah, hafif saydam.
+    DrawMarker(1, p.x, p.y, p.z + 0.02, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.95, 0.95, 0.05, 0, 0, 0, 200, false, false, 2, false, nil, nil, false)
 end
 
 ------------------------------------------------------------------------------
@@ -288,6 +302,7 @@ local function CreatePreview()
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
             positionScene()
+            drawFloorDisc()
             if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
             TriggerScreenblurFadeOut(0.0)
@@ -448,36 +463,18 @@ function cycleBackdrop(dir)
     print('^1[bitirim] backdrop: aday listede spawn edilebilir model bulunamadi^7')
 end
 
---- Klavye canli ayar (index.tsx -> NUI -> buraya). SADECE ARKA PLAN OBJESINI ayarlar;
---- klon (review karakteri) ve gameplay kamerasi DEGISMEZ.
---    left/right/up/down : backdrop konumu (cfg.bx yatay / cfg.bz dikey)
---    zoomin/zoomout      : backdrop'un klona uzakligi (cfg.bdist)
---    bheadleft/bheadright: backdrop'un acisi (cfg.bhead)
---    alphaup/alphadown   : backdrop'un saydamligi (cfg.balpha, 0..255)
---    nextmodel/prevmodel : backdrop modelini degistir (aday liste)
+--- Klavye ayar (index.tsx -> NUI -> buraya). Kullanici istegi: SADECE backdrop
+--- SAYDAMLIGI. ArrowUp = daha opak, ArrowDown = daha saydam. Baska tus YOK.
 local function TuneScene(action)
     if not active then return end
-    local STEP, DSTEP, HSTEP, ASTEP = 0.05, 0.05, 2.0, 8
-    if action == 'left' then         cfg.bx = cfg.bx - STEP
-    elseif action == 'right' then    cfg.bx = cfg.bx + STEP
-    elseif action == 'up' then       cfg.bz = cfg.bz + STEP
-    elseif action == 'down' then     cfg.bz = cfg.bz - STEP
-    elseif action == 'zoomin' then   cfg.bdist = math.max(0.2, cfg.bdist - DSTEP)
-    elseif action == 'zoomout' then  cfg.bdist = cfg.bdist + DSTEP
-    elseif action == 'bheadleft' then  cfg.bhead = (cfg.bhead - HSTEP) % 360.0
-    elseif action == 'bheadright' then cfg.bhead = (cfg.bhead + HSTEP) % 360.0
-    elseif action == 'nextmodel' then cycleBackdrop(1); return
-    elseif action == 'prevmodel' then cycleBackdrop(-1); return
-    elseif action == 'alphaup' then
+    local ASTEP = 8
+    if action == 'alphaup' then
         cfg.balpha = math.min(255, cfg.balpha + ASTEP)
-        if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
     elseif action == 'alphadown' then
         cfg.balpha = math.max(0, cfg.balpha - ASTEP)
-        if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
     else return end
-    positionScene()
-    print(('^3[bitirim] backdrop bx=%.2f bz=%.2f bdist=%.2f bhead=%.1f balpha=%d model="%s"^7')
-        :format(cfg.bx, cfg.bz, cfg.bdist, cfg.bhead, cfg.balpha, cfg.bmodel))
+    if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
+    print(('^3[bitirim] backdrop opaklik = %d/255^7'):format(cfg.balpha))
 end
 
 local function IsPreviewActive() return active end
