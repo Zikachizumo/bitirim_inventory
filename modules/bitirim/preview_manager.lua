@@ -31,28 +31,18 @@
 ------------------------------------------------------------------------------
 local FIXED_DIR = 180.0   -- klonun kameraya karsi referans yonu (reset icin)
 
--- Backdrop ADAY modelleri (konteyner HARIC). Numpad 8/7 ile aralarinda gez, begendigini
--- bana soyle -> kalici yaparim. Duz/koyu/ekran-benzeri proplar; SetEntityAlpha ile
--- yari-saydam ("seffaf siyah") yapilir. Yuklenmeyen model olursa bir sonrakine gec.
-local BD_MODELS = {
-    'prop_tv_flat_02', 'prop_tv_flat_03', 'prop_ld_screen_01', 'prop_monitor_01b',
-    'prop_billboard_08', 'prop_billboard_01', 'prop_gate_prison_01', 'prop_fnc_wall_04',
-}
-local bdIndex = 1
-
--- Klon YERLESIMI (gameplay kamerasina GORE) + BACKDROP OBJE (B yaklasimi).
+-- Klon YERLESIMI (gameplay kamerasina GORE; kamera-uzayinda ofsetler) + BACKDROP.
 local cfg = {
-    dist = 3.70,   -- klon kameranin kac metre ONUNDE (dial edildi)
-    side = -1.20,  -- klon YATAY ofset (dial edildi)
-    down = 0.00,   -- klon DIKEY ofset (dial edildi)
-    -- BACKDROP OBJE: klonun arkasinda yari-saydam koyu prop. Ok tuslari=konum,
-    -- Numpad 5/2=zoom (bdist), Numpad 8/7=prop DEGISTIR.
-    bx    = 0.0,   -- backdrop YATAY ofset (sol/sag)
-    bz    = 1.0,   -- backdrop DIKEY merkez
-    bdist = 1.2,   -- backdrop klonun arkasinda (zoom; kucuk=yakin/buyuk)
-    bhead = 90.0,  -- backdrop aci (duz yuz kameraya baksin)
-    balpha = 200,  -- yari-saydam (0..255; 255=opak, kucuk=daha seffaf)
-    bmodel = BD_MODELS[bdIndex],
+    dist = 3.70,   -- klon kameranin kac metre ONUNDE (in-game dial edildi)
+    side = -1.20,  -- YATAY ofset (char-view sol kolon -> ekranda sola) (dial edildi)
+    down = 0.00,   -- DIKEY ofset (ayak-bas kadraja ortalansin) (dial edildi)
+    bdist = 1.0,   -- BACKDROP klonun kac metre ARKASINDA (kameradan daha uzak)
+    bz    = 1.0,   -- BACKDROP dikey merkez (klon govdesi; ayak+bz)
+    bhead = 0.0,   -- BACKDROP aci ofseti (camYaw + bhead)
+    -- BACKDROP KAPALI (kullanici istegi): konteyner cok buyuk olup kamerayi iceri
+    -- aliyordu -> "demir cubuk" gibi bozuk render. Klon artik gercek dunya onunde
+    -- gorunur (kenarlar zaten siyah overlay). /cam bmodel <prop> ile tekrar acilir.
+    bmodel = false,
 }
 
 -- Idle (klon temiz durus, mid-run donma olmasin). Cinsiyete gore.
@@ -117,8 +107,8 @@ local function positionScene()
         local hr = math.rad(bh)
         local rx = bdropCx * math.cos(hr) - bdropCy * math.sin(hr)
         local ry = bdropCx * math.sin(hr) + bdropCy * math.cos(hr)
-        local px = base.x + f.x * cfg.bdist + r.x * cfg.bx
-        local py = base.y + f.y * cfg.bdist + r.y * cfg.bx
+        local px = base.x + f.x * cfg.bdist
+        local py = base.y + f.y * cfg.bdist
         SetEntityCoordsNoOffset(backdrop, px - rx, py - ry, base.z + cfg.bz - bdropCz, false, false, false)
         SetEntityHeading(backdrop, bh)
     end
@@ -209,7 +199,6 @@ local function spawnBackdrop()
         FreezeEntityPosition(backdrop, true)
         SetEntityInvincible(backdrop, true)
         SetEntityLodDist(backdrop, 1000)
-        SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) -- yari-saydam ("seffaf siyah")
     end
 end
 
@@ -396,38 +385,6 @@ local function SetCamera(cfgIn)
     positionScene()
 end
 
---- Backdrop prop'unu degistir (aday liste icinde gez).
-local function cycleBackdrop(dir)
-    bdIndex = ((bdIndex - 1 + dir) % #BD_MODELS) + 1
-    cfg.bmodel = BD_MODELS[bdIndex]
-    if active then
-        if backdrop and DoesEntityExist(backdrop) then
-            SetEntityAsMissionEntity(backdrop, true, true); DeleteObject(backdrop)
-        end
-        backdrop = nil
-        spawnBackdrop()
-        positionScene()
-    end
-    print(('^3[bitirim] backdrop #%d/%d = %s (begenince soyle)^7'):format(bdIndex, #BD_MODELS, cfg.bmodel))
-end
-
---- Klavye ile BACKDROP OBJE ayari (index.tsx -> NUI -> buraya). Ok tuslari konum,
---- Numpad 5/2 zoom (bdist), Numpad 8/7 prop degistir. KAMERA DEGISMEZ.
-local function BdTune(action)
-    if action == 'left' then       cfg.bx = cfg.bx - 0.15
-    elseif action == 'right' then  cfg.bx = cfg.bx + 0.15
-    elseif action == 'up' then     cfg.bz = cfg.bz + 0.15
-    elseif action == 'down' then   cfg.bz = cfg.bz - 0.15
-    elseif action == 'zoomin' then  cfg.bdist = math.max(0.2, cfg.bdist - 0.15)
-    elseif action == 'zoomout' then cfg.bdist = cfg.bdist + 0.15
-    elseif action == 'next' then   cycleBackdrop(1); return
-    elseif action == 'prev' then   cycleBackdrop(-1); return
-    else return end
-    positionScene()
-    print(('^3[bitirim] backdrop bx=%.2f bz=%.2f bdist=%.2f (prop #%d %s)^7')
-        :format(cfg.bx, cfg.bz, cfg.bdist, bdIndex, cfg.bmodel))
-end
-
 local function IsPreviewActive() return active end
 
 ------------------------------------------------------------------------------
@@ -443,7 +400,6 @@ exports('UpdateOutfit',    UpdateOutfit)
 exports('SyncFromPlayer',  SyncFromPlayer)
 exports('RotatePreview',   RotatePreview)
 exports('SetCamera',       SetCamera)
-exports('BdTune',          BdTune)
 
 -- Emniyet: kaynak durursa temizle.
 AddEventHandler('onResourceStop', function(res)
