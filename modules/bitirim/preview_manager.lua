@@ -54,7 +54,7 @@ local cfg = {
     bx    = 0.0,   -- BACKDROP YATAY ofset (ok Sol/Sag ile ayarlanir)
     bz    = 1.0,   -- BACKDROP DIKEY merkez (ok Yukari/Asagi ile ayarlanir)
     bhead = 0.0,   -- BACKDROP aci ofseti (camYaw + bhead), Numpad 4/5 ile ayarlanir
-    balpha = 255,  -- BACKDROP saydamligi (0..255; 255=opak), Numpad 7/8 ile ayarlanir
+    balpha = 191,  -- BACKDROP saydamligi (0..255; 191 ~= %75 opak), Numpad 7/8 ile ayarlanir
     -- BACKDROP MODEL: aday listeden (Numpad 9/6 ile degistir). /cam bmodel <prop> de var.
     bmodel = BD_MODELS[bdIndex],
 }
