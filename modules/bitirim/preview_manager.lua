@@ -39,8 +39,8 @@ local FIXED_DIR = 180.0   -- klonun kameraya karsi referans yonu (reset icin)
 -- Yeni ozel prop eklemek: .ydr'yi stream/'e koy, ismi bitirim_props.ytyp'e archetype
 -- olarak ekle (ytypgen araci), sonra ismini buraya yaz.
 local BD_MODELS = {
-    'bitirim_backdrop01',         -- VARSAYILAN: ozel koyu panel
-    'hei_mph_cntl2_glass01',      -- alternatif: heist cami
+    'hei_mph_cntl2_glass01',      -- VARSAYILAN: heist cami (seffaf -> oyun arkada gorunur)
+    'bitirim_backdrop01',         -- alternatif: ozel koyu opak panel
 }
 local bdIndex = 1
 
