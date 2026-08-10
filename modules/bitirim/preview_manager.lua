@@ -244,14 +244,19 @@ local function CreatePreview()
     mirrorWeapon(true)
 
     -- RENDER thread (Wait 0): (a) klonu+backdrop'i sabit kameranin onunde tut,
-    -- (b) gercek ped'i lokal gizli tut, (c) ox screenblur'u kapat (klon net).
-    -- KAMERA/DOF'a DOKUNULMAZ.
+    -- (b) gercek ped'i lokal gizli tut, (c) ox screenblur'u kapat (klon net),
+    -- (d) fare ile gercek kamerayi DONDURMEYI engelle (envanter SetNuiFocusKeepInput(true)
+    -- kullandigi icin fare hala oyun kamerasini oynatiyordu -> klon farkli acidan
+    -- gorununce hem garip acilar hem GTA'nin kamera-donusu motion blur'u ortaya cikiyordu).
+    -- Karakter artik SADECE UI'nin sol/sag/surukle kontrolleriyle (dragYaw) doner.
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
             positionScene()
             if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
             TriggerScreenblurFadeOut(0.0)
+            DisableControlAction(0, 1, true)  -- INPUT_LOOK_LR
+            DisableControlAction(0, 2, true)  -- INPUT_LOOK_UD
             Wait(0)
         end
     end)
