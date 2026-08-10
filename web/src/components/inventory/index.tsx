@@ -65,7 +65,7 @@ const Inventory: React.FC = () => {
   // Bitirim: backdrop obje klavye ayari (yalniz sahne acikken). SADECE arka plandaki
   // objeyi ayarlar; klon (review karakteri) ve kamera DEGISMEZ. Ok tuslari = backdrop
   // konumu (bx/bz), Numpad 1/2 = backdrop uzakligi (bdist), Numpad 4/5 = backdrop acisi
-  // (bhead), Numpad 7/8 = backdrop saydamligi (alpha).
+  // (bhead), Numpad 7/8 = backdrop saydamligi (alpha), Numpad 9/6 = backdrop MODEL degistir.
   useEffect(() => {
     const showChar = inventoryVisible && !isDrop && !hasContainer;
     if (!showChar) return;
@@ -82,6 +82,8 @@ const Inventory: React.FC = () => {
         case 'Numpad5': action = 'bheadright'; break;
         case 'Numpad7': action = 'alphadown'; break;
         case 'Numpad8': action = 'alphaup'; break;
+        case 'Numpad9': action = 'nextmodel'; break;
+        case 'Numpad6': action = 'prevmodel'; break;
       }
       if (action) {
         e.preventDefault();
