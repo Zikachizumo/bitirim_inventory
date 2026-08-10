@@ -38,11 +38,12 @@ local cfg = {
     down = 0.00,   -- DIKEY ofset (ayak-bas kadraja ortalansin) (dial edildi)
     bdist = 1.0,   -- BACKDROP klonun kac metre ARKASINDA (kameradan daha uzak)
     bz    = 1.0,   -- BACKDROP dikey merkez (klon govdesi; ayak+bz)
-    bhead = 0.0,   -- BACKDROP aci ofseti (camYaw + bhead)
-    -- BACKDROP KAPALI (kullanici istegi): konteyner cok buyuk olup kamerayi iceri
-    -- aliyordu -> "demir cubuk" gibi bozuk render. Klon artik gercek dunya onunde
-    -- gorunur (kenarlar zaten siyah overlay). /cam bmodel <prop> ile tekrar acilir.
-    bmodel = false,
+    bhead = 0.0,   -- BACKDROP aci ofseti (camYaw + bhead), Numpad 4/5 ile ayarlanir
+    balpha = 255,  -- BACKDROP saydamligi (0..255; 255=opak), Numpad 7/8 ile ayarlanir
+    -- BACKDROP: kullanicinin sectigi item ("hei_mph_cntl2_glass01"). Onceki denemede
+    -- (prop_container_01a) buyuk obje kamerayi iciyordu ("demir cubuk"); bu yuzden
+    -- Numpad/ok tuslariyla in-game dial edilecek. /cam bmodel <prop> ile degistirilebilir.
+    bmodel = 'hei_mph_cntl2_glass01',
 }
 
 -- Idle (klon temiz durus, mid-run donma olmasin). Cinsiyete gore.
@@ -199,6 +200,7 @@ local function spawnBackdrop()
         FreezeEntityPosition(backdrop, true)
         SetEntityInvincible(backdrop, true)
         SetEntityLodDist(backdrop, 1000)
+        SetEntityAlpha(backdrop, math.floor(cfg.balpha), false)
     end
 end
 
@@ -390,6 +392,34 @@ local function SetCamera(cfgIn)
     positionScene()
 end
 
+--- Klavye canli ayar (index.tsx -> NUI -> buraya). KAMERA DEGISMEZ.
+--    left/right/up/down : klonun kadraj ici konumu (cfg.side/cfg.down)
+--    zoomin/zoomout      : klona olan mesafe (cfg.dist)
+--    bheadleft/bheadright: backdrop'un acisi (cfg.bhead)
+--    alphaup/alphadown   : backdrop'un saydamligi (cfg.balpha, 0..255)
+local function TuneScene(action)
+    if not active then return end
+    local STEP, DSTEP, HSTEP, ASTEP = 0.03, 0.05, 2.0, 8
+    if action == 'left' then         cfg.side = cfg.side - STEP
+    elseif action == 'right' then    cfg.side = cfg.side + STEP
+    elseif action == 'up' then       cfg.down = cfg.down - STEP
+    elseif action == 'down' then     cfg.down = cfg.down + STEP
+    elseif action == 'zoomin' then   cfg.dist = math.max(0.5, cfg.dist - DSTEP)
+    elseif action == 'zoomout' then  cfg.dist = cfg.dist + DSTEP
+    elseif action == 'bheadleft' then  cfg.bhead = (cfg.bhead - HSTEP) % 360.0
+    elseif action == 'bheadright' then cfg.bhead = (cfg.bhead + HSTEP) % 360.0
+    elseif action == 'alphaup' then
+        cfg.balpha = math.min(255, cfg.balpha + ASTEP)
+        if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
+    elseif action == 'alphadown' then
+        cfg.balpha = math.max(0, cfg.balpha - ASTEP)
+        if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
+    else return end
+    positionScene()
+    print(('^3[bitirim] preview dist=%.2f side=%.2f down=%.2f | backdrop bhead=%.1f balpha=%d^7')
+        :format(cfg.dist, cfg.side, cfg.down, cfg.bhead, cfg.balpha))
+end
+
 local function IsPreviewActive() return active end
 
 ------------------------------------------------------------------------------
@@ -405,6 +435,7 @@ exports('UpdateOutfit',    UpdateOutfit)
 exports('SyncFromPlayer',  SyncFromPlayer)
 exports('RotatePreview',   RotatePreview)
 exports('SetCamera',       SetCamera)
+exports('TuneScene',       TuneScene)
 
 -- Emniyet: kaynak durursa temizle.
 AddEventHandler('onResourceStop', function(res)
