@@ -145,15 +145,12 @@ local function CreatePreview()
     if not ped or ped == 0 then return end
     realPed = ped -- referans (aynalama) + LOKAL gizlenir; dunya/network DOKUNULMAZ
 
-    -- 1) GERCEK ped'i SADECE LOKAL gizle (klon ile cakismasin). Kapanista geri acilir.
-    SetEntityVisible(ped, false, false)
-
-    -- 2) Klon = oyuncunun O ANKI gorunumu (component/prop/head-blend/tattoo kopya).
+    -- 1) Klon = oyuncunun O ANKI gorunumu. ONCE klonla (ped HALA gorunur) -> klon
+    -- gorunmezligi MIRAS ALMAZ. Gizlemeyi klon kurulduktan SONRA yapariz.
     previewPed = ClonePed(ped, GetEntityHeading(ped), true, true)
     if not previewPed or previewPed == 0 or not DoesEntityExist(previewPed) then
         print('^1[bitirim] PreviewManager: ClonePed BASARISIZ^7')
         previewPed = nil
-        SetEntityVisible(ped, true, false)
         return
     end
     pcall(ClonePedToTarget, ped, previewPed)
@@ -163,11 +160,18 @@ local function CreatePreview()
     SetEntityCollision(previewPed, false, false)
     SetBlockingOfNonTemporaryEvents(previewPed, true)
     SetEntityLodDist(previewPed, 1000)
+    SetEntityVisible(previewPed, true, false)  -- KLON KESIN GORUNUR (miras/durum ne olursa)
+    ResetEntityAlpha(previewPed)
 
-    -- 3) Ilk yerlesim. GAMEPLAY KAMERASINA DOKUNULMAZ.
+    -- 2) GERCEK ped'i SADECE LOKAL gizle (klon ile cakismasin). Kapanista geri acilir.
+    SetEntityVisible(ped, false, false)
+
+    -- 3) Ilk yerlesim + odak (klonun oldugu yer render/stream edilsin). KAMERA DEGISMEZ.
     active = true
     dragYaw = 0.0
     positionScene()
+    local cp = GetGameplayCamCoord()
+    SetFocusPosAndVel(cp.x, cp.y, cp.z, 0.0, 0.0, 0.0)
 
     compCache = {}
     curWeapon = nil
