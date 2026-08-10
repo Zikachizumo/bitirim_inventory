@@ -785,9 +785,7 @@ body.inv-dragging {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: rgba(0, 0, 0, 0.25); /* game world %25 opak */
-  backdrop-filter: blur(200px); /* oyun ekrani bulaniklik (absurt, opaklik bozulmaz) */
-  -webkit-backdrop-filter: blur(200px);
+  background: rgba(0, 0, 0, 0.75); /* game world %75 opak (uniform; blur kaldirildi) */
 }
 
 .bx-window {
@@ -815,7 +813,7 @@ body.inv-dragging {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: rgba(5, 6, 11, 0.25); /* canta ici %25 opak (blur YOK) */
+  background: rgba(5, 6, 11, 0.75); /* canta ici %75 opak (uniform) */
   pointer-events: none;
 }
 
@@ -996,11 +994,10 @@ body.inv-dragging {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  /* Bitirim (ChatGPT yaklasimi): char-view SEFFAF. scrim + window-bg'de DELIK var
-     (index.tsx) -> karakter (oyun render'i) gorunur; arkasindaki gameworld'u KARAKTER
-     paneli cami (var(--surface) ~%75 koyu) karartir -> dunya soluk/geride, karakter
-     net/onde. Kamera DEGISMEZ. Ayri obje/sahte gorsel YOK. */
-  background: transparent;
+  /* Bitirim: char-view %75 KOYU overlay (envanterle uniform "tek boy") + scrim/window-bg'de
+     DELIK (index.tsx) -> klon (oyun render) gorunur ama %75 karartilir (sonuk/blend, parlak
+     delik yok = "kapali" gorunur). Kamera DEGISMEZ. Obje/sahte gorsel YOK. */
+  background: rgba(5, 6, 11, 0.75);
   border-radius: var(--r);
   cursor: grab;
   &:active {
