@@ -938,10 +938,10 @@ body.inv-dragging {
   -webkit-backdrop-filter: none;
 }
 
-/* Envanter paneli (Fast Access + Backpack): KOMPLE SEFFAF (kullanici istegi). Panel
-   kutusu cam/blur dolgusu kaldirildi + slot hucreleri seffaf -> arkadaki oyun/backdrop
-   gorunur, grid sadece cerceve/hover ile belli olur. Cerceve/baslik/agirlik/canta karti
-   yerinde kalir (UI okunur kalsin). Kaplar (trunk/stash/market) ETKILENMEZ (scope: .bx-inventory). */
+/* Envanter paneli (Fast Access + Backpack): panel KUTUSU cam/blur dolgusu kaldirildi
+   (seffaf). SLOTLAR ise KARAKTER panelindeki (.bx-eq-slot) gibi UNIFORM koyu ton
+   (var(--slot)) -> dolu/bos slot AYNI renkte karartili (has-item --slot-2'ye GECMEZ).
+   Kaplar (trunk/stash/market) ETKILENMEZ (scope: .bx-inventory). */
 .bx-panel.bx-inventory {
   background: transparent;
   backdrop-filter: none;
@@ -949,7 +949,7 @@ body.inv-dragging {
 }
 .bx-inventory .inventory-slot,
 .bx-inventory .inventory-slot.has-item {
-  background-color: transparent; /* dolu slotta cerceve + accent parilti (has-item) kalir */
+  background-color: var(--slot); /* karakter equip slotlariyla AYNI uniform ton */
 }
 
 .bx-panel-title {
