@@ -57,24 +57,30 @@ local curWeapon   = nil
 -- KLON YERLESIMI (gameplay kamerasini SADECE OKUR)
 ------------------------------------------------------------------------------
 --- Klonu yerlestir. Kamera DEGISTIRILMEZ; sadece okunur.
---- KLON: kamera PITCH'i YOK SAYILIR (yaw-only "level" taban) -> yukari/asagi bakinca
----   klon ustten gorunup bulanmaz; dikey olarak oyuncunun AYAK seviyesine sabitlenir
----   (ekranda yukari/asagi kaymaz). Sadece dragYaw ile sag/sola doner. KAMERA DEGISMEZ.
+--- KLON KAMERA-UZAYINDA SABIT OFSETTE tutulur (pitch DAHIL taban) -> kamera yukari/
+--- asagi baksa bile klon EKRANDA HEP AYNI KONUM/ACIDA gorunur, net kalir (kaymaz/
+--- bulanmaz). Dikey ofset, neutral bakista footZ+down'u verecek sekilde hesaplanir ->
+--- dialed goruntu (side=-1.05 down=0.51 dist=3.35) KORUNUR. Sadece dragYaw ile doner.
 local function positionScene()
     if not previewPed or not DoesEntityExist(previewPed) then return end
     local camPos = GetGameplayCamCoord()
     local rot = GetGameplayCamRot(2)
-    local zr = math.rad(rot.z)
-    local fL = vector3(-math.sin(zr), math.cos(zr), 0.0)  -- yaw-only ileri (level)
-    local rL = vector3(math.cos(zr),  math.sin(zr), 0.0)  -- yaw-only sag (level)
-    local camYaw = rot.z
-
+    local zr, xr = math.rad(rot.z), math.rad(rot.x)
+    local cxr, sxr = math.cos(xr), math.sin(xr)
+    local szr, czr = math.sin(zr), math.cos(zr)
+    -- KAMERA TABANI (pitch dahil): ileri / yatay-sag / kamera-yukari
+    local f = vector3(-szr * cxr, czr * cxr, sxr)
+    local r = vector3(czr, szr, 0.0)
+    local u = vector3(szr * sxr, -czr * sxr, cxr)
+    -- Kamera-uzayi dikey ofset: neutral bakista klon feet'i footZ+down'a otursun.
     local footZ = (realPed and DoesEntityExist(realPed)) and GetEntityCoords(realPed).z or camPos.z
+    local vo = cfg.down - (camPos.z - footZ)
     SetEntityCoordsNoOffset(previewPed,
-        camPos.x + fL.x * cfg.dist + rL.x * cfg.side,
-        camPos.y + fL.y * cfg.dist + rL.y * cfg.side,
-        footZ + cfg.down, false, false, false)
-    SetEntityHeading(previewPed, (camYaw + 180.0 + dragYaw) % 360.0)
+        camPos.x + f.x * cfg.dist + r.x * cfg.side + u.x * vo,
+        camPos.y + f.y * cfg.dist + r.y * cfg.side + u.y * vo,
+        camPos.z + f.z * cfg.dist + r.z * cfg.side + u.z * vo,
+        false, false, false)
+    SetEntityHeading(previewPed, (rot.z + 180.0 + dragYaw) % 360.0)
 end
 
 ------------------------------------------------------------------------------
