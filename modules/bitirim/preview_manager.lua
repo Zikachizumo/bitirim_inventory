@@ -31,6 +31,24 @@
 ------------------------------------------------------------------------------
 local FIXED_DIR = 180.0   -- klonun kameraya karsi referans yonu (reset icin)
 
+-- BACKDROP ADAY MODELLERI (hepsi base-oyunda spawn edilebilir olmali; kod gecersiz
+-- olani IsModelInCdimage ile atlar). Kullanici tercih ettigi "hei_mph_cntl2_glass01"
+-- base oyunda YOK (IsModelInCdimage=false) -> ancak sunucuya ayrica stream edilirse
+-- kullanilabilir. Onun yerine spawn edilebilir duz cam/panel/ekran adaylari; Numpad
+-- 9/6 ile aralarinda gez, begendigini bana soyle -> kalici yaparim. (Gercek yansimali
+-- ayna GTA'da interior/MLO yuzeyidir, normal prop degildir; bunlar duz yuzeylerdir.)
+local BD_MODELS = {
+    'hei_mph_cntl2_glass01',      -- kullanicinin istegi (stream edilirse calisir; yoksa atlanir)
+    'prop_tv_flat_02',            -- genis duz ekran
+    'prop_tv_flat_03',
+    'prop_ld_screen_01',          -- panel/ekran
+    'prop_billboard_01',          -- buyuk duz pano
+    'prop_billboard_08',
+    'prop_facgate_01',            -- duz metal panel/kapi
+    'prop_fnc_wall_04',           -- duvar segmenti
+}
+local bdIndex = 1
+
 -- Klon YERLESIMI (gameplay kamerasina GORE; kamera-uzayinda ofsetler) + BACKDROP.
 local cfg = {
     dist = 3.70,   -- klon kameranin kac metre ONUNDE (in-game dial edildi)
@@ -41,10 +59,8 @@ local cfg = {
     bz    = 1.0,   -- BACKDROP DIKEY merkez (ok Yukari/Asagi ile ayarlanir)
     bhead = 0.0,   -- BACKDROP aci ofseti (camYaw + bhead), Numpad 4/5 ile ayarlanir
     balpha = 255,  -- BACKDROP saydamligi (0..255; 255=opak), Numpad 7/8 ile ayarlanir
-    -- BACKDROP: kullanicinin sectigi item ("hei_mph_cntl2_glass01"). Onceki denemede
-    -- (prop_container_01a) buyuk obje kamerayi iciyordu ("demir cubuk"); bu yuzden
-    -- Numpad/ok tuslariyla in-game dial edilecek. /cam bmodel <prop> ile degistirilebilir.
-    bmodel = 'hei_mph_cntl2_glass01',
+    -- BACKDROP MODEL: aday listeden (Numpad 9/6 ile degistir). /cam bmodel <prop> de var.
+    bmodel = BD_MODELS[bdIndex],
 }
 
 -- Idle (klon temiz durus, mid-run donma olmasin). Cinsiyete gore.
@@ -61,6 +77,7 @@ local UNARMED    = `WEAPON_UNARMED`
 ------------------------------------------------------------------------------
 local active      = false
 local previewPed  = nil
+local cycleBackdrop         -- ileriden tanim (CreatePreview ilk spawn basarisizsa cagirir)
 local backdrop    = nil     -- koyu arka plan objesi (klonun arkasinda)
 local bdropCx, bdropCy, bdropCz = 0.0, 0.0, 0.0  -- backdrop origin->merkez ofseti (3D ortalama)
 local realPed     = nil     -- referans (aynalama) + LOKAL gizlenir
@@ -253,6 +270,11 @@ local function CreatePreview()
     active = true
     dragYaw = 0.0
     spawnBackdrop()
+    -- Varsayilan model spawn olmadiysa (orn. hei_mph_cntl2_glass01 base oyunda yok),
+    -- aday listede spawn edilebilir ILK modele otomatik gec -> ekranda bir sey gorunsun.
+    if not (backdrop and DoesEntityExist(backdrop)) and cfg.bmodel and cfg.bmodel ~= '' then
+        cycleBackdrop(1)
+    end
     positionScene()
     local camPos = GetGameplayCamCoord()
     SetFocusPosAndVel(camPos.x, camPos.y, camPos.z, 0.0, 0.0, 0.0) -- sahne texture'lari otursun
@@ -409,12 +431,35 @@ local function SetCamera(cfgIn)
     positionScene()
 end
 
+--- Backdrop modelini aday liste icinde degistir (gecersiz/spawn olmayan modelleri
+--- ATLAR; en fazla liste uzunlugu kadar dener). Begenileni /cam ile kalici yaparim.
+function cycleBackdrop(dir)
+    if #BD_MODELS == 0 then return end
+    for _ = 1, #BD_MODELS do
+        bdIndex = ((bdIndex - 1 + dir) % #BD_MODELS) + 1
+        cfg.bmodel = BD_MODELS[bdIndex]
+        if backdrop and DoesEntityExist(backdrop) then
+            SetEntityAsMissionEntity(backdrop, true, true); DeleteObject(backdrop)
+        end
+        backdrop = nil
+        spawnBackdrop()
+        if backdrop and DoesEntityExist(backdrop) then
+            positionScene()
+            print(('^2[bitirim] backdrop #%d/%d = "%s" (begenince soyle)^7')
+                :format(bdIndex, #BD_MODELS, cfg.bmodel))
+            return
+        end
+    end
+    print('^1[bitirim] backdrop: aday listede spawn edilebilir model bulunamadi^7')
+end
+
 --- Klavye canli ayar (index.tsx -> NUI -> buraya). SADECE ARKA PLAN OBJESINI ayarlar;
 --- klon (review karakteri) ve gameplay kamerasi DEGISMEZ.
 --    left/right/up/down : backdrop konumu (cfg.bx yatay / cfg.bz dikey)
 --    zoomin/zoomout      : backdrop'un klona uzakligi (cfg.bdist)
 --    bheadleft/bheadright: backdrop'un acisi (cfg.bhead)
 --    alphaup/alphadown   : backdrop'un saydamligi (cfg.balpha, 0..255)
+--    nextmodel/prevmodel : backdrop modelini degistir (aday liste)
 local function TuneScene(action)
     if not active then return end
     local STEP, DSTEP, HSTEP, ASTEP = 0.05, 0.05, 2.0, 8
@@ -426,6 +471,8 @@ local function TuneScene(action)
     elseif action == 'zoomout' then  cfg.bdist = cfg.bdist + DSTEP
     elseif action == 'bheadleft' then  cfg.bhead = (cfg.bhead - HSTEP) % 360.0
     elseif action == 'bheadright' then cfg.bhead = (cfg.bhead + HSTEP) % 360.0
+    elseif action == 'nextmodel' then cycleBackdrop(1); return
+    elseif action == 'prevmodel' then cycleBackdrop(-1); return
     elseif action == 'alphaup' then
         cfg.balpha = math.min(255, cfg.balpha + ASTEP)
         if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
@@ -434,8 +481,8 @@ local function TuneScene(action)
         if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
     else return end
     positionScene()
-    print(('^3[bitirim] backdrop bx=%.2f bz=%.2f bdist=%.2f bhead=%.1f balpha=%d^7')
-        :format(cfg.bx, cfg.bz, cfg.bdist, cfg.bhead, cfg.balpha))
+    print(('^3[bitirim] backdrop bx=%.2f bz=%.2f bdist=%.2f bhead=%.1f balpha=%d model="%s"^7')
+        :format(cfg.bx, cfg.bz, cfg.bdist, cfg.bhead, cfg.balpha, cfg.bmodel))
 end
 
 local function IsPreviewActive() return active end
