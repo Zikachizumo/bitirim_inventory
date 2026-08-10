@@ -62,17 +62,22 @@ const Inventory: React.FC = () => {
     fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
   }, [inventoryVisible, isDrop, hasContainer]);
 
-  // Bitirim: SADECE backdrop SAYDAMLIGI (kullanici istegi). Yukari ok = daha opak,
-  // Asagi ok = daha saydam. Baska kontrol tusu YOK. Karakter sag/sola sadece fare
-  // surukleme ile doner (char-view uzerinde); klon/kamera baska tusla degismez.
+  // Bitirim: sahne kontrolleri (yalniz karakter paneli acikken).
+  //   Ok tuslari  = KLON (review karakteri) konumu (ayaklari slotlarla hizalamak icin).
+  //   Numpad 1/2  = backdrop OPAKLIK / SAYDAMLIK.
+  // Karakter sag/sola donme yine fare surukleme ile (char-view uzerinde).
   useEffect(() => {
     const showChar = inventoryVisible && !isDrop && !hasContainer;
     if (!showChar) return;
     const onKey = (e: KeyboardEvent) => {
       let action: string | null = null;
       switch (e.code) {
-        case 'ArrowUp': action = 'alphaup'; break;
-        case 'ArrowDown': action = 'alphadown'; break;
+        case 'ArrowUp': action = 'up'; break;
+        case 'ArrowDown': action = 'down'; break;
+        case 'ArrowLeft': action = 'left'; break;
+        case 'ArrowRight': action = 'right'; break;
+        case 'Numpad1': action = 'alphaup'; break;
+        case 'Numpad2': action = 'alphadown'; break;
       }
       if (action) {
         e.preventDefault();
