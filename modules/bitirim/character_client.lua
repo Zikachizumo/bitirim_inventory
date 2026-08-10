@@ -16,6 +16,17 @@
 
 local Preview = exports[GetCurrentResourceName()]
 
+-- ox_inventory ENVANTER ACILINCA ekrana SCREENBLUR uygular (native, tum oyunu
+-- bulaniklastirir -> klon da BULANIK gorunur, NUI panelleri net kalir). Kullanici
+-- bulanik istemiyor. Preview'in her-kare FadeOut(0.0) hilesi (0 sure) guvenilir
+-- degil; en kesin cozum: ox'un blurIn'ini HIC cagirmamasi icin client.screenblur=false.
+-- `client` = init.lua'da tanimli resource-global (local degil) -> buradan erisilebilir.
+CreateThread(function()
+    local t = 0
+    while not client and t < 300 do Wait(10); t = t + 1 end
+    if client then client.screenblur = false end
+end)
+
 -- Klon yerlesimi + backdrop (yalniz /cam ekrani icin yerel kopya; kaynak PreviewManager).
 local cam_cfg = { dist = 3.70, side = -1.20, down = 0.00, bdist = 1.0, bz = 1.0, bhead = 0.0 }
 
