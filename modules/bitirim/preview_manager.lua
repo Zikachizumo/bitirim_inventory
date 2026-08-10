@@ -304,6 +304,24 @@ local function SetCamera(cfgIn)
     positionScene()
 end
 
+--- Klavye ince ayar (index.tsx -> NUI -> buraya). KLON konumu/zoom:
+---   Ok tuslari (up/down/left/right) = konum (down dikey / side yatay)
+---   Numpad 1/2 (zoomin/zoomout)     = zoom (dist; yakin=buyuk)
+--- Begenilen side/down/dist F8'de yazilir -> bana soyle, kalici yaparim.
+local function TuneScene(action)
+    if not active then return end
+    local POS, ZSTEP = 0.03, 0.05
+    if action == 'up' then          cfg.down = cfg.down + POS
+    elseif action == 'down' then    cfg.down = cfg.down - POS
+    elseif action == 'left' then    cfg.side = cfg.side - POS
+    elseif action == 'right' then   cfg.side = cfg.side + POS
+    elseif action == 'zoomin' then  cfg.dist = math.max(1.0, cfg.dist - ZSTEP)
+    elseif action == 'zoomout' then cfg.dist = cfg.dist + ZSTEP
+    else return end
+    positionScene()
+    print(('^3[bitirim] klon side=%.2f down=%.2f dist=%.2f^7'):format(cfg.side, cfg.down, cfg.dist))
+end
+
 local function IsPreviewActive() return active end
 
 ------------------------------------------------------------------------------
@@ -319,6 +337,7 @@ exports('UpdateOutfit',    UpdateOutfit)
 exports('SyncFromPlayer',  SyncFromPlayer)
 exports('RotatePreview',   RotatePreview)
 exports('SetCamera',       SetCamera)
+exports('TuneScene',       TuneScene)
 
 -- Emniyet: kaynak durursa temizle.
 AddEventHandler('onResourceStop', function(res)
