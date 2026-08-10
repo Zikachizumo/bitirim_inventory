@@ -31,17 +31,16 @@
 ------------------------------------------------------------------------------
 local FIXED_DIR = 180.0   -- klonun kameraya karsi referans yonu (reset icin)
 
--- BACKDROP ADAY MODELLERI (hepsi base-oyunda spawn edilebilir olmali; kod gecersiz
--- olani IsModelInCdimage ile atlar). Kullanici tercih ettigi "hei_mph_cntl2_glass01"
--- base oyunda YOK (IsModelInCdimage=false) -> ancak sunucuya ayrica stream edilirse
--- kullanilabilir. Onun yerine spawn edilebilir duz cam/panel/ekran adaylari; Numpad
--- 9/6 ile aralarinda gez, begendigini bana soyle -> kalici yaparim. (Gercek yansimali
--- ayna GTA'da interior/MLO yuzeyidir, normal prop degildir; bunlar duz yuzeylerdir.)
--- Kullanicinin istegi: SADECE cam prop'u. Diger aday proplar kaldirildi (prop
--- degistirince cam kayboluyordu). Tek eleman -> Numpad 9/6 hep camda kalir.
--- Kendi ozel prop'unu (.ydr) stream'lersen buraya adini ekle -> otomatik kullanilir.
+-- BACKDROP ADAY MODELLERI. Numpad 9/6 ile gezilir; kod IsModelInCdimage ile gecersiz
+-- olani atlar. Hepsi stream/bitirim_props.ytyp icindeki archetype'lar ile spawn edilir.
+--   * bitirim_backdrop01 = BIZIM URETTIGIMIZ ozel panel (Blender+Sollumz, koyu tek renk,
+--     3m kare, emissive_alpha shader -> ust/alt renk farki YOK; stream/bitirim_backdrop01.ydr).
+--   * hei_mph_cntl2_glass01 = GTA heist cami (alternatif; kendi dokusundan gradyanli).
+-- Yeni ozel prop eklemek: .ydr'yi stream/'e koy, ismi bitirim_props.ytyp'e archetype
+-- olarak ekle (ytypgen araci), sonra ismini buraya yaz.
 local BD_MODELS = {
-    'hei_mph_cntl2_glass01',      -- stream/bitirim_props.ytyp ile spawn edilebilir
+    'bitirim_backdrop01',         -- VARSAYILAN: ozel koyu panel
+    'hei_mph_cntl2_glass01',      -- alternatif: heist cami
 }
 local bdIndex = 1
 
