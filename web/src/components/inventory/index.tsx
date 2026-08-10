@@ -62,28 +62,17 @@ const Inventory: React.FC = () => {
     fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
   }, [inventoryVisible, isDrop, hasContainer]);
 
-  // Bitirim: backdrop obje klavye ayari (yalniz sahne acikken). SADECE arka plandaki
-  // objeyi ayarlar; klon (review karakteri) ve kamera DEGISMEZ. Ok tuslari = backdrop
-  // konumu (bx/bz), Numpad 1/2 = backdrop uzakligi (bdist), Numpad 4/5 = backdrop acisi
-  // (bhead), Numpad 7/8 = backdrop saydamligi (alpha), Numpad 9/6 = backdrop MODEL degistir.
+  // Bitirim: SADECE backdrop SAYDAMLIGI (kullanici istegi). Yukari ok = daha opak,
+  // Asagi ok = daha saydam. Baska kontrol tusu YOK. Karakter sag/sola sadece fare
+  // surukleme ile doner (char-view uzerinde); klon/kamera baska tusla degismez.
   useEffect(() => {
     const showChar = inventoryVisible && !isDrop && !hasContainer;
     if (!showChar) return;
     const onKey = (e: KeyboardEvent) => {
       let action: string | null = null;
       switch (e.code) {
-        case 'ArrowLeft': action = 'left'; break;
-        case 'ArrowRight': action = 'right'; break;
-        case 'ArrowUp': action = 'up'; break;
-        case 'ArrowDown': action = 'down'; break;
-        case 'Numpad1': action = 'zoomin'; break;
-        case 'Numpad2': action = 'zoomout'; break;
-        case 'Numpad4': action = 'bheadleft'; break;
-        case 'Numpad5': action = 'bheadright'; break;
-        case 'Numpad7': action = 'alphadown'; break;
-        case 'Numpad8': action = 'alphaup'; break;
-        case 'Numpad9': action = 'nextmodel'; break;
-        case 'Numpad6': action = 'prevmodel'; break;
+        case 'ArrowUp': action = 'alphaup'; break;
+        case 'ArrowDown': action = 'alphadown'; break;
       }
       if (action) {
         e.preventDefault();
