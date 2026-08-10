@@ -66,6 +66,8 @@ const Inventory: React.FC = () => {
   // konumu KALICI sabit; bu tuslar bitirim_backdrop01'i ayarlar:
   //   Ok tuslari  = backdrop ekran konumu (yukari/asagi/sag/sol).
   //   Numpad 1/2  = backdrop OPAKLIK / SAYDAMLIK.
+  //   Numpad 4/5  = backdrop EGIM (one/arkaya yatir; yol/zemini kapat).
+  //   Numpad 7/8  = backdrop MESAFE (yaklas / uzaklas).
   useEffect(() => {
     const showChar = inventoryVisible && !isDrop && !hasContainer;
     if (!showChar) return;
@@ -78,6 +80,10 @@ const Inventory: React.FC = () => {
         case 'ArrowRight': action = 'right'; break;
         case 'Numpad1': action = 'alphaup'; break;
         case 'Numpad2': action = 'alphadown'; break;
+        case 'Numpad4': action = 'pitchup'; break;
+        case 'Numpad5': action = 'pitchdown'; break;
+        case 'Numpad7': action = 'near'; break;
+        case 'Numpad8': action = 'far'; break;
       }
       if (action) {
         e.preventDefault();

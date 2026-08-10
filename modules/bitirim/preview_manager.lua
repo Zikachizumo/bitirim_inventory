@@ -48,10 +48,10 @@ local cfg = {
     dist = 3.35,   -- klon kameranin kac metre ONUNDE (KALICI, in-game dial edildi)
     side = -1.05,  -- YATAY ofset (char-view sol kolon -> ekranda sola) (KALICI)
     down = 0.51,   -- DIKEY ofset (ayaklar ayakkabi/alt slotlarla hizali) (KALICI)
-    bdist = 1.0,   -- BACKDROP klonun kac metre ARKASINDA
+    bdist = 1.0,   -- BACKDROP klonun kac metre ARKASINDA (Numpad 7/8 ile)
     bx    = 0.0,   -- BACKDROP ekran-YATAY ofset (ok Sol/Sag ile)
     bz    = 0.0,   -- BACKDROP ekran-DIKEY ofset (ok Yukari/Asagi ile)
-    bhead = 0.0,   -- (kullanilmiyor)
+    bpitch = 0.0,  -- BACKDROP EGIM (one/arkaya yatir; yol/zemini kapatmak icin) Numpad 4/5
     balpha = 191,  -- BACKDROP saydamligi (0..255; 191 ~= %75 opak), Numpad 1/2 ile
     -- BACKDROP MODEL: aday listeden (Numpad 9/6 ile degistir). /cam bmodel <prop> de var.
     bmodel = BD_MODELS[bdIndex],
@@ -133,9 +133,10 @@ local function positionScene()
             camPos.y + fReal.y * D + rReal.y * cfg.bx + uReal.y * cfg.bz,
             camPos.z + fReal.z * D + rReal.z * cfg.bx + uReal.z * cfg.bz,
             false, false, false)
-        -- Panel TEK yuzlu; heading = camYaw (kameraya bakar). camYaw+180 arka yuzu doner
-        -- -> backface culling ile GORUNMEZ olur (yasanmis hata).
-        SetEntityHeading(backdrop, camYaw % 360.0)
+        -- Panel TEK yuzlu; yaw = camYaw (kameraya bakar; camYaw+180 arka yuzu doner ->
+        -- backface culling gorunmez yapar). bpitch ile one/arkaya EGILIR (yol/zemini
+        -- kapatmak icin panelin alt kenari one gelir).
+        SetEntityRotation(backdrop, cfg.bpitch, 0.0, camYaw % 360.0, 2, true)
     end
 end
 
@@ -459,16 +460,22 @@ function cycleBackdrop(dir)
     print('^1[bitirim] backdrop: aday listede spawn edilebilir model bulunamadi^7')
 end
 
---- Klavye ayar (index.tsx -> NUI -> buraya). Karakter KALICI sabit.
----   Ok tuslari (up/down/left/right) = BACKDROP ekran konumu (bz dikey / bx yatay).
----   Numpad 1/2 (alphaup/alphadown)  = BACKDROP OPAKLIK/SAYDAMLIK.
+--- Klavye ayar (index.tsx -> NUI -> buraya). Karakter KALICI sabit; hepsi BACKDROP:
+---   Ok tuslari (up/down/left/right) = ekran konumu (bz dikey / bx yatay)
+---   Numpad 1/2 (alphaup/alphadown)  = OPAKLIK / SAYDAMLIK
+---   Numpad 4/5 (pitchup/pitchdown)  = EGIM (one/arkaya yatir; yol/zemini kapat)
+---   Numpad 7/8 (near/far)           = MESAFE (bdist; yaklas/uzaklas)
 local function TuneScene(action)
     if not active then return end
-    local POS, ASTEP = 0.05, 8
+    local POS, ASTEP, PSTEP, DSTEP = 0.05, 8, 2.0, 0.1
     if action == 'up' then          cfg.bz = cfg.bz + POS
     elseif action == 'down' then    cfg.bz = cfg.bz - POS
     elseif action == 'left' then    cfg.bx = cfg.bx - POS
     elseif action == 'right' then   cfg.bx = cfg.bx + POS
+    elseif action == 'pitchup' then   cfg.bpitch = cfg.bpitch + PSTEP
+    elseif action == 'pitchdown' then cfg.bpitch = cfg.bpitch - PSTEP
+    elseif action == 'near' then    cfg.bdist = cfg.bdist - DSTEP
+    elseif action == 'far' then     cfg.bdist = cfg.bdist + DSTEP
     elseif action == 'alphaup' then
         cfg.balpha = math.min(255, cfg.balpha + ASTEP)
         if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
@@ -479,7 +486,7 @@ local function TuneScene(action)
         print(('^3[bitirim] backdrop opaklik = %d/255^7'):format(cfg.balpha)); return
     else return end
     positionScene()
-    print(('^3[bitirim] backdrop bx=%.2f bz=%.2f^7'):format(cfg.bx, cfg.bz))
+    print(('^3[bitirim] backdrop bx=%.2f bz=%.2f bpitch=%.1f bdist=%.2f^7'):format(cfg.bx, cfg.bz, cfg.bpitch, cfg.bdist))
 end
 
 local function IsPreviewActive() return active end
