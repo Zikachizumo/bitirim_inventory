@@ -51,6 +51,13 @@ RegisterNUICallback('bitirim:charRotate', function(data, cb)
     Preview:RotatePreview(mode, type(data) == 'table' and data.value or nil)
 end)
 
+-- Klavye ince ayar (index.tsx): ok tuslari=klon konumu, Numpad 1/2=zoom. KAMERA DEGISMEZ.
+RegisterNUICallback('bitirim:charTune', function(data, cb)
+    cb(1)
+    local action = type(data) == 'table' and data.action or nil
+    if action then Preview:TuneScene(action) end
+end)
+
 --[[
     /cam — KLON YERLESIMI ince ayar (onizleme acikken). GAMEPLAY KAMERASI DEGISMEZ.
     Begenince degerleri bana soyle, kalici yaparim. (Backdrop kaldirildi — sadece klon.)
