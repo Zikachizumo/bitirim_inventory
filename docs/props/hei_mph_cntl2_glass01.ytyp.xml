@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CodeWalker KAYNAGI — bu XML'i FiveM YUKLEMEZ. CodeWalker ile binary .ytyp'e
+  cevirip stream/ klasorune koyacaksin (asagidaki README'ye bak).
+
+  Amac: base oyunda zaten var olan "hei_mph_cntl2_glass01" drawable'ini (interior/heist
+  prop'u) DUNYADA spawn edilebilir bir archetype olarak tanitmak. Bu ytyp yuklenince
+  IsModelInCdimage(`hei_mph_cntl2_glass01`) = true olur ve CreateObject calisir.
+
+  bbMin/bbMax/bsRadius KABA degerlerdir; CodeWalker'da modeli yukleyip "Calculate
+  extents" / auto-fit ile GERCEK degerlere guncelle (yanlis kutu = obje bazi acilardan
+  kaybolabilir). Model base RPF'te yoksa .ydr(+.ytd) dosyasini da stream/'e koy.
+-->
+<CMapTypes>
+  <extensions/>
+  <archetypes>
+    <Item type="CBaseArchetypeDef">
+      <lodDist value="500.00000000"/>
+      <flags value="0"/>
+      <specialAttribute value="0"/>
+      <bbMin x="-2.00000000" y="-0.20000000" z="-1.50000000"/>
+      <bbMax x="2.00000000" y="0.20000000" z="1.50000000"/>
+      <bbCenter x="0.00000000" y="0.00000000" z="0.00000000"/>
+      <bsCentre x="0.00000000" y="0.00000000" z="0.00000000"/>
+      <bsRadius value="2.55000000"/>
+      <hdTextureDist value="100.00000000"/>
+      <name>hei_mph_cntl2_glass01</name>
+      <textureDictionary/>
+      <clipDictionary/>
+      <drawableDictionary/>
+      <physicsDictionary/>
+      <assetType>ASSET_TYPE_DRAWABLE</assetType>
+      <assetName>hei_mph_cntl2_glass01</assetName>
+      <extensions/>
+    </Item>
+  </archetypes>
+  <name>bitirim_props</name>
+  <dependencies/>
+  <compositeEntityTypes/>
+</CMapTypes>
