@@ -129,17 +129,10 @@ local function positionScene()
         SetEntityCoordsNoOffset(backdrop,
             camPos.x + fReal.x * D, camPos.y + fReal.y * D, camPos.z + fReal.z * D,
             false, false, false)
-        SetEntityHeading(backdrop, (camYaw + 180.0) % 360.0)
+        -- Panel TEK yuzlu; heading = camYaw (kameraya bakar). camYaw+180 arka yuzu doner
+        -- -> backface culling ile GORUNMEZ olur (yasanmis hata).
+        SetEntityHeading(backdrop, camYaw % 360.0)
     end
-end
-
---- Klonun ayaklarinin altina SIYAH YUVARLAK zemin (yassi disk) ciz. Her karede cagrilir.
-local function drawFloorDisc()
-    if not previewPed or not DoesEntityExist(previewPed) then return end
-    local p = GetEntityCoords(previewPed)
-    -- type 1 = silindir; scaleZ cok kucuk -> yere yatik yuvarlak disk. Siyah, hafif saydam.
-    DrawMarker(1, p.x, p.y, p.z + 0.02, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.95, 0.95, 0.05, 0, 0, 0, 200, false, false, 2, false, nil, nil, false)
 end
 
 ------------------------------------------------------------------------------
@@ -302,7 +295,6 @@ local function CreatePreview()
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
             positionScene()
-            drawFloorDisc()
             if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
             TriggerScreenblurFadeOut(0.0)
