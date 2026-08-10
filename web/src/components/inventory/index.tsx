@@ -63,8 +63,8 @@ const Inventory: React.FC = () => {
   }, [inventoryVisible, isDrop, hasContainer]);
 
   // Bitirim: sahne kontrolleri (yalniz karakter paneli acikken).
-  //   Ok tuslari  = KLON (review karakteri) konumu (ayaklari slotlarla hizalamak icin).
-  //   Numpad 1/2  = backdrop OPAKLIK / SAYDAMLIK.
+  //   Ok tuslari  = KLON (review karakteri) konumu (yukari/asagi/sag/sol).
+  //   Numpad 1/2  = KLON ZOOM (yakinlastir / uzaklastir).
   // Karakter sag/sola donme yine fare surukleme ile (char-view uzerinde).
   useEffect(() => {
     const showChar = inventoryVisible && !isDrop && !hasContainer;
@@ -76,8 +76,8 @@ const Inventory: React.FC = () => {
         case 'ArrowDown': action = 'down'; break;
         case 'ArrowLeft': action = 'left'; break;
         case 'ArrowRight': action = 'right'; break;
-        case 'Numpad1': action = 'alphaup'; break;
-        case 'Numpad2': action = 'alphadown'; break;
+        case 'Numpad1': action = 'zoomin'; break;
+        case 'Numpad2': action = 'zoomout'; break;
       }
       if (action) {
         e.preventDefault();
