@@ -176,10 +176,22 @@ end
 ------------------------------------------------------------------------------
 local function loadModel(m)
     local h = (type(m) == 'number') and m or GetHashKey(m)
+    -- Model oyunda (cdimage) tanimli/spawn edilebilir bir arsetip mi? Interior/MLO
+    -- parcalari veya yanlis isimler burada elenir; aksi halde RequestModel sonsuza
+    -- kadar HasModelLoaded=false doner ve backdrop sessizce olusmaz.
+    if not IsModelInCdimage(h) or not IsModelValid(h) then
+        print(('^1[bitirim] backdrop MODEL GECERSIZ/BULUNAMADI: "%s" (hash %s) — IsModelInCdimage=%s IsModelValid=%s^7')
+            :format(tostring(m), tostring(h), tostring(IsModelInCdimage(h)), tostring(IsModelValid(h))))
+        return nil
+    end
     RequestModel(h)
     local t = 0
     while not HasModelLoaded(h) and t < 100 do Wait(10); t = t + 1 end
-    return HasModelLoaded(h) and h or nil
+    if not HasModelLoaded(h) then
+        print(('^1[bitirim] backdrop MODEL YUKLENEMEDI (1sn timeout): "%s"^7'):format(tostring(m)))
+        return nil
+    end
+    return h
 end
 
 local function spawnBackdrop()
@@ -202,6 +214,10 @@ local function spawnBackdrop()
         SetEntityInvincible(backdrop, true)
         SetEntityLodDist(backdrop, 1000)
         SetEntityAlpha(backdrop, math.floor(cfg.balpha), false)
+        print(('^2[bitirim] backdrop OLUSTU: "%s" boyut(%.2f x %.2f x %.2f)^7')
+            :format(tostring(cfg.bmodel), mx.x - mn.x, mx.y - mn.y, mx.z - mn.z))
+    else
+        print(('^1[bitirim] backdrop CreateObject BASARISIZ: "%s"^7'):format(tostring(cfg.bmodel)))
     end
 end
 
