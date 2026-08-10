@@ -7,11 +7,11 @@
 
         NUI 'bitirim:charScene'  {open}          -> CreatePreview / DestroyPreview
         NUI 'bitirim:charRotate' {mode,value}    -> RotatePreview
-        /cam ...                                 -> SetCamera (klon yerlesimi + backdrop)
+        /cam ...                                 -> SetCamera (klon yerlesimi ince ayar)
 
     Mevcut NUI event isimleri/UI davranisi DEGISMEDI (index.tsx aynen calisir).
     GAMEPLAY KAMERASINA DOKUNULMAZ — /cam yalnizca klonun sabit kamera onundeki
-    YERLESIMINI ve backdrop objesini ayarlar.
+    YERLESIMINI ayarlar. (Backdrop objesi KALDIRILDI — sadece canli klon.)
 ]]
 
 local Preview = exports[GetCurrentResourceName()]
@@ -27,8 +27,8 @@ CreateThread(function()
     if client then client.screenblur = false end
 end)
 
--- Klon yerlesimi + backdrop (yalniz /cam ekrani icin yerel kopya; kaynak PreviewManager).
-local cam_cfg = { dist = 3.70, side = -1.20, down = 0.00, bdist = 1.0, bz = 1.0, bhead = 0.0 }
+-- Klon yerlesimi (yalniz /cam yazdirmasi icin yerel kopya; kaynak PreviewManager).
+local cam_cfg = { dist = 3.35, side = -1.05, down = 0.51 }
 
 ------------------------------------------------------------------------------
 -- NUI KOPRUSU (index.tsx bunlari yollar — isimler AYNEN korundu)
@@ -51,37 +51,19 @@ RegisterNUICallback('bitirim:charRotate', function(data, cb)
     Preview:RotatePreview(mode, type(data) == 'table' and data.value or nil)
 end)
 
--- Klavye canli ayar (index.tsx yollar): ok tuslari=klon konumu, Numpad 1/2=zoom,
--- Numpad 4/5=backdrop acisi, Numpad 7/8=backdrop saydamligi. GAMEPLAY KAMERASI DEGISMEZ.
-RegisterNUICallback('bitirim:charTune', function(data, cb)
-    cb(1)
-    local action = type(data) == 'table' and data.action or nil
-    if action then Preview:TuneScene(action) end
-end)
-
 --[[
-    /cam — KLON YERLESIMI + BACKDROP (onizleme acikken). GAMEPLAY KAMERASI DEGISMEZ.
-    Begenince degerleri bana soyle, kalici yaparim.
+    /cam — KLON YERLESIMI ince ayar (onizleme acikken). GAMEPLAY KAMERASI DEGISMEZ.
+    Begenince degerleri bana soyle, kalici yaparim. (Backdrop kaldirildi — sadece klon.)
       /cam dist <n>   klon kameranin ONUNDE kac metre (buyuk = uzak/kucuk)
       /cam side <n>   YATAY ofset (negatif = ekranda sola)
       /cam down <n>   DIKEY ofset (negatif = klon asagi; ayak-bas ortala)
-      -- BACKDROP (koyu arka plan objesi):
-      /cam bdist <n>  backdrop klonun ARKASINDA kac metre
-      /cam bz <n>     backdrop dikey merkez
-      /cam bhead <n>  backdrop aci ofseti
-      /cam bmodel <model>  backdrop prop modelini degistir (orn: prop_container_01a)
 ]]
 RegisterCommand('cam', function(_, args)
     local p, v = args[1], tonumber(args[2])
-    if p == 'bmodel' and args[2] then
-        Preview:SetCamera({ bmodel = args[2] })
-        print('^3[bitirim] backdrop model = ' .. args[2] .. '^7')
-        return
-    elseif p and v and cam_cfg[p] ~= nil then
+    if p and v and cam_cfg[p] ~= nil then
         cam_cfg[p] = v
         Preview:SetCamera({ [p] = v })
     end
-    print(('^3[bitirim] cam dist=%.2f side=%.2f down=%.2f | backdrop dist=%.2f bz=%.2f bhead=%.1f (aktif:%s)^7')
-        :format(cam_cfg.dist, cam_cfg.side, cam_cfg.down, cam_cfg.bdist, cam_cfg.bz, cam_cfg.bhead,
-            tostring(Preview:IsPreviewActive())))
+    print(('^3[bitirim] cam dist=%.2f side=%.2f down=%.2f (aktif:%s)^7')
+        :format(cam_cfg.dist, cam_cfg.side, cam_cfg.down, tostring(Preview:IsPreviewActive())))
 end, false)

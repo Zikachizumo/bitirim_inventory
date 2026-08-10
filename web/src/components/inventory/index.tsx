@@ -62,37 +62,8 @@ const Inventory: React.FC = () => {
     fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
   }, [inventoryVisible, isDrop, hasContainer]);
 
-  // Bitirim: BACKDROP kontrolleri (yalniz karakter paneli acikken). Karakter (klon)
-  // konumu KALICI sabit; bu tuslar bitirim_backdrop01'i ayarlar:
-  //   Ok tuslari  = backdrop ekran konumu (yukari/asagi/sag/sol).
-  //   Numpad 1/2  = backdrop OPAKLIK / SAYDAMLIK.
-  //   Numpad 4/5  = backdrop EGIM (one/arkaya yatir; yol/zemini kapat).
-  //   Numpad 7/8  = backdrop MESAFE (yaklas / uzaklas).
-  useEffect(() => {
-    const showChar = inventoryVisible && !isDrop && !hasContainer;
-    if (!showChar) return;
-    const onKey = (e: KeyboardEvent) => {
-      let action: string | null = null;
-      switch (e.code) {
-        case 'ArrowUp': action = 'up'; break;
-        case 'ArrowDown': action = 'down'; break;
-        case 'ArrowLeft': action = 'left'; break;
-        case 'ArrowRight': action = 'right'; break;
-        case 'Numpad1': action = 'alphaup'; break;
-        case 'Numpad2': action = 'alphadown'; break;
-        case 'Numpad4': action = 'pitchup'; break;
-        case 'Numpad5': action = 'pitchdown'; break;
-        case 'Numpad7': action = 'near'; break;
-        case 'Numpad8': action = 'far'; break;
-      }
-      if (action) {
-        e.preventDefault();
-        fetchNui('bitirim:charTune', { action }).catch(() => {});
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [inventoryVisible, isDrop, hasContainer]);
+  // Bitirim: backdrop KALDIRILDI — sadece canli klon. Karakter konumu KALICI sabit
+  // (preview_manager.lua). Klavye kontrolu YOK. Karakter sag/sola donme fare surukleme ile.
 
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
