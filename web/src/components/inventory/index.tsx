@@ -62,31 +62,10 @@ const Inventory: React.FC = () => {
     fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
   }, [inventoryVisible, isDrop, hasContainer]);
 
-  // Bitirim: sahne kontrolleri (yalniz karakter paneli acikken).
-  //   Ok tuslari  = KLON (review karakteri) konumu (yukari/asagi/sag/sol).
-  //   Numpad 1/2  = KLON ZOOM (yakinlastir / uzaklastir).
-  // Karakter sag/sola donme yine fare surukleme ile (char-view uzerinde).
-  useEffect(() => {
-    const showChar = inventoryVisible && !isDrop && !hasContainer;
-    if (!showChar) return;
-    const onKey = (e: KeyboardEvent) => {
-      let action: string | null = null;
-      switch (e.code) {
-        case 'ArrowUp': action = 'up'; break;
-        case 'ArrowDown': action = 'down'; break;
-        case 'ArrowLeft': action = 'left'; break;
-        case 'ArrowRight': action = 'right'; break;
-        case 'Numpad1': action = 'zoomin'; break;
-        case 'Numpad2': action = 'zoomout'; break;
-      }
-      if (action) {
-        e.preventDefault();
-        fetchNui('bitirim:charTune', { action }).catch(() => {});
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [inventoryVisible, isDrop, hasContainer]);
+  // Bitirim: karakter (klon) konumu/zoom KALICI olarak sabitlendi (side/down/dist
+  // preview_manager.lua'da). Konum/zoom klavye kontrolleri kaldirildi. Karakter
+  // sag/sola donme yine fare surukleme ile (char-view uzerinde). Opaklik ayari
+  // sonraki adimda tekrar eklenecek.
 
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
