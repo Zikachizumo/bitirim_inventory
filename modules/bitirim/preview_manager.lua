@@ -48,11 +48,11 @@ local cfg = {
     dist = 3.35,   -- klon kameranin kac metre ONUNDE (KALICI, in-game dial edildi)
     side = -1.05,  -- YATAY ofset (char-view sol kolon -> ekranda sola) (KALICI)
     down = 0.51,   -- DIKEY ofset (ayaklar ayakkabi/alt slotlarla hizali) (KALICI)
-    bdist = 1.0,   -- BACKDROP klonun kac metre ARKASINDA (Numpad 1/2 ile ayarlanir)
-    bx    = 0.0,   -- BACKDROP YATAY ofset (ok Sol/Sag ile ayarlanir)
-    bz    = 1.0,   -- BACKDROP DIKEY merkez (ok Yukari/Asagi ile ayarlanir)
-    bhead = 0.0,   -- BACKDROP aci ofseti (camYaw + bhead), Numpad 4/5 ile ayarlanir
-    balpha = 191,  -- BACKDROP saydamligi (0..255; 191 ~= %75 opak), Numpad 7/8 ile ayarlanir
+    bdist = 1.0,   -- BACKDROP klonun kac metre ARKASINDA
+    bx    = 0.0,   -- BACKDROP ekran-YATAY ofset (ok Sol/Sag ile)
+    bz    = 0.0,   -- BACKDROP ekran-DIKEY ofset (ok Yukari/Asagi ile)
+    bhead = 0.0,   -- (kullanilmiyor)
+    balpha = 191,  -- BACKDROP saydamligi (0..255; 191 ~= %75 opak), Numpad 1/2 ile
     -- BACKDROP MODEL: aday listeden (Numpad 9/6 ile degistir). /cam bmodel <prop> de var.
     bmodel = BD_MODELS[bdIndex],
 }
@@ -110,7 +110,7 @@ end
 ---   EKRAN ORTASINA denk gelir; kameraya bakar. 50m panel tum ekrani kaplar.
 local function positionScene()
     if not previewPed or not DoesEntityExist(previewPed) then return end
-    local camPos, fReal = camBasis()                 -- fReal: pitch DAHIL (backdrop ekran-ortasi)
+    local camPos, fReal, rReal, uReal = camBasis()   -- pitch DAHIL (backdrop ekran-uzayi ofset)
     local rot = GetGameplayCamRot(2)
     local zr = math.rad(rot.z)
     local fL = vector3(-math.sin(zr), math.cos(zr), 0.0)  -- yaw-only ileri (level)
@@ -126,8 +126,12 @@ local function positionScene()
 
     if backdrop and DoesEntityExist(backdrop) then
         local D = cfg.dist + cfg.bdist
+        -- Ekran-uzayi ofset: kameranin SAG (bx) ve YUKARI (bz) vektorleriyle kaydir
+        -- -> ok tuslari backdrop'i ekranda sag/sol/yukari/asagi tasir.
         SetEntityCoordsNoOffset(backdrop,
-            camPos.x + fReal.x * D, camPos.y + fReal.y * D, camPos.z + fReal.z * D,
+            camPos.x + fReal.x * D + rReal.x * cfg.bx + uReal.x * cfg.bz,
+            camPos.y + fReal.y * D + rReal.y * cfg.bx + uReal.y * cfg.bz,
+            camPos.z + fReal.z * D + rReal.z * cfg.bx + uReal.z * cfg.bz,
             false, false, false)
         -- Panel TEK yuzlu; heading = camYaw (kameraya bakar). camYaw+180 arka yuzu doner
         -- -> backface culling ile GORUNMEZ olur (yasanmis hata).
@@ -455,18 +459,27 @@ function cycleBackdrop(dir)
     print('^1[bitirim] backdrop: aday listede spawn edilebilir model bulunamadi^7')
 end
 
---- Klavye ayar (index.tsx -> NUI -> buraya). Karakter konumu/zoom KALICI sabit;
---- su an sadece backdrop OPAKLIK/SAYDAMLIK icin kullanilabilir (alphaup/alphadown).
+--- Klavye ayar (index.tsx -> NUI -> buraya). Karakter KALICI sabit.
+---   Ok tuslari (up/down/left/right) = BACKDROP ekran konumu (bz dikey / bx yatay).
+---   Numpad 1/2 (alphaup/alphadown)  = BACKDROP OPAKLIK/SAYDAMLIK.
 local function TuneScene(action)
     if not active then return end
-    local ASTEP = 8
-    if action == 'alphaup' then
+    local POS, ASTEP = 0.05, 8
+    if action == 'up' then          cfg.bz = cfg.bz + POS
+    elseif action == 'down' then    cfg.bz = cfg.bz - POS
+    elseif action == 'left' then    cfg.bx = cfg.bx - POS
+    elseif action == 'right' then   cfg.bx = cfg.bx + POS
+    elseif action == 'alphaup' then
         cfg.balpha = math.min(255, cfg.balpha + ASTEP)
+        if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
+        print(('^3[bitirim] backdrop opaklik = %d/255^7'):format(cfg.balpha)); return
     elseif action == 'alphadown' then
         cfg.balpha = math.max(0, cfg.balpha - ASTEP)
+        if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
+        print(('^3[bitirim] backdrop opaklik = %d/255^7'):format(cfg.balpha)); return
     else return end
-    if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
-    print(('^3[bitirim] backdrop opaklik = %d/255^7'):format(cfg.balpha))
+    positionScene()
+    print(('^3[bitirim] backdrop bx=%.2f bz=%.2f^7'):format(cfg.bx, cfg.bz))
 end
 
 local function IsPreviewActive() return active end
