@@ -1,24 +1,20 @@
 --[[
-    Bitirim — PREVIEW MANAGER (STATIK KARAKTER ONIZLEMESI, "Sabit Kamera")
-    =====================================================================
-    YENI MIMARI (kullanici spec'i — 2026-08-08):
-        GERCEK OYUNCU (mevcut appearance) ──► Gercek Player Ped  (LOKAL gizli)
-                                          └──► Preview Clone Ped  (onizlemede)
+    Bitirim — PREVIEW MANAGER (AYNA / "Mirror" KARAKTER ONIZLEMESI, Sabit Kamera)
+    ============================================================================
+    AYNA MIMARISI (kullanici spec'i): gercek karakter OYUNDA GORUNMEYE DEVAM EDER;
+    review'da onun canli bir AYNASI (mirror klon) gosterilir -> 2 yerde karakter.
+        GERCEK OYUNCU (mevcut appearance) ──► Gercek Player Ped  (oyunda GORUNUR kalir)
+                                          └──► Mirror Klon Ped    (review'da; canli aynalanir)
 
     EN ONEMLI KURAL: GAMEPLAY KAMERASINA HIC DOKUNULMAZ.
-    - Scripted kamera OLUSTURULMAZ, RenderScriptCams CAGRILMAZ, FOV/rot/pos/focus
-      DEGISTIRILMEZ. Envanter acilinca oyuncu hangi acidan bakiyorsa oyle kalir;
-      kapaninca da ayni. Kamera restore'a bile gerek yok (hic degismedi).
-    - Klon, SABIT gameplay kamerasinin ONUNE yerlestirilir (kamerayi okuruz,
-      DEGISTIRMEYIZ): cam-onu * dist + yatay/dikey ofset -> char-view deligine
-      girer. Klon kameraya bakar (heading = camYaw+180). 6m/havaya TASIMA YOK.
-    - ARKA PLAN: NUI (.bx-scrim) tum oyun dunyasini OPAK SIYAH ile kapatir; sadece
-      char-view'de clip-path DELIK vardir. Deligin arkasinda dunya gorunmesin diye
-      klonun HEMEN ARKASINA koyu bir BACKDROP objesi konur -> klon koyu zemin uzerinde.
-      DOF/blur KULLANILMAZ.
+    - Scripted kamera OLUSTURULMAZ, RenderScriptCams CAGRILMAZ. Kamera hic degismez.
+    - Mirror klon, SABIT gameplay kamerasinin ONUNE yerlestirilir (kamerayi okuruz,
+      DEGISTIRMEYIZ): cam-onu * dist + yatay/dikey ofset -> char-view deligine girer.
+      Klon kameraya bakar (heading = camYaw+180); pitch YOK SAYILIR (level).
+    - GERCEK PED GIZLENMEZ (ayna modu). Arkada o noktadaki oyun dunyasi gorunur.
     - Appearance senkron: tek kaynak = gercek ped. ~150ms diff-loop ile klona
       AYNALANIR (sadece DEGISEN component/prop/silah). Movement/anim AYNALANMAZ.
-    - Kapaninca klon + backdrop silinir, gercek ped lokal gorunur olur.
+    - Kapaninca mirror klon silinir; gercek ped'e zaten dokunulmadi.
 
     EXPORT API (exports.ox_inventory:<fn>):
         CreatePreview() DestroyPreview() IsPreviewActive()
@@ -160,11 +156,11 @@ local function CreatePreview()
     SetEntityCollision(previewPed, false, false)
     SetBlockingOfNonTemporaryEvents(previewPed, true)
     SetEntityLodDist(previewPed, 1000)
-    SetEntityVisible(previewPed, true, false)  -- KLON KESIN GORUNUR (miras/durum ne olursa)
+    SetEntityVisible(previewPed, true, false)  -- MIRROR KESIN GORUNUR
     ResetEntityAlpha(previewPed)
 
-    -- 2) GERCEK ped'i SADECE LOKAL gizle (klon ile cakismasin). Kapanista geri acilir.
-    SetEntityVisible(ped, false, false)
+    -- 2) AYNA MODU: gercek ped GIZLENMEZ -> oyunda karakter gorunmeye devam eder;
+    -- mirror klon review'da ayrica gorunur (2 yerde karakter). Kullanici istegi.
 
     -- 3) Ilk yerlesim + odak (klonun oldugu yer render/stream edilsin). KAMERA DEGISMEZ.
     active = true
@@ -187,7 +183,7 @@ local function CreatePreview()
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
             positionScene()
-            if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
+            -- AYNA MODU: gercek ped gizlenmez (oyunda gorunur kalir).
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
             TriggerScreenblurFadeOut(0.0)
             DisableControlAction(0, 1, true)  -- INPUT_LOOK_LR
@@ -215,11 +211,7 @@ local function DestroyPreview()
         DeletePed(previewPed)
     end
     previewPed = nil
-
-    if realPed and DoesEntityExist(realPed) then
-        SetEntityVisible(realPed, true, false) -- LOKAL gorunurlugu geri ver
-    end
-    realPed = nil
+    realPed = nil  -- ayna modunda gizlenmedi -> geri acmaya gerek yok
 
     ClearFocus()
     compCache = {}
