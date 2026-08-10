@@ -785,7 +785,7 @@ body.inv-dragging {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: rgba(0, 0, 0, 0.75); /* game world %75 opak (uniform; blur kaldirildi) */
+  background: transparent; /* opaklik KALDIRILDI -> oyun dunyasi arkada tam gorunur */
 }
 
 .bx-window {
@@ -813,7 +813,7 @@ body.inv-dragging {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: rgba(5, 6, 11, 0.75); /* canta ici %75 opak (uniform) */
+  background: transparent; /* opaklik KALDIRILDI -> canta ici arka plani seffaf */
   pointer-events: none;
 }
 
@@ -994,10 +994,9 @@ body.inv-dragging {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  /* Bitirim: char-view %75 KOYU overlay (envanterle uniform "tek boy") + scrim/window-bg'de
-     DELIK (index.tsx) -> klon (oyun render) gorunur ama %75 karartilir (sonuk/blend, parlak
-     delik yok = "kapali" gorunur). Kamera DEGISMEZ. Obje/sahte gorsel YOK. */
-  background: rgba(5, 6, 11, 0.75);
+  /* Bitirim: char-view SEFFAF (opaklik KALDIRILDI) + scrim/window-bg'de DELIK
+     (index.tsx) -> klon (oyun render) arkada tam parlaklikta net gorunur. Kamera DEGISMEZ. */
+  background: transparent;
   border-radius: var(--r);
   cursor: grab;
   &:active {
