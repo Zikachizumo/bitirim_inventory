@@ -62,10 +62,10 @@ const Inventory: React.FC = () => {
     fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
   }, [inventoryVisible, isDrop, hasContainer]);
 
-  // Bitirim: karakter sahnesi klavye ayari (yalniz sahne acikken). Ok tuslari =
-  // klonun kadraj ici konumu (side/down), Numpad 1/2 = zoom (dist),
-  // Numpad 4/5 = backdrop acisi (bhead), Numpad 7/8 = backdrop saydamligi (alpha).
-  // GAMEPLAY KAMERASI DEGISMEZ; client Lua sadece cfg degerlerini gunceller.
+  // Bitirim: backdrop obje klavye ayari (yalniz sahne acikken). SADECE arka plandaki
+  // objeyi ayarlar; klon (review karakteri) ve kamera DEGISMEZ. Ok tuslari = backdrop
+  // konumu (bx/bz), Numpad 1/2 = backdrop uzakligi (bdist), Numpad 4/5 = backdrop acisi
+  // (bhead), Numpad 7/8 = backdrop saydamligi (alpha).
   useEffect(() => {
     const showChar = inventoryVisible && !isDrop && !hasContainer;
     if (!showChar) return;

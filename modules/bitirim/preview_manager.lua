@@ -36,8 +36,9 @@ local cfg = {
     dist = 3.70,   -- klon kameranin kac metre ONUNDE (in-game dial edildi)
     side = -1.20,  -- YATAY ofset (char-view sol kolon -> ekranda sola) (dial edildi)
     down = 0.00,   -- DIKEY ofset (ayak-bas kadraja ortalansin) (dial edildi)
-    bdist = 1.0,   -- BACKDROP klonun kac metre ARKASINDA (kameradan daha uzak)
-    bz    = 1.0,   -- BACKDROP dikey merkez (klon govdesi; ayak+bz)
+    bdist = 1.0,   -- BACKDROP klonun kac metre ARKASINDA (Numpad 1/2 ile ayarlanir)
+    bx    = 0.0,   -- BACKDROP YATAY ofset (ok Sol/Sag ile ayarlanir)
+    bz    = 1.0,   -- BACKDROP DIKEY merkez (ok Yukari/Asagi ile ayarlanir)
     bhead = 0.0,   -- BACKDROP aci ofseti (camYaw + bhead), Numpad 4/5 ile ayarlanir
     balpha = 255,  -- BACKDROP saydamligi (0..255; 255=opak), Numpad 7/8 ile ayarlanir
     -- BACKDROP: kullanicinin sectigi item ("hei_mph_cntl2_glass01"). Onceki denemede
@@ -108,8 +109,8 @@ local function positionScene()
         local hr = math.rad(bh)
         local rx = bdropCx * math.cos(hr) - bdropCy * math.sin(hr)
         local ry = bdropCx * math.sin(hr) + bdropCy * math.cos(hr)
-        local px = base.x + f.x * cfg.bdist
-        local py = base.y + f.y * cfg.bdist
+        local px = base.x + f.x * cfg.bdist + r.x * cfg.bx
+        local py = base.y + f.y * cfg.bdist + r.y * cfg.bx
         SetEntityCoordsNoOffset(backdrop, px - rx, py - ry, base.z + cfg.bz - bdropCz, false, false, false)
         SetEntityHeading(backdrop, bh)
     end
@@ -392,20 +393,21 @@ local function SetCamera(cfgIn)
     positionScene()
 end
 
---- Klavye canli ayar (index.tsx -> NUI -> buraya). KAMERA DEGISMEZ.
---    left/right/up/down : klonun kadraj ici konumu (cfg.side/cfg.down)
---    zoomin/zoomout      : klona olan mesafe (cfg.dist)
+--- Klavye canli ayar (index.tsx -> NUI -> buraya). SADECE ARKA PLAN OBJESINI ayarlar;
+--- klon (review karakteri) ve gameplay kamerasi DEGISMEZ.
+--    left/right/up/down : backdrop konumu (cfg.bx yatay / cfg.bz dikey)
+--    zoomin/zoomout      : backdrop'un klona uzakligi (cfg.bdist)
 --    bheadleft/bheadright: backdrop'un acisi (cfg.bhead)
 --    alphaup/alphadown   : backdrop'un saydamligi (cfg.balpha, 0..255)
 local function TuneScene(action)
     if not active then return end
-    local STEP, DSTEP, HSTEP, ASTEP = 0.03, 0.05, 2.0, 8
-    if action == 'left' then         cfg.side = cfg.side - STEP
-    elseif action == 'right' then    cfg.side = cfg.side + STEP
-    elseif action == 'up' then       cfg.down = cfg.down - STEP
-    elseif action == 'down' then     cfg.down = cfg.down + STEP
-    elseif action == 'zoomin' then   cfg.dist = math.max(0.5, cfg.dist - DSTEP)
-    elseif action == 'zoomout' then  cfg.dist = cfg.dist + DSTEP
+    local STEP, DSTEP, HSTEP, ASTEP = 0.05, 0.05, 2.0, 8
+    if action == 'left' then         cfg.bx = cfg.bx - STEP
+    elseif action == 'right' then    cfg.bx = cfg.bx + STEP
+    elseif action == 'up' then       cfg.bz = cfg.bz + STEP
+    elseif action == 'down' then     cfg.bz = cfg.bz - STEP
+    elseif action == 'zoomin' then   cfg.bdist = math.max(0.2, cfg.bdist - DSTEP)
+    elseif action == 'zoomout' then  cfg.bdist = cfg.bdist + DSTEP
     elseif action == 'bheadleft' then  cfg.bhead = (cfg.bhead - HSTEP) % 360.0
     elseif action == 'bheadright' then cfg.bhead = (cfg.bhead + HSTEP) % 360.0
     elseif action == 'alphaup' then
@@ -416,8 +418,8 @@ local function TuneScene(action)
         if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
     else return end
     positionScene()
-    print(('^3[bitirim] preview dist=%.2f side=%.2f down=%.2f | backdrop bhead=%.1f balpha=%d^7')
-        :format(cfg.dist, cfg.side, cfg.down, cfg.bhead, cfg.balpha))
+    print(('^3[bitirim] backdrop bx=%.2f bz=%.2f bdist=%.2f bhead=%.1f balpha=%d^7')
+        :format(cfg.bx, cfg.bz, cfg.bdist, cfg.bhead, cfg.balpha))
 end
 
 local function IsPreviewActive() return active end
