@@ -1,41 +1,39 @@
 # stream/ — Bitirim özel prop stream'i
 
 Bu klasör, envanterin arka planında kullanılan `hei_mph_cntl2_glass01` prop'unu
-**spawn edilebilir** yapan `.ytyp` (archetype) dosyasını barındırır.
+**spawn edilebilir** yapan `bitirim_props.ytyp` (archetype) dosyasını barındırır.
 
 ## Neden gerekli?
 `hei_mph_cntl2_glass01` bir interior/heist prop'udur: modelin verisi (`.ydr`) base
 oyunun RPF'lerinde vardır ama onu dünyada `CreateObject` ile spawn edilebilir kılan
-**archetype tanımı yoktur** → `IsModelInCdimage = false`. Buraya bir `.ytyp` koyup
-`fxmanifest.lua` içinde `DLC_ITYP_REQUEST` ile tanıtınca archetype kaydolur ve
-`preview_manager.lua` prop'u backdrop olarak oluşturabilir.
+**archetype tanımı yoktur** → `IsModelInCdimage = false`. `bitirim_props.ytyp` bu isimle
+bir archetype tanımlar; `fxmanifest.lua` içindeki `DLC_ITYP_REQUEST` ile yüklenir,
+archetype kaydolur ve `preview_manager.lua` prop'u backdrop olarak oluşturabilir.
 
-## Yapman gereken TEK adım (CodeWalker, ~2 dk)
-1. **CodeWalker**'ı aç (RPF Explorer). GTA yolunu tanıttığından emin ol.
-2. Menü: **Tools → Project Window → New → New YTYP**.
-3. Sağdaki ağaçta ytyp'e sağ tık → **New Archetype** (Base).
-4. Alanları doldur (ya da hazır kaynağı içe aktar — aşağıya bak):
-   - `name` = `hei_mph_cntl2_glass01`
-   - `assetName` = `hei_mph_cntl2_glass01`
-   - `assetType` = `ASSET_TYPE_DRAWABLE`
-   - Extents: modeli önce sahnede/preview'de görüp **Calculate extents** ile otomatik doldur.
-5. Ytyp'i **`bitirim_props.ytyp`** adıyla **bu `stream/` klasörüne** kaydet.
+## `bitirim_props.ytyp` HAZIR — ek adım yok
+`bitirim_props.ytyp` CodeWalker.Core (CodeWalker'ın çekirdek kütüphanesi) ile
+üretilip commit'lendi. Tek archetype içerir:
+- `name` / `assetName` = `hei_mph_cntl2_glass01` (hash **581526179**)
+- `assetType` = `ASSET_TYPE_DRAWABLE`
+- Geniş simetrik bounding box (culling'i önlemek için; gerçek görünüm `.ydr`'den gelir)
 
-### Hazır kaynağı içe aktarmak istersen
-`docs/props/hei_mph_cntl2_glass01.ytyp.xml` CodeWalker formatındadır. CodeWalker'da
-Project → import edip **Save as .ytyp** yapabilirsin. **Extents değerleri kabadır** —
-modeli yükleyip `Calculate extents` ile gerçek değerlere güncelle (yanlış kutu = obje
-bazı kamera açılarından kaybolabilir/culled olur).
+Sadece **pull + restart** yeterli:
+```
+git -C '.../[ox]/ox_inventory' pull
+# txAdmin: restart ox_inventory
+```
 
-## Model base oyunda gerçekten yoksa
-Eğer ytyp'i eklemene rağmen hâlâ görünmüyorsa, drawable base RPF'te yok demektir.
-O zaman `.ydr` (ve varsa ayrı `.ytd` texture) dosyasını da bu `stream/` klasörüne koy.
-Dosya adları archetype `assetName` ile birebir aynı olmalı: `hei_mph_cntl2_glass01.ydr`.
+## Yine görünmüyorsa (drawable base RPF'te yoksa)
+ytyp yüklendiği hâlde arka planda hiçbir şey görünmüyorsa, `hei_mph_cntl2_glass01.ydr`
+drawable'ı base RPF'lerde yok demektir. O zaman `.ydr` (ve varsa ayrı `.ytd` texture)
+dosyasını da bu `stream/` klasörüne koy — dosya adı archetype `assetName` ile birebir
+aynı olmalı: `hei_mph_cntl2_glass01.ydr`. (Archetype zaten var; sadece drawable verisi
+eksik olur.)
 
-## Dağıtım
-`stream/bitirim_props.ytyp` dosyasını commit'le (ya da doğrudan sunucudaki
-`[ox]/ox_inventory/stream/` içine koy) → `restart ox_inventory`. `fxmanifest.lua`
-zaten `data_file 'DLC_ITYP_REQUEST' 'stream/bitirim_props.ytyp'` satırını içeriyor.
+## ytyp'i yeniden üretmek / başka model eklemek
+Üreteç: bu repoda tutulmuyor (scratchpad). CodeWalker kuruluysa küçük bir .NET aracı
+`YtypFile` + `AddArchetype` + `Save()` ile aynı dosyayı üretir. Farklı bir model için
+archetype adını değiştirip yeniden üretmen yeterli. Bounding box'ı gerçek modele göre
+küçültmek istersen CodeWalker'da modeli yükleyip `Calculate extents` kullan.
 
-> `.ytyp` henüz yokken sunucu açılışında "couldn't load DLC_ITYP_REQUEST ..." uyarısı
-> normaldir; dosyayı ekleyince kaybolur ve prop spawn edilebilir olur.
+CodeWalker XML kaynağı (referans): `docs/props/hei_mph_cntl2_glass01.ytyp.xml`.
