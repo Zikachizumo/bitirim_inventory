@@ -37,15 +37,11 @@ local FIXED_DIR = 180.0   -- klonun kameraya karsi referans yonu (reset icin)
 -- kullanilabilir. Onun yerine spawn edilebilir duz cam/panel/ekran adaylari; Numpad
 -- 9/6 ile aralarinda gez, begendigini bana soyle -> kalici yaparim. (Gercek yansimali
 -- ayna GTA'da interior/MLO yuzeyidir, normal prop degildir; bunlar duz yuzeylerdir.)
+-- Kullanicinin istegi: SADECE cam prop'u. Diger aday proplar kaldirildi (prop
+-- degistirince cam kayboluyordu). Tek eleman -> Numpad 9/6 hep camda kalir.
+-- Kendi ozel prop'unu (.ydr) stream'lersen buraya adini ekle -> otomatik kullanilir.
 local BD_MODELS = {
-    'hei_mph_cntl2_glass01',      -- kullanicinin istegi (stream edilirse calisir; yoksa atlanir)
-    'prop_tv_flat_02',            -- genis duz ekran
-    'prop_tv_flat_03',
-    'prop_ld_screen_01',          -- panel/ekran
-    'prop_billboard_01',          -- buyuk duz pano
-    'prop_billboard_08',
-    'prop_facgate_01',            -- duz metal panel/kapi
-    'prop_fnc_wall_04',           -- duvar segmenti
+    'hei_mph_cntl2_glass01',      -- stream/bitirim_props.ytyp ile spawn edilebilir
 }
 local bdIndex = 1
 
