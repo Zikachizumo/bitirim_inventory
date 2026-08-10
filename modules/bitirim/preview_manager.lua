@@ -45,9 +45,9 @@ local bdIndex = 1
 
 -- Klon YERLESIMI (gameplay kamerasina GORE; kamera-uzayinda ofsetler) + BACKDROP.
 local cfg = {
-    dist = 3.70,   -- klon kameranin kac metre ONUNDE (in-game dial edildi)
-    side = -1.20,  -- YATAY ofset (char-view sol kolon -> ekranda sola) (dial edildi)
-    down = 0.00,   -- DIKEY ofset (ayak-bas kadraja ortalansin) (dial edildi)
+    dist = 3.35,   -- klon kameranin kac metre ONUNDE (KALICI, in-game dial edildi)
+    side = -1.05,  -- YATAY ofset (char-view sol kolon -> ekranda sola) (KALICI)
+    down = 0.51,   -- DIKEY ofset (ayaklar ayakkabi/alt slotlarla hizali) (KALICI)
     bdist = 1.0,   -- BACKDROP klonun kac metre ARKASINDA (Numpad 1/2 ile ayarlanir)
     bx    = 0.0,   -- BACKDROP YATAY ofset (ok Sol/Sag ile ayarlanir)
     bz    = 1.0,   -- BACKDROP DIKEY merkez (ok Yukari/Asagi ile ayarlanir)
@@ -455,23 +455,18 @@ function cycleBackdrop(dir)
     print('^1[bitirim] backdrop: aday listede spawn edilebilir model bulunamadi^7')
 end
 
---- Klavye ayar (index.tsx -> NUI -> buraya).
----   Ok tuslari (up/down/left/right) = KLON (review karakteri) KONUMU.
----   Numpad 1/2 (zoomin/zoomout)     = KLON ZOOM (kameraya uzaklik; yakin=buyuk).
---- Kamera DEGISMEZ. Karakter sag/sola donme yine fare surukleme ile.
---- Begenilen degerleri (side/down/dist) F8'de gorup bana soyle -> kalici yaparim.
+--- Klavye ayar (index.tsx -> NUI -> buraya). Karakter konumu/zoom KALICI sabit;
+--- su an sadece backdrop OPAKLIK/SAYDAMLIK icin kullanilabilir (alphaup/alphadown).
 local function TuneScene(action)
     if not active then return end
-    local POS, ZSTEP = 0.03, 0.05
-    if action == 'up' then         cfg.down = cfg.down + POS
-    elseif action == 'down' then   cfg.down = cfg.down - POS
-    elseif action == 'left' then   cfg.side = cfg.side - POS
-    elseif action == 'right' then  cfg.side = cfg.side + POS
-    elseif action == 'zoomin' then  cfg.dist = math.max(1.0, cfg.dist - ZSTEP)
-    elseif action == 'zoomout' then cfg.dist = cfg.dist + ZSTEP
+    local ASTEP = 8
+    if action == 'alphaup' then
+        cfg.balpha = math.min(255, cfg.balpha + ASTEP)
+    elseif action == 'alphadown' then
+        cfg.balpha = math.max(0, cfg.balpha - ASTEP)
     else return end
-    positionScene()
-    print(('^3[bitirim] klon side=%.2f down=%.2f dist=%.2f^7'):format(cfg.side, cfg.down, cfg.dist))
+    if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
+    print(('^3[bitirim] backdrop opaklik = %d/255^7'):format(cfg.balpha))
 end
 
 local function IsPreviewActive() return active end
