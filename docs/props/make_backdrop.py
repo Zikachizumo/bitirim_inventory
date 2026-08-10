@@ -21,6 +21,8 @@ argv = sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
 OUT_DIR   = argv[0] if len(argv) > 0 else os.getcwd()
 MODEL     = argv[1] if len(argv) > 1 else "bitirim_backdrop01"
 SHADER_IX = int(argv[2]) if len(argv) > 2 else 39   # emissive_alpha.sps
+SIZE      = float(argv[3]) if len(argv) > 3 else 20.0  # kare panel kenar (m). Buyuk =
+                                                       # kamera arkasinda TAM EKRANI kaplar.
 # Koyu neutral ton (sRGB ~ #14161c)
 R, G, B = 20/255.0, 22/255.0, 28/255.0
 
@@ -39,8 +41,8 @@ for blk in (bpy.data.meshes, bpy.data.materials, bpy.data.images):
         try: blk.remove(it)
         except Exception: pass
 
-# --- 3m kare panel, dik ---
-bpy.ops.mesh.primitive_plane_add(size=3.0, location=(0,0,0))
+# --- kare panel, dik (SIZE m; buyuk -> tam ekran backdrop) ---
+bpy.ops.mesh.primitive_plane_add(size=SIZE, location=(0,0,0))
 plane = bpy.context.active_object
 plane.name = MODEL
 plane.rotation_euler[0] = math.radians(90)  # dik: yuzu -Y'ye baksin
