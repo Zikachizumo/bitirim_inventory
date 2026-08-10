@@ -66,6 +66,12 @@ client_scripts {
 
 ui_page 'web/build/index.html'
 
+-- Bitirim: envanter arka plani icin ozel prop archetype'i (hei_mph_cntl2_glass01'i
+-- spawn edilebilir yapar). Binary .ytyp CodeWalker ile uretilip stream/'e konur;
+-- kaynak + adimlar: stream/README.md ve docs/props/hei_mph_cntl2_glass01.ytyp.xml.
+-- Dosya yoksa acilista zararsiz bir stream uyarisi cikar; dosya eklenince kaybolur.
+data_file 'DLC_ITYP_REQUEST' 'stream/bitirim_props.ytyp'
+
 files {
     'client.lua',
     'server.lua',
