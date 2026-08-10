@@ -455,18 +455,29 @@ function cycleBackdrop(dir)
     print('^1[bitirim] backdrop: aday listede spawn edilebilir model bulunamadi^7')
 end
 
---- Klavye ayar (index.tsx -> NUI -> buraya). Kullanici istegi: SADECE backdrop
---- SAYDAMLIGI. ArrowUp = daha opak, ArrowDown = daha saydam. Baska tus YOK.
+--- Klavye ayar (index.tsx -> NUI -> buraya).
+---   Ok tuslari (up/down/left/right) = KLON (review karakteri) konumu -> ayaklari
+---     ayakkabi/alt slotlarla hizalamak icin. up=yukari, down=asagi, left/right=yatay.
+---   Numpad 1/2 (alphaup/alphadown) = backdrop OPAKLIK/SAYDAMLIK.
+--- Kamera DEGISMEZ. Karakter sag/sola donme yine fare surukleme ile.
 local function TuneScene(action)
     if not active then return end
-    local ASTEP = 8
-    if action == 'alphaup' then
+    local POS, ASTEP = 0.03, 8
+    if action == 'up' then         cfg.down = cfg.down + POS
+    elseif action == 'down' then   cfg.down = cfg.down - POS
+    elseif action == 'left' then   cfg.side = cfg.side - POS
+    elseif action == 'right' then  cfg.side = cfg.side + POS
+    elseif action == 'alphaup' then
         cfg.balpha = math.min(255, cfg.balpha + ASTEP)
+        if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
+        print(('^3[bitirim] backdrop opaklik = %d/255^7'):format(cfg.balpha)); return
     elseif action == 'alphadown' then
         cfg.balpha = math.max(0, cfg.balpha - ASTEP)
+        if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
+        print(('^3[bitirim] backdrop opaklik = %d/255^7'):format(cfg.balpha)); return
     else return end
-    if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
-    print(('^3[bitirim] backdrop opaklik = %d/255^7'):format(cfg.balpha))
+    positionScene()
+    print(('^3[bitirim] klon side=%.2f down=%.2f (ayaklari slotlarla hizala)^7'):format(cfg.side, cfg.down))
 end
 
 local function IsPreviewActive() return active end
