@@ -37,6 +37,12 @@ local cfg = {
     down = 0.02,   -- DIKEY ofset (kamera-YUKARI; saf kamera-uzayi, pitch'ten bagimsiz) — KALICI
     pitch = -10.0, -- GAMEPLAY kamerasi pitch KILIDI (envanter acikken). Nasil bakarsan bak,
                    -- acilinca kamera bu acida oturur -> klon HEP ayni onden/net gorunur.
+    -- BACKDROP (canta arka plani): bitirim_backdrop01 = 50m SIYAH panel. Klonun arkasinda.
+    bmodel = 'bitirim_backdrop01',
+    bdist  = 1.0,   -- klonun kac metre ARKASINDA
+    bx     = 0.0,   -- ekran-YATAY ofset (ok Sol/Sag)
+    bz     = 0.0,   -- ekran-DIKEY ofset (ok Yukari/Asagi)
+    balpha = 255,   -- OPAKLIK (0..255; 255=tam opak siyah), Numpad 1/2
 }
 
 -- Idle (klon temiz durus, mid-run donma olmasin). Cinsiyete gore.
@@ -53,6 +59,7 @@ local UNARMED    = `WEAPON_UNARMED`
 ------------------------------------------------------------------------------
 local active      = false
 local previewPed  = nil
+local backdrop    = nil     -- canta arka plani (siyah panel), klonun arkasinda
 local realPed     = nil     -- referans (aynalama) + LOKAL gizlenir
 local dragYaw     = 0.0     -- kullanici surukleme/donme ofseti
 local compCache   = {}      -- aynalama diff onbellegi
@@ -84,6 +91,56 @@ local function positionScene()
         camPos.z + f.z * cfg.dist + r.z * cfg.side + u.z * cfg.down,
         false, false, false)
     SetEntityHeading(previewPed, (rot.z + 180.0 + dragYaw) % 360.0)
+end
+
+------------------------------------------------------------------------------
+-- BACKDROP (canta arka plani — siyah panel, klonun ARKASINDA)
+------------------------------------------------------------------------------
+--- Backdrop'u kamera-uzayinda yerlestir (klonun arkasinda, kameraya bakar). Ok tuslari
+--- bx/bz (ekran sag/yukari) ile kaydirir. Kamera SADECE OKUNUR.
+local function positionBackdrop()
+    if not backdrop or not DoesEntityExist(backdrop) then return end
+    local camPos = GetGameplayCamCoord()
+    local rot = GetGameplayCamRot(2)
+    local zr, xr = math.rad(rot.z), math.rad(rot.x)
+    local cxr, sxr = math.cos(xr), math.sin(xr)
+    local szr, czr = math.sin(zr), math.cos(zr)
+    local f = vector3(-szr * cxr, czr * cxr, sxr)
+    local r = vector3(czr, szr, 0.0)
+    local u = vector3(szr * sxr, -czr * sxr, cxr)
+    local D = cfg.dist + cfg.bdist
+    SetEntityCoordsNoOffset(backdrop,
+        camPos.x + f.x * D + r.x * cfg.bx + u.x * cfg.bz,
+        camPos.y + f.y * D + r.y * cfg.bx + u.y * cfg.bz,
+        camPos.z + f.z * D + r.z * cfg.bx + u.z * cfg.bz,
+        false, false, false)
+    -- Panel TEK yuzlu; heading = camYaw (kameraya bakar; +180 backface culling -> gorunmez).
+    SetEntityHeading(backdrop, rot.z % 360.0)
+end
+
+--- Backdrop objesini olustur (spawn). bitirim_backdrop01 = stream'deki 50m siyah panel.
+local function spawnBackdrop()
+    if backdrop and DoesEntityExist(backdrop) then return end
+    local h = GetHashKey(cfg.bmodel)
+    if not IsModelInCdimage(h) or not IsModelValid(h) then
+        print(('^1[bitirim] backdrop model gecersiz: "%s" (stream/ytyp yuklendi mi?)^7'):format(cfg.bmodel))
+        return
+    end
+    RequestModel(h)
+    local t = 0
+    while not HasModelLoaded(h) and t < 100 do Wait(10); t = t + 1 end
+    if not HasModelLoaded(h) then print('^1[bitirim] backdrop model yuklenemedi^7'); return end
+    local camPos = GetGameplayCamCoord()
+    backdrop = CreateObject(h, camPos.x, camPos.y, camPos.z, false, false, false)
+    SetModelAsNoLongerNeeded(h)
+    if backdrop and DoesEntityExist(backdrop) then
+        SetEntityCollision(backdrop, false, false)
+        FreezeEntityPosition(backdrop, true)
+        SetEntityInvincible(backdrop, true)
+        SetEntityLodDist(backdrop, 1000)
+        SetEntityAlpha(backdrop, math.floor(cfg.balpha), false)
+        positionBackdrop()
+    end
 end
 
 ------------------------------------------------------------------------------
@@ -176,6 +233,7 @@ local function CreatePreview()
     active = true
     dragYaw = 0.0
     positionScene()
+    spawnBackdrop()
     local cp = GetGameplayCamCoord()
     SetFocusPosAndVel(cp.x, cp.y, cp.z, 0.0, 0.0, 0.0)
 
@@ -195,7 +253,7 @@ local function CreatePreview()
         local placeFrames = 0
         while active and previewPed and DoesEntityExist(previewPed) do
             SetGameplayCamRelativePitch(cfg.pitch, 1.0)
-            if placeFrames < 12 then positionScene(); placeFrames = placeFrames + 1 end
+            if placeFrames < 12 then positionScene(); positionBackdrop(); placeFrames = placeFrames + 1 end
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
             TriggerScreenblurFadeOut(0.0)
             DisableControlAction(0, 1, true)  -- INPUT_LOOK_LR
@@ -217,6 +275,12 @@ end
 local function DestroyPreview()
     if not active then return end
     active = false -- thread'ler cikar
+
+    if backdrop and DoesEntityExist(backdrop) then
+        SetEntityAsMissionEntity(backdrop, true, true)
+        DeleteObject(backdrop)
+    end
+    backdrop = nil
 
     if previewPed and DoesEntityExist(previewPed) then
         SetEntityAsMissionEntity(previewPed, true, true)
@@ -310,6 +374,30 @@ local function SetCamera(cfgIn)
     positionScene()
 end
 
+--- Klavye ayar (index.tsx -> NUI -> buraya). SADECE BACKDROP:
+---   Ok tuslari (up/down/left/right) = ekran konumu (bz dikey / bx yatay)
+---   Numpad 1/2 (alphaup/alphadown)  = OPAKLIK / SAYDAMLIK
+--- Klon/kamera DEGISMEZ (klon sabit).
+local function TuneScene(action)
+    if not active then return end
+    local POS, ASTEP = 0.05, 8
+    if action == 'up' then          cfg.bz = cfg.bz + POS
+    elseif action == 'down' then    cfg.bz = cfg.bz - POS
+    elseif action == 'left' then    cfg.bx = cfg.bx - POS
+    elseif action == 'right' then   cfg.bx = cfg.bx + POS
+    elseif action == 'alphaup' then
+        cfg.balpha = math.min(255, cfg.balpha + ASTEP)
+        if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
+        print(('^3[bitirim] backdrop opaklik = %d/255^7'):format(cfg.balpha)); return
+    elseif action == 'alphadown' then
+        cfg.balpha = math.max(0, cfg.balpha - ASTEP)
+        if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
+        print(('^3[bitirim] backdrop opaklik = %d/255^7'):format(cfg.balpha)); return
+    else return end
+    positionBackdrop()
+    print(('^3[bitirim] backdrop bx=%.2f bz=%.2f balpha=%d^7'):format(cfg.bx, cfg.bz, cfg.balpha))
+end
+
 local function IsPreviewActive() return active end
 
 ------------------------------------------------------------------------------
@@ -325,6 +413,7 @@ exports('UpdateOutfit',    UpdateOutfit)
 exports('SyncFromPlayer',  SyncFromPlayer)
 exports('RotatePreview',   RotatePreview)
 exports('SetCamera',       SetCamera)
+exports('TuneScene',       TuneScene)
 
 -- Emniyet: kaynak durursa temizle.
 AddEventHandler('onResourceStop', function(res)

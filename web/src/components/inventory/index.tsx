@@ -62,8 +62,31 @@ const Inventory: React.FC = () => {
     fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
   }, [inventoryVisible, isDrop, hasContainer]);
 
-  // Bitirim: klon konumu/zoom KALICI sabit (side=-1.11 down=0.02 dist=3.45,
-  // preview_manager.lua). Klavye kontrolu YOK. Sag/sola donme fare surukleme ile.
+  // Bitirim: BACKDROP kontrolleri (yalniz karakter paneli acikken). Klon KALICI sabit;
+  // bu tuslar sadece siyah backdrop paneli ayarlar:
+  //   Ok tuslari = backdrop ekran konumu (yukari/asagi/sag/sol).
+  //   Numpad 1/2 = backdrop OPAKLIK / SAYDAMLIK.
+  useEffect(() => {
+    const showChar = inventoryVisible && !isDrop && !hasContainer;
+    if (!showChar) return;
+    const onKey = (e: KeyboardEvent) => {
+      let action: string | null = null;
+      switch (e.code) {
+        case 'ArrowUp': action = 'up'; break;
+        case 'ArrowDown': action = 'down'; break;
+        case 'ArrowLeft': action = 'left'; break;
+        case 'ArrowRight': action = 'right'; break;
+        case 'Numpad1': action = 'alphaup'; break;
+        case 'Numpad2': action = 'alphadown'; break;
+      }
+      if (action) {
+        e.preventDefault();
+        fetchNui('bitirim:charTune', { action }).catch(() => {});
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [inventoryVisible, isDrop, hasContainer]);
 
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
