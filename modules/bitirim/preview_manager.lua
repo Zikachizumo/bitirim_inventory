@@ -29,9 +29,10 @@
 -- canli aynalar, sabit gameplay kamerasinin onune (review kutusuna) yerlestirilir; gercek
 -- ped/kamera ISINLANMAZ. Arka planda o noktadaki oyun dunyasi gorunur (delik kabul edildi).
 local cfg = {
-    dist = 3.35,   -- klon kameranin kac metre ONUNDE (KALICI, in-game dial edildi)
-    side = -1.05,  -- YATAY ofset (char-view sol kolon -> ekranda sola) (KALICI)
-    down = 0.51,   -- DIKEY ofset (ayaklar ayakkabi/alt slotlarla hizali) (KALICI)
+    dist = 3.35,   -- klon kameranin kac metre ONUNDE (kamera-uzayi)
+    side = -1.05,  -- YATAY ofset (kamera-sag; negatif = ekranda sola)
+    down = -1.00,  -- DIKEY ofset (kamera-YUKARI; negatif = asagi). SAF kamera-uzayi ->
+                   -- pitch'ten bagimsiz. Baslangic tahmini; in-game dial edilecek.
 }
 
 -- Idle (klon temiz durus, mid-run donma olmasin). Cinsiyete gore.
@@ -57,10 +58,11 @@ local curWeapon   = nil
 -- KLON YERLESIMI (gameplay kamerasini SADECE OKUR)
 ------------------------------------------------------------------------------
 --- Klonu yerlestir. Kamera DEGISTIRILMEZ; sadece okunur.
---- KLON KAMERA-UZAYINDA SABIT OFSETTE tutulur (pitch DAHIL taban) -> kamera yukari/
---- asagi baksa bile klon EKRANDA HEP AYNI KONUM/ACIDA gorunur, net kalir (kaymaz/
---- bulanmaz). Dikey ofset, neutral bakista footZ+down'u verecek sekilde hesaplanir ->
---- dialed goruntu (side=-1.05 down=0.51 dist=3.35) KORUNUR. Sadece dragYaw ile doner.
+--- KLON TAMAMEN KAMERA-UZAYINDA SABIT OFSET: dist=ileri, side=sag, down=yukari (hepsi
+--- kamera cercevesinde, pitch DAHIL taban). Ayak/kamera-yuksekligi terimleri YOK ->
+--- down artik SAF kamera-uzayi ofset: kamera hangi acida olursa olsun klon EKRANDA
+--- BIREBIR AYNI konum/acida gorunur (dial edilen degerler her pitch'te ayni sonucu verir).
+--- Sadece dragYaw ile sag/sola doner.
 local function positionScene()
     if not previewPed or not DoesEntityExist(previewPed) then return end
     local camPos = GetGameplayCamCoord()
@@ -72,13 +74,10 @@ local function positionScene()
     local f = vector3(-szr * cxr, czr * cxr, sxr)
     local r = vector3(czr, szr, 0.0)
     local u = vector3(szr * sxr, -czr * sxr, cxr)
-    -- Kamera-uzayi dikey ofset: neutral bakista klon feet'i footZ+down'a otursun.
-    local footZ = (realPed and DoesEntityExist(realPed)) and GetEntityCoords(realPed).z or camPos.z
-    local vo = cfg.down - (camPos.z - footZ)
     SetEntityCoordsNoOffset(previewPed,
-        camPos.x + f.x * cfg.dist + r.x * cfg.side + u.x * vo,
-        camPos.y + f.y * cfg.dist + r.y * cfg.side + u.y * vo,
-        camPos.z + f.z * cfg.dist + r.z * cfg.side + u.z * vo,
+        camPos.x + f.x * cfg.dist + r.x * cfg.side + u.x * cfg.down,
+        camPos.y + f.y * cfg.dist + r.y * cfg.side + u.y * cfg.down,
+        camPos.z + f.z * cfg.dist + r.z * cfg.side + u.z * cfg.down,
         false, false, false)
     SetEntityHeading(previewPed, (rot.z + 180.0 + dragYaw) % 360.0)
 end
