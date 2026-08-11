@@ -51,14 +51,6 @@ RegisterNUICallback('bitirim:charRotate', function(data, cb)
     Preview:RotatePreview(mode, type(data) == 'table' and data.value or nil)
 end)
 
--- Klavye ayar (index.tsx): ok tuslari=backdrop konumu, Numpad 1/2=backdrop opaklik.
--- Klon/kamera DEGISMEZ (klon sabit).
-RegisterNUICallback('bitirim:charTune', function(data, cb)
-    cb(1)
-    local action = type(data) == 'table' and data.action or nil
-    if action then Preview:TuneScene(action) end
-end)
-
 --[[
     /cam — KLON YERLESIMI ince ayar (onizleme acikken). GAMEPLAY KAMERASI DEGISMEZ.
     Begenince degerleri bana soyle, kalici yaparim. (Backdrop kaldirildi — sadece klon.)
