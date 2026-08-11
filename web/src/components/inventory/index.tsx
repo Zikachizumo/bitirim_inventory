@@ -10,6 +10,8 @@ import {
   setEquippedWeapon,
   setEquipment,
   setClothingMap,
+  setHighlightSlot,
+  selectClothingMap,
   EquipmentMap,
   EquippedWeapon,
   ClothingMap,
@@ -50,6 +52,8 @@ const Inventory: React.FC = () => {
   const [inventoryVisible, setInventoryVisible] = useState(false);
   const dispatch = useAppDispatch();
   const rightInventory = useAppSelector(selectRightInventory);
+  const tooltip = useAppSelector((state) => state.tooltip);
+  const clothingMap = useAppSelector(selectClothingMap);
 
   // Sag envanterin durumu. Bos id = hicbir sey acik degil.
   // 'drop' (yerdeki item) ayri ele alinir: 5x5 grid + altta karakter statlari.
@@ -90,6 +94,18 @@ const Inventory: React.FC = () => {
       dispatch(closeContextMenu());
     }
   }, [inventoryVisible, dispatch]);
+
+  // Bitirim: acik tooltip OYUNCU envanterindeki GIYILEBILIR bir item'e aitse, o item'in
+  // HEDEF karakter slotu parlar (metadata.wear.slot ?? clothingMap[name]). Tooltip
+  // kapaninca / giyilemez item'de / farkli item'de otomatik guncellenir.
+  useEffect(() => {
+    if (tooltip.open && tooltip.item && tooltip.inventoryType === 'player') {
+      const target = (tooltip.item.metadata as any)?.wear?.slot ?? clothingMap[tooltip.item.name];
+      dispatch(setHighlightSlot(target ?? null));
+    } else {
+      dispatch(setHighlightSlot(null));
+    }
+  }, [tooltip.open, tooltip.item, tooltip.inventoryType, clothingMap, dispatch]);
 
   useNuiEvent<{
     leftInventory?: InventoryProps;

@@ -2,7 +2,13 @@ import React, { useCallback, useRef } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { selectBagLevel } from '../../store/backpack';
-import { selectEquipment, selectEquippedWeapon, selectClothingMap, EquipItem } from '../../store/equipment';
+import {
+  selectEquipment,
+  selectEquippedWeapon,
+  selectClothingMap,
+  selectHighlightSlot,
+  EquipItem,
+} from '../../store/equipment';
 import { selectLeftInventory } from '../../store/inventory';
 import { openContextMenu } from '../../store/contextMenu';
 import { Items } from '../../store/items';
@@ -74,6 +80,7 @@ interface EquipSlotProps {
   Icon: React.FC<{ size?: number }>;
   slotNo: number;
   equipped?: EquipItem;
+  highlighted?: boolean;
   onUnequip: (slot: string) => void;
   onContext: (slotKey: string, event: React.MouseEvent<HTMLDivElement>) => void;
   canEquipHere: (slotKey: string, source: DragSource) => boolean;
@@ -93,6 +100,7 @@ const EquipSlot: React.FC<EquipSlotProps> = ({
   Icon,
   slotNo,
   equipped,
+  highlighted,
   onUnequip,
   onContext,
   canEquipHere,
@@ -160,6 +168,7 @@ const EquipSlot: React.FC<EquipSlotProps> = ({
       className={
         'bx-eq-slot' +
         (equipped ? ' has-item' : '') +
+        (highlighted ? ' bx-eq-highlight' : '') +
         (canDrop ? ' bx-eq-droppable' : '') +
         (isOver && canDrop ? ' bx-eq-dropover' : '')
       }
@@ -183,6 +192,7 @@ const CharacterPanel: React.FC = () => {
   const equipment = useAppSelector(selectEquipment);
   const equippedWeapon = useAppSelector(selectEquippedWeapon);
   const clothingMap = useAppSelector(selectClothingMap);
+  const highlightSlot = useAppSelector(selectHighlightSlot);
   const leftInventory = useAppSelector(selectLeftInventory);
   const dispatch = useAppDispatch();
   let slotNo = 0; // tum slotlara sirali numara (1..N)
@@ -296,6 +306,7 @@ const CharacterPanel: React.FC = () => {
         Icon={Icon}
         slotNo={slotNo}
         equipped={equipment[key]}
+        highlighted={highlightSlot === key}
         onUnequip={handleUnequip}
         onContext={handleContext}
         canEquipHere={canEquipHere}
