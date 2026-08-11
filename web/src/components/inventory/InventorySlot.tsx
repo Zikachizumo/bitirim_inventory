@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback } from 'react';
 import { DragSource, Inventory, InventoryType, Slot, SlotWithItem } from '../../typings';
 import { useDrag, useDragDropManager, useDrop } from 'react-dnd';
 import { useAppDispatch } from '../../store';
@@ -13,7 +13,7 @@ import { onCraft } from '../../dnd/onCraft';
 import { fetchNui } from '../../utils/fetchNui';
 import useNuiEvent from '../../hooks/useNuiEvent';
 import { ItemsPayload } from '../../reducers/refreshSlots';
-import { closeTooltip, openTooltip } from '../../store/tooltip';
+import { closeTooltip, toggleTooltip } from '../../store/tooltip';
 import { openContextMenu } from '../../store/contextMenu';
 import { useMergeRefs } from '@floating-ui/react';
 
@@ -30,7 +30,6 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
 ) => {
   const manager = useDragDropManager();
   const dispatch = useAppDispatch();
-  const timerRef = useRef<number | null>(null);
 
   // Bitirim: nakit ve telefon oyuncu envanterinde GIZLENIR. Item durur (ust bar
   // nakit + shop odemesi + npwd calismaya devam eder); slot bos gorunur ve
@@ -135,13 +134,31 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
   };
 
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    dispatch(closeTooltip());
     if (isHidden) return;
-    if (timerRef.current) clearTimeout(timerRef.current);
+    // Ctrl+tik = at, Alt+tik = kullan (kisayollar korunur; tooltip'i kapat).
     if (event.ctrlKey && isSlotWithItem(item) && inventoryType !== 'shop' && inventoryType !== 'crafting') {
+      dispatch(closeTooltip());
       onDrop({ item: item, inventory: inventoryType });
-    } else if (event.altKey && isSlotWithItem(item) && inventoryType === 'player') {
+      return;
+    }
+    if (event.altKey && isSlotWithItem(item) && inventoryType === 'player') {
+      dispatch(closeTooltip());
       onUse(item);
+      return;
+    }
+    // Bitirim: TEK SOL TIK -> item bilgi penceresi (tooltip) ac/kapat; slota sabitlenir
+    // (eskiden hover ile aciliyordu). Bos slotta acik tooltip'i kapat.
+    if (isSlotWithItem(item)) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      dispatch(
+        toggleTooltip({
+          item,
+          inventoryType,
+          coords: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+        })
+      );
+    } else {
+      dispatch(closeTooltip());
     }
   };
 
@@ -152,7 +169,6 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
     event.preventDefault();
     if (inventoryType !== 'player' || !isSlotWithItem(item) || isHidden) return;
     dispatch(closeTooltip());
-    if (timerRef.current) clearTimeout(timerRef.current);
     if ((item.metadata as any)?.wear) {
       fetchNui('bitirim:equip', { slot: item.slot }).catch(() => {});
     } else {
@@ -182,21 +198,7 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
       }}
     >
       {isSlotWithItem(item) && !isHidden && (
-        <div
-          className="item-slot-wrapper"
-          onMouseEnter={() => {
-            timerRef.current = window.setTimeout(() => {
-              dispatch(openTooltip({ item, inventoryType }));
-            }, 500) as unknown as number;
-          }}
-          onMouseLeave={() => {
-            dispatch(closeTooltip());
-            if (timerRef.current) {
-              clearTimeout(timerRef.current);
-              timerRef.current = null;
-            }
-          }}
-        >
+        <div className="item-slot-wrapper">
           <div
             className={
               inventoryType === 'player' && item.slot <= 7 ? 'item-hotslot-header-wrapper' : 'item-slot-header-wrapper'

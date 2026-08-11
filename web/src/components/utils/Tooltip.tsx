@@ -7,7 +7,7 @@ const Tooltip: React.FC = () => {
   const hoverData = useAppSelector((state) => state.tooltip);
 
   const { refs, context, floatingStyles } = useFloating({
-    middleware: [flip(), shift(), offset({ mainAxis: 10, crossAxis: 10 })],
+    middleware: [flip(), shift({ padding: 8 }), offset({ mainAxis: 10 })],
     open: hoverData.open,
     placement: 'right-start',
   });
@@ -16,30 +16,26 @@ const Tooltip: React.FC = () => {
     duration: 200,
   });
 
-  const handleMouseMove = ({ clientX, clientY }: MouseEvent | React.MouseEvent<unknown, MouseEvent>) => {
+  // Tooltip artik tiklanan SLOTA sabitlenir (mouse takibi yok). coords = slot rect'i;
+  // placement 'right-start' -> slotun sagina, yer yoksa flip ile soluna acilir.
+  useEffect(() => {
+    const c = hoverData.coords;
+    if (!c) return;
     refs.setPositionReference({
       getBoundingClientRect() {
         return {
-          width: 0,
-          height: 0,
-          x: clientX,
-          y: clientY,
-          left: clientX,
-          top: clientY,
-          right: clientX,
-          bottom: clientY,
+          width: c.width,
+          height: c.height,
+          x: c.x,
+          y: c.y,
+          left: c.x,
+          top: c.y,
+          right: c.x + c.width,
+          bottom: c.y + c.height,
         };
       },
     });
-  };
-
-  useEffect(() => {
-    window.addEventListener('mousemove', handleMouseMove);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, []);
+  }, [hoverData.coords, refs]);
 
   return (
     <>

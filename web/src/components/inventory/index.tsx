@@ -81,6 +81,16 @@ const Inventory: React.FC = () => {
   });
   useExitListener(setInventoryVisible);
 
+  // Bitirim: tooltip artik TIKLA-ac (kalici). Envanter her kapanista (ESC / dis /
+  // setInventoryVisible false) acik tooltip'i kapat -> tekrar acinca eski item'in
+  // bilgi penceresi asili kalmasin.
+  useEffect(() => {
+    if (!inventoryVisible) {
+      dispatch(closeTooltip());
+      dispatch(closeContextMenu());
+    }
+  }, [inventoryVisible, dispatch]);
+
   useNuiEvent<{
     leftInventory?: InventoryProps;
     rightInventory?: InventoryProps;
