@@ -2,7 +2,7 @@ import React, { useCallback, useRef } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { selectBagLevel } from '../../store/backpack';
-import { selectEquipment, EquipItem } from '../../store/equipment';
+import { selectEquipment, selectEquippedWeapon, EquipItem } from '../../store/equipment';
 import { selectLeftInventory } from '../../store/inventory';
 import { openContextMenu } from '../../store/contextMenu';
 import { Items } from '../../store/items';
@@ -174,6 +174,7 @@ const EquipSlot: React.FC<EquipSlotProps> = ({
 const CharacterPanel: React.FC = () => {
   const bagLevel = useAppSelector(selectBagLevel);
   const equipment = useAppSelector(selectEquipment);
+  const equippedWeapon = useAppSelector(selectEquippedWeapon);
   const leftInventory = useAppSelector(selectLeftInventory);
   const dispatch = useAppDispatch();
   let slotNo = 0; // tum slotlara sirali numara (1..N)
@@ -239,9 +240,26 @@ const CharacterPanel: React.FC = () => {
     dragX.current = null;
   };
 
-  // Tek slot render (canta = ayri gorsel sistem, digerleri EquipSlot).
+  // Tek slot render (canta + silah = ayri gorsel sistem, digerleri EquipSlot).
   const renderSlot = ({ key, label, Icon }: SlotDef) => {
     slotNo += 1;
+    // SILAH slotu: kusanili silahi gosterir (client Lua setEquippedWeapon). Kusan/degis
+    // -> gorsel guncellenir, holstered -> bosalir. Surukle-giy YOK (ox silah akisi).
+    if (key === 'weapon') {
+      const wName = equippedWeapon?.name;
+      const wUrl = wName ? getItemUrl(wName) : undefined;
+      return (
+        <div
+          className={wUrl ? 'bx-eq-slot has-item' : 'bx-eq-slot'}
+          key={key}
+          title={equippedWeapon?.label ? `Silah — ${equippedWeapon.label}` : 'Silah — boş'}
+          style={wUrl ? { backgroundImage: `url(${wUrl})` } : undefined}
+        >
+          <span className="bx-eq-num">{slotNo}</span>
+          {!wUrl && <Icon size={32} />}
+        </div>
+      );
+    }
     if (key === 'bag') {
       const bagUrl = bagLevel > 0 ? getItemUrl(`bag_lv${bagLevel}`) : undefined;
       return (

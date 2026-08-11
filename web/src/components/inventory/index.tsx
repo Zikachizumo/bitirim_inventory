@@ -5,7 +5,7 @@ import CharacterStats from './CharacterStats';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { refreshSlots, selectRightInventory, setAdditionalMetadata, setupInventory } from '../../store/inventory';
 import { setPlayerStatus, PlayerStatus } from '../../store/playerStatus';
-import { setEquippedSlot, setEquipment, EquipmentMap } from '../../store/equipment';
+import { setEquippedSlot, setEquippedWeapon, setEquipment, EquipmentMap, EquippedWeapon } from '../../store/equipment';
 import { setBagLevel } from '../../store/backpack';
 import { setCash } from '../../store/cash';
 import { useExitListener } from '../../hooks/useExitListener';
@@ -92,6 +92,9 @@ const Inventory: React.FC = () => {
 
   // Bitirim: o an kusanili slot (sag tik menusunde Use/Unequip etiketi icin)
   useNuiEvent<number | null>('setEquippedSlot', (data) => dispatch(setEquippedSlot(data)));
+
+  // Bitirim: kusanili silah -> karakter panelindeki SILAH slotu gosterimi
+  useNuiEvent<EquippedWeapon | false | null>('setEquippedWeapon', (data) => dispatch(setEquippedWeapon(data)));
 
   // Bitirim: giyili kiyafet/ekipman (slot -> gorunum). Karakter panelini doldurur.
   useNuiEvent<EquipmentMap>('setEquipment', (data) => dispatch(setEquipment(data)));

@@ -62,12 +62,22 @@ local slots = {
     giy, sonra oyunda `/kiyafetbak` yaz -> F8 konsoluna su an giyili tum
     slotlarin degerlerini + cinsiyetini yazar. O sayilari buraya gecir.
 ]]
+--[[
+    ZIRH: armour slotu (component 9) hem GORSEL yelek (drawable/texture) hem GERCEK
+    zirh degeri tasir. `armour = 0..100` alani eklenirse parca giyilince client
+    SetPedArmour ile o kadar zirh verir, cikarinca 0'lar. `armour` yoksa slot sadece
+    gorsel yelektir. Deger CINSIYETTEN bagimsizdir (wear kokune yazilir).
+    Vanilla 'armour' item'i (Bulletproof Vest) buradan armour slotuna baglanir.
+]]
 local items = {
     ['mask_black']   = { slot = 'mask',     drawable = 52, texture = 0 },
     ['cap_black']    = { slot = 'hat',      drawable = 5,  texture = 0 },
     ['glasses_dark'] = { slot = 'glasses',  drawable = 5,  texture = 0 },
     ['gold_chain']   = { slot = 'necklace', drawable = 1,  texture = 0 },
     ['gold_watch']   = { slot = 'watch',    drawable = 12, texture = 0 },
+    -- Bulletproof Vest -> armour slotu: gorsel yelek (component 9 drawable) + 100 zirh.
+    -- drawable/texture'i kendi ped'inde /kiyafetbak ile dogrula ve gerekirse degistir.
+    ['armour']       = { slot = 'armour',   drawable = 1,  texture = 0, armour = 100 },
 }
 
 return {

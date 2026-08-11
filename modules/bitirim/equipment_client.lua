@@ -24,6 +24,7 @@ local currentEquip = {}      -- slot -> { drawable, texture } (server'dan gelen 
 local base = {}              -- slot -> { drawable, texture } (temiz skin — cikarinca donus)
 local baseCaptured = false
 local requestedOnce = false
+local lastArmour = nil       -- son uygulanan zirh degeri; SADECE armour slotu degisince yenilenir
 
 --- Temiz ped'ten (illenium skin, ekipman uygulanmadan once) base'i yakala.
 local function captureBase(ped)
@@ -92,6 +93,20 @@ local function applyEquip()
                 ClearPedProp(ped, def.id)
             end
         end
+    end
+
+    -- ZIRH DEGERI (gorsel component 9'a EK). armour slotundaki parca `wear.armour`
+    -- tasiyorsa gercek zirhi (SetPedArmour) uygular. SADECE armour slotu DEGISINCE
+    -- yazariz -> baska kaynaktan (medkit/harici yelek) gelen zirhi, alakasiz bir
+    -- ekipman degisikligi (or. sapka giyme) her applyEquip'i tetiklediginde SILMEYIZ.
+    local armourVal = nil
+    local ae = currentEquip['armour']
+    if ae and type(ae.wear) == 'table' and ae.wear.armour ~= nil then
+        armourVal = tonumber(ae.wear.armour)
+    end
+    if armourVal ~= lastArmour then
+        lastArmour = armourVal
+        SetPedArmour(ped, armourVal or 0)
     end
 end
 

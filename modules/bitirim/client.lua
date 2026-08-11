@@ -108,16 +108,16 @@ end)
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', enablePhone)   -- relog (qbx compat)
 RegisterNetEvent('qbx_core:client:playerLoggedIn', enablePhone) -- surum uyumu
 
---- O an kusanili silahin slotunu dondurur (yoksa nil).
---- ox client'inin getCurrentWeapon export'unu kullanir (kendi kaynagimiz).
-local function equippedWeaponSlot()
+--- O an kusanili silahi (ox currentWeapon tablosu: slot/name/label/...) dondurur.
+--- ox client'inin getCurrentWeapon export'unu kullanir (kendi kaynagimiz). Yoksa nil.
+local function equippedWeapon()
     local ok, weapon = pcall(function()
         return exports[GetCurrentResourceName()]:getCurrentWeapon()
     end)
 
     if not ok or type(weapon) ~= 'table' then return nil end
 
-    return weapon.slot
+    return weapon
 end
 
 CreateThread(function()
@@ -155,12 +155,19 @@ CreateThread(function()
                 SendNUIMessage({ action = 'setCash', data = cash or 0 })
             end
 
-            -- Kusanili slot (sag tik menusunde Use/Unequip etiketi icin)
-            local equipped = equippedWeaponSlot()
+            -- Kusanili silah: slot (sag tik menusunde Use/Unequip etiketi) + karakter
+            -- panelindeki SILAH slotu gosterimi (name/label -> gorsel). Silah degisince
+            -- (kusan/degis/holstered) ikisi de guncellenir. `false` = silah yok.
+            local weapon = equippedWeapon()
+            local wslot = weapon and weapon.slot or nil
 
-            if equipped ~= lastEquipped then
-                lastEquipped = equipped
-                SendNUIMessage({ action = 'setEquippedSlot', data = equipped })
+            if wslot ~= lastEquipped then
+                lastEquipped = wslot
+                SendNUIMessage({ action = 'setEquippedSlot', data = wslot })
+                SendNUIMessage({
+                    action = 'setEquippedWeapon',
+                    data = weapon and { name = weapon.name, label = weapon.label, slot = weapon.slot } or false,
+                })
             end
 
             local ped = PlayerPedId()
