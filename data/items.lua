@@ -293,9 +293,16 @@ return {
 		label = 'Bulletproof Vest',
 		weight = 3000,
 		stack = false,
+		close = false, -- giyince envanter acik kalsin (slot dolarken + klon guncellenirken gorunur)
 		client = {
-			anim = { dict = 'clothingshirt', clip = 'try_shirt_positive_d' },
-			usetime = 3500
+			image = 'armour.png',
+			-- Bizim ekipman sistemimize yonlendir: ox'un DAHILI Item('armour') zirh
+			-- effect'i (sadece SetPedArmour 100 uygular, gorsel/panel/slot YOK) bu event
+			-- yuzunden hem SET EDILMEZ (modules/items/client.lua guard) hem CAGRILMAZ
+			-- (client.lua use dispatch event'i effect'ten once return eder). Use ->
+			-- bitirim:client:useArmour -> equipSlot -> equip(): armour slotu + gorsel
+			-- yelek (component 9) + zirh degeri (wear.armour) + panelde gozukur.
+			event = 'bitirim:client:useArmour'
 		}
 	},
 
