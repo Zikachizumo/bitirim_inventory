@@ -29,10 +29,9 @@
 -- canli aynalar, sabit gameplay kamerasinin onune (review kutusuna) yerlestirilir; gercek
 -- ped/kamera ISINLANMAZ. Arka planda o noktadaki oyun dunyasi gorunur (delik kabul edildi).
 local cfg = {
-    dist = 3.35,   -- klon kameranin kac metre ONUNDE (kamera-uzayi)
-    side = -1.05,  -- YATAY ofset (kamera-sag; negatif = ekranda sola)
-    down = -1.00,  -- DIKEY ofset (kamera-YUKARI; negatif = asagi). SAF kamera-uzayi ->
-                   -- pitch'ten bagimsiz. Baslangic tahmini; in-game dial edilecek.
+    dist = 3.45,   -- klon kameranin kac metre ONUNDE (kamera-uzayi) — KALICI
+    side = -1.11,  -- YATAY ofset (kamera-sag; negatif = ekranda sola) — KALICI
+    down = 0.02,   -- DIKEY ofset (kamera-YUKARI; saf kamera-uzayi, pitch'ten bagimsiz) — KALICI
 }
 
 -- Idle (klon temiz durus, mid-run donma olmasin). Cinsiyete gore.
@@ -179,16 +178,13 @@ local function CreatePreview()
     playIdle()
     mirrorWeapon(true)
 
-    -- RENDER thread (Wait 0): (a) klonu sabit kameranin onunde tut,
-    -- (b) gercek ped'i lokal gizli tut, (c) ox screenblur'u kapat (klon net),
-    -- (d) fare ile gercek kamerayi DONDURMEYI engelle (envanter SetNuiFocusKeepInput(true)
-    -- kullandigi icin fare hala oyun kamerasini oynatiyordu -> klon farkli acidan
-    -- gorununce hem garip acilar hem GTA'nin kamera-donusu motion blur'u ortaya cikiyordu).
-    -- Karakter artik SADECE UI'nin sol/sag/surukle kontrolleriyle (dragYaw) doner.
+    -- RENDER thread (Wait 0): (a) ox screenblur'u kapat, (b) fare ile gercek kamerayi
+    -- DONDURMEYI engelle. KLON HER KARE YENIDEN KONUMLANDIRILMAZ (positionScene sadece
+    -- acilista + donme'de cagrilir) -> kameranin idle salinimini takip edip DUNYAYA GORE
+    -- oynamaz -> per-obje MOTION BLUR olmaz, klon NET. Kamera zaten kilitli (LOOK+hareket
+    -- devre disi) oldugu icin klon cerceveden kaymaz. Sag/sola sadece dragYaw (fare).
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
-            positionScene()
-            -- AYNA MODU: gercek ped gizlenmez (oyunda gorunur kalir).
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
             TriggerScreenblurFadeOut(0.0)
             DisableControlAction(0, 1, true)  -- INPUT_LOOK_LR
@@ -303,24 +299,6 @@ local function SetCamera(cfgIn)
     positionScene()
 end
 
---- Klavye ince ayar (index.tsx -> NUI -> buraya). KLON konumu/zoom:
----   Ok tuslari (up/down/left/right) = konum (down dikey / side yatay)
----   Numpad 1/2 (zoomin/zoomout)     = zoom (dist; yakin=buyuk)
---- Begenilen side/down/dist F8'de yazilir -> bana soyle, kalici yaparim.
-local function TuneScene(action)
-    if not active then return end
-    local POS, ZSTEP = 0.03, 0.05
-    if action == 'up' then          cfg.down = cfg.down + POS
-    elseif action == 'down' then    cfg.down = cfg.down - POS
-    elseif action == 'left' then    cfg.side = cfg.side - POS
-    elseif action == 'right' then   cfg.side = cfg.side + POS
-    elseif action == 'zoomin' then  cfg.dist = math.max(1.0, cfg.dist - ZSTEP)
-    elseif action == 'zoomout' then cfg.dist = cfg.dist + ZSTEP
-    else return end
-    positionScene()
-    print(('^3[bitirim] klon side=%.2f down=%.2f dist=%.2f^7'):format(cfg.side, cfg.down, cfg.dist))
-end
-
 local function IsPreviewActive() return active end
 
 ------------------------------------------------------------------------------
@@ -336,7 +314,6 @@ exports('UpdateOutfit',    UpdateOutfit)
 exports('SyncFromPlayer',  SyncFromPlayer)
 exports('RotatePreview',   RotatePreview)
 exports('SetCamera',       SetCamera)
-exports('TuneScene',       TuneScene)
 
 -- Emniyet: kaynak durursa temizle.
 AddEventHandler('onResourceStop', function(res)
