@@ -7,10 +7,13 @@
                                           └──► Mirror Klon Ped    (review'da; canli aynalanir)
 
     EN ONEMLI KURAL: GAMEPLAY KAMERASINA HIC DOKUNULMAZ.
-    - Scripted kamera OLUSTURULMAZ, RenderScriptCams CAGRILMAZ. Kamera hic degismez.
-    - Mirror klon, SABIT gameplay kamerasinin ONUNE yerlestirilir (kamerayi okuruz,
-      DEGISTIRMEYIZ): cam-onu * dist + yatay/dikey ofset -> char-view deligine girer.
-      Klon kameraya bakar (heading = camYaw+180); pitch YOK SAYILIR (level).
+    - Scripted kamera OLUSTURULMAZ, RenderScriptCams CAGRILMAZ. Kamera YAW/pozisyon
+      degismez; TEK istisna: envanter acikken gameplay kamerasi PITCH'i cfg.pitch'e
+      KILITLENIR (SetGameplayCamRelativePitch) -> nasil bakarsan bak klon HEP ayni onden
+      goruntude (yukaridan bakma + o acidaki DOF bulanikligi biter). Kullanici istegi.
+    - Mirror klon KAMERA-UZAYINDA sabit ofset: camPos + f*dist + r*side + u*down (pitch
+      dahil taban). Ilk ~12 kare yerlestirilir (pitch otururken) sonra DUNYADA DONUK ->
+      per-obje motion blur olmaz. Klon kameraya bakar (heading = camYaw+180+dragYaw).
     - GERCEK PED GIZLENMEZ (ayna modu). Arkada o noktadaki oyun dunyasi gorunur.
     - Appearance senkron: tek kaynak = gercek ped. ~150ms diff-loop ile klona
       AYNALANIR (sadece DEGISEN component/prop/silah). Movement/anim AYNALANMAZ.
@@ -32,6 +35,8 @@ local cfg = {
     dist = 3.45,   -- klon kameranin kac metre ONUNDE (kamera-uzayi) — KALICI
     side = -1.11,  -- YATAY ofset (kamera-sag; negatif = ekranda sola) — KALICI
     down = 0.02,   -- DIKEY ofset (kamera-YUKARI; saf kamera-uzayi, pitch'ten bagimsiz) — KALICI
+    pitch = -10.0, -- GAMEPLAY kamerasi pitch KILIDI (envanter acikken). Nasil bakarsan bak,
+                   -- acilinca kamera bu acida oturur -> klon HEP ayni onden/net gorunur.
 }
 
 -- Idle (klon temiz durus, mid-run donma olmasin). Cinsiyete gore.
@@ -166,7 +171,8 @@ local function CreatePreview()
     -- 2) AYNA MODU: gercek ped GIZLENMEZ -> oyunda karakter gorunmeye devam eder;
     -- mirror klon review'da ayrica gorunur (2 yerde karakter). Kullanici istegi.
 
-    -- 3) Ilk yerlesim + odak (klonun oldugu yer render/stream edilsin). KAMERA DEGISMEZ.
+    -- 3) Ilk yerlesim + odak (klonun oldugu yer render/stream edilsin). Kamera YAW/pozisyon
+    -- degismez; sadece PITCH render loop'ta cfg.pitch'e kilitlenir (klon hep ayni acida).
     active = true
     dragYaw = 0.0
     positionScene()
@@ -178,13 +184,18 @@ local function CreatePreview()
     playIdle()
     mirrorWeapon(true)
 
-    -- RENDER thread (Wait 0): (a) ox screenblur'u kapat, (b) fare ile gercek kamerayi
-    -- DONDURMEYI engelle. KLON HER KARE YENIDEN KONUMLANDIRILMAZ (positionScene sadece
-    -- acilista + donme'de cagrilir) -> kameranin idle salinimini takip edip DUNYAYA GORE
-    -- oynamaz -> per-obje MOTION BLUR olmaz, klon NET. Kamera zaten kilitli (LOOK+hareket
-    -- devre disi) oldugu icin klon cerceveden kaymaz. Sag/sola sadece dragYaw (fare).
+    -- RENDER thread (Wait 0):
+    --  (a) GAMEPLAY kamerasi PITCH'ini cfg.pitch'e KILITLE -> nasil bakarsan bak, envanter
+    --      acilinca kamera nötr açıya oturur, klon HEP ayni onden/net gorunur (yukaridan
+    --      bakma/DOF bulanikligi biter). Yaw/pozisyon DEGISMEZ (fare ile donme dragYaw).
+    --  (b) Klon ilk ~12 karede yerlestirilir (pitch otururken) sonra DONDURULUR (her kare
+    --      repos YOK -> per-obje motion blur olmaz, net).
+    --  (c) ox screenblur kapat + fare-kamera engelle.
     CreateThread(function()
+        local placeFrames = 0
         while active and previewPed and DoesEntityExist(previewPed) do
+            SetGameplayCamRelativePitch(cfg.pitch, 1.0)
+            if placeFrames < 12 then positionScene(); placeFrames = placeFrames + 1 end
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
             TriggerScreenblurFadeOut(0.0)
             DisableControlAction(0, 1, true)  -- INPUT_LOOK_LR
