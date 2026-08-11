@@ -39,10 +39,10 @@ local cfg = {
                    -- acilinca kamera bu acida oturur -> klon HEP ayni onden/net gorunur.
     -- BACKDROP (canta arka plani): bitirim_backdrop01 = 50m SIYAH panel. Klonun arkasinda.
     bmodel = 'bitirim_backdrop01',
-    bdist  = 1.0,   -- klonun kac metre ARKASINDA
-    bx     = 0.0,   -- ekran-YATAY ofset (ok Sol/Sag)
-    bz     = 0.0,   -- ekran-DIKEY ofset (ok Yukari/Asagi)
-    balpha = 255,   -- OPAKLIK (0..255; 255=tam opak siyah), Numpad 1/2
+    bdist  = 1.0,    -- klonun kac metre ARKASINDA
+    bx     = 0.0,    -- ekran-YATAY ofset — KALICI
+    bz     = -1.80,  -- ekran-DIKEY ofset — KALICI
+    balpha = 247,    -- OPAKLIK (0..255; siyah panel) — KALICI
 }
 
 -- Idle (klon temiz durus, mid-run donma olmasin). Cinsiyete gore.
@@ -234,8 +234,6 @@ local function CreatePreview()
     dragYaw = 0.0
     positionScene()
     spawnBackdrop()
-    local cp = GetGameplayCamCoord()
-    SetFocusPosAndVel(cp.x, cp.y, cp.z, 0.0, 0.0, 0.0)
 
     compCache = {}
     curWeapon = nil
@@ -254,6 +252,10 @@ local function CreatePreview()
         while active and previewPed and DoesEntityExist(previewPed) do
             SetGameplayCamRelativePitch(cfg.pitch, 1.0)
             if placeFrames < 12 then positionScene(); positionBackdrop(); placeFrames = placeFrames + 1 end
+            -- ODAK: klonun UST GOGUS bonu (SKEL_Spine3=24818) -> DOF orada odaklanir,
+            -- karakter NET olur (onceki camPos odagi karakteri odak disi birakiyordu).
+            local chest = GetPedBoneCoords(previewPed, 24818, 0.0, 0.0, 0.0)
+            SetFocusPosAndVel(chest.x, chest.y, chest.z, 0.0, 0.0, 0.0)
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
             TriggerScreenblurFadeOut(0.0)
             DisableControlAction(0, 1, true)  -- INPUT_LOOK_LR
@@ -374,30 +376,6 @@ local function SetCamera(cfgIn)
     positionScene()
 end
 
---- Klavye ayar (index.tsx -> NUI -> buraya). SADECE BACKDROP:
----   Ok tuslari (up/down/left/right) = ekran konumu (bz dikey / bx yatay)
----   Numpad 1/2 (alphaup/alphadown)  = OPAKLIK / SAYDAMLIK
---- Klon/kamera DEGISMEZ (klon sabit).
-local function TuneScene(action)
-    if not active then return end
-    local POS, ASTEP = 0.05, 8
-    if action == 'up' then          cfg.bz = cfg.bz + POS
-    elseif action == 'down' then    cfg.bz = cfg.bz - POS
-    elseif action == 'left' then    cfg.bx = cfg.bx - POS
-    elseif action == 'right' then   cfg.bx = cfg.bx + POS
-    elseif action == 'alphaup' then
-        cfg.balpha = math.min(255, cfg.balpha + ASTEP)
-        if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
-        print(('^3[bitirim] backdrop opaklik = %d/255^7'):format(cfg.balpha)); return
-    elseif action == 'alphadown' then
-        cfg.balpha = math.max(0, cfg.balpha - ASTEP)
-        if backdrop and DoesEntityExist(backdrop) then SetEntityAlpha(backdrop, math.floor(cfg.balpha), false) end
-        print(('^3[bitirim] backdrop opaklik = %d/255^7'):format(cfg.balpha)); return
-    else return end
-    positionBackdrop()
-    print(('^3[bitirim] backdrop bx=%.2f bz=%.2f balpha=%d^7'):format(cfg.bx, cfg.bz, cfg.balpha))
-end
-
 local function IsPreviewActive() return active end
 
 ------------------------------------------------------------------------------
@@ -413,7 +391,6 @@ exports('UpdateOutfit',    UpdateOutfit)
 exports('SyncFromPlayer',  SyncFromPlayer)
 exports('RotatePreview',   RotatePreview)
 exports('SetCamera',       SetCamera)
-exports('TuneScene',       TuneScene)
 
 -- Emniyet: kaynak durursa temizle.
 AddEventHandler('onResourceStop', function(res)
