@@ -12,8 +12,10 @@
       KILITLENIR (SetGameplayCamRelativePitch) -> nasil bakarsan bak klon HEP ayni onden
       goruntude (yukaridan bakma + o acidaki DOF bulanikligi biter). Kullanici istegi.
     - Mirror klon KAMERA-UZAYINDA sabit ofset: camPos + f*dist + r*side + u*down (pitch
-      dahil taban). Ilk ~12 kare yerlestirilir (pitch otururken) sonra DUNYADA DONUK ->
-      per-obje motion blur olmaz. Klon kameraya bakar (heading = camYaw+180+dragYaw).
+      dahil taban). Klon SADECE kamera hareket edince yeniden yerlestirilir: oyuncu
+      DURURKEN kamera sabit -> klon dunyada donuk (motion blur yok, net); oyuncu YURURKEN
+      kamera onunla ilerler -> klon takip eder, KADRAJDAN CIKMAZ. Klon kameraya bakar
+      (heading = camYaw+180+dragYaw).
     - GERCEK PED GIZLENMEZ (ayna modu). Arkada o noktadaki oyun dunyasi gorunur.
     - Appearance senkron: tek kaynak = gercek ped. ~150ms diff-loop ile klona
       AYNALANIR (sadece DEGISEN component/prop/silah). Movement/anim AYNALANMAZ.
@@ -244,14 +246,27 @@ local function CreatePreview()
     --  (a) GAMEPLAY kamerasi PITCH'ini cfg.pitch'e KILITLE -> nasil bakarsan bak, envanter
     --      acilinca kamera nötr açıya oturur, klon HEP ayni onden/net gorunur (yukaridan
     --      bakma/DOF bulanikligi biter). Yaw/pozisyon DEGISMEZ (fare ile donme dragYaw).
-    --  (b) Klon ilk ~12 karede yerlestirilir (pitch otururken) sonra DONDURULUR (her kare
-    --      repos YOK -> per-obje motion blur olmaz, net).
+    --  (b) Klon SADECE kamera hareket edince (esik ustu) yeniden yerlestirilir: DURURKEN
+    --      kamera idle salinimi esigin altinda -> repos YOK -> donuk/net (motion blur yok);
+    --      YURURKEN kamera onunla ilerler -> her kare takip -> klon KADRAJDAN CIKMAZ.
     --  (c) ox screenblur kapat + fare-kamera engelle.
     CreateThread(function()
         local placeFrames = 0
+        local lastCamPos = GetGameplayCamCoord()
+        local lastCamRot = GetGameplayCamRot(2)
         while active and previewPed and DoesEntityExist(previewPed) do
             SetGameplayCamRelativePitch(cfg.pitch, 1.0)
-            if placeFrames < 12 then positionScene(); positionBackdrop(); placeFrames = placeFrames + 1 end
+            -- Kamera ne kadar oynadi? Oyuncu dururken ~0 (donuk kalir); yururken kamera
+            -- onunla ilerler (dPos esigi asar) -> klon yeniden yerlesip takip eder.
+            local camPos = GetGameplayCamCoord()
+            local camRot = GetGameplayCamRot(2)
+            local dPos = #(camPos - lastCamPos)
+            local dYaw = math.abs((camRot.z - lastCamRot.z + 180.0) % 360.0 - 180.0)
+            if placeFrames < 12 or dPos > 0.01 or dYaw > 0.2 then
+                positionScene(); positionBackdrop()
+                lastCamPos = camPos; lastCamRot = camRot
+                if placeFrames < 12 then placeFrames = placeFrames + 1 end
+            end
             -- ODAK: klonun UST GOGUS bonu (SKEL_Spine3=24818) -> DOF orada odaklanir,
             -- karakter NET olur (onceki camPos odagi karakteri odak disi birakiyordu).
             local chest = GetPedBoneCoords(previewPed, 24818, 0.0, 0.0, 0.0)
