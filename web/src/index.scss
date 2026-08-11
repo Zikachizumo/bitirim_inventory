@@ -622,6 +622,7 @@ body.inv-dragging {
 /* ---------------------------------------------------------------- tooltip */
 .tooltip-wrapper {
   pointer-events: none;
+  z-index: 9999; /* FloatingPortal body'de; .bx-window (z:1) uzerinde kalsin (eskiden slotlarin altinda kaliyordu) */
   display: flex;
   background: #100b17;
   width: 240px;
