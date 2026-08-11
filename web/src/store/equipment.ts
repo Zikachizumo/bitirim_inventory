@@ -32,12 +32,21 @@ export interface EquipItem {
 
 export type EquipmentMap = Record<string, EquipItem>;
 
+// Kuşanılı silah (client Lua getCurrentWeapon'dan). Karakter panelindeki SİLAH
+// slotunda gösterilir. `false`/null = silah yok (kılıçta/holstered).
+export interface EquippedWeapon {
+  name?: string;
+  label?: string;
+  slot?: number;
+}
+
 interface EquipmentState {
   equippedSlot: number | null;
+  equippedWeapon: EquippedWeapon | null;
   equipment: EquipmentMap;
 }
 
-const initialState: EquipmentState = { equippedSlot: null, equipment: {} };
+const initialState: EquipmentState = { equippedSlot: null, equippedWeapon: null, equipment: {} };
 
 export const equipmentSlice = createSlice({
   name: 'equipment',
@@ -46,13 +55,17 @@ export const equipmentSlice = createSlice({
     setEquippedSlot: (state, action: PayloadAction<number | null>) => {
       state.equippedSlot = action.payload ?? null;
     },
+    setEquippedWeapon: (state, action: PayloadAction<EquippedWeapon | false | null | undefined>) => {
+      state.equippedWeapon = action.payload || null;
+    },
     setEquipment: (state, action: PayloadAction<EquipmentMap | null | undefined>) => {
       state.equipment = action.payload ?? {};
     },
   },
 });
 
-export const { setEquippedSlot, setEquipment } = equipmentSlice.actions;
+export const { setEquippedSlot, setEquippedWeapon, setEquipment } = equipmentSlice.actions;
 export const selectEquippedSlot = (state: RootState) => state.equipment.equippedSlot;
+export const selectEquippedWeapon = (state: RootState) => state.equipment.equippedWeapon;
 export const selectEquipment = (state: RootState) => state.equipment.equipment;
 export default equipmentSlice.reducer;

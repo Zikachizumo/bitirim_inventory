@@ -139,7 +139,7 @@ local function resolvePiece(itemName, metadata)
     if map then
         return {
             item = itemName,
-            wear = { slot = map.slot, drawable = map.drawable, texture = map.texture, male = map.male, female = map.female },
+            wear = { slot = map.slot, drawable = map.drawable, texture = map.texture, male = map.male, female = map.female, armour = map.armour },
         }
     end
 
