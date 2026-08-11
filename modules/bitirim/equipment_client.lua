@@ -139,6 +139,19 @@ RegisterNUICallback('bitirim:equip', function(data, cb)
     cb(1)
 end)
 
+--- ZIRH item'i (Bulletproof Vest 'armour') KULLANIMI -> bizim equip sistemimize.
+--- data/items.lua 'armour'.client.event = 'bitirim:client:useArmour' ile baglandi;
+--- boylece ox'un DAHILI Item('armour') effect'i (sadece SetPedArmour 100; gorsel/panel
+--- YOK, item'i tuketir) devre disi kalir. ox use dispatch'i `TriggerEvent(event, data,
+--- {name,slot,metadata})` cagirir -> `info.slot` = kullanilan envanter slotu. equipSlot
+--- server'da o slottaki 'armour' item'ini armour slotuna equip eder (gorsel yelek
+--- component 9 + zirh degeri wear.armour + panelde gozukur). Cikarinca item geri doner.
+AddEventHandler('bitirim:client:useArmour', function(_, info)
+    if type(info) == 'table' and info.slot then
+        TriggerServerEvent('bitirim:server:equipSlot', info.slot)
+    end
+end)
+
 -- Envanter ilk acildiginda guncel ekipmani iste (ilk push kacmis olabilir).
 CreateThread(function()
     while true do
