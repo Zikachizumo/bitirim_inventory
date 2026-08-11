@@ -40,13 +40,24 @@ export interface EquippedWeapon {
   slot?: number;
 }
 
+// Legacy named kıyafet item'i -> hedef slot haritası (itemName -> slotKey). apparel
+// item'leri slotu metadata.wear.slot'ta taşır; legacy item'ler (ör. 'armour') taşımaz,
+// bu yüzden sürükle-giy highlight'ı için client Lua (data.bitirim_clothing) bunu yollar.
+export type ClothingMap = Record<string, string>;
+
 interface EquipmentState {
   equippedSlot: number | null;
   equippedWeapon: EquippedWeapon | null;
   equipment: EquipmentMap;
+  clothingMap: ClothingMap;
 }
 
-const initialState: EquipmentState = { equippedSlot: null, equippedWeapon: null, equipment: {} };
+const initialState: EquipmentState = {
+  equippedSlot: null,
+  equippedWeapon: null,
+  equipment: {},
+  clothingMap: {},
+};
 
 export const equipmentSlice = createSlice({
   name: 'equipment',
@@ -61,11 +72,15 @@ export const equipmentSlice = createSlice({
     setEquipment: (state, action: PayloadAction<EquipmentMap | null | undefined>) => {
       state.equipment = action.payload ?? {};
     },
+    setClothingMap: (state, action: PayloadAction<ClothingMap | null | undefined>) => {
+      state.clothingMap = action.payload ?? {};
+    },
   },
 });
 
-export const { setEquippedSlot, setEquippedWeapon, setEquipment } = equipmentSlice.actions;
+export const { setEquippedSlot, setEquippedWeapon, setEquipment, setClothingMap } = equipmentSlice.actions;
 export const selectEquippedSlot = (state: RootState) => state.equipment.equippedSlot;
 export const selectEquippedWeapon = (state: RootState) => state.equipment.equippedWeapon;
 export const selectEquipment = (state: RootState) => state.equipment.equipment;
+export const selectClothingMap = (state: RootState) => state.equipment.clothingMap;
 export default equipmentSlice.reducer;

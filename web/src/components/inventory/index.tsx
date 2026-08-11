@@ -5,7 +5,15 @@ import CharacterStats from './CharacterStats';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { refreshSlots, selectRightInventory, setAdditionalMetadata, setupInventory } from '../../store/inventory';
 import { setPlayerStatus, PlayerStatus } from '../../store/playerStatus';
-import { setEquippedSlot, setEquippedWeapon, setEquipment, EquipmentMap, EquippedWeapon } from '../../store/equipment';
+import {
+  setEquippedSlot,
+  setEquippedWeapon,
+  setEquipment,
+  setClothingMap,
+  EquipmentMap,
+  EquippedWeapon,
+  ClothingMap,
+} from '../../store/equipment';
 import { setBagLevel } from '../../store/backpack';
 import { setCash } from '../../store/cash';
 import { useExitListener } from '../../hooks/useExitListener';
@@ -98,6 +106,9 @@ const Inventory: React.FC = () => {
 
   // Bitirim: giyili kiyafet/ekipman (slot -> gorunum). Karakter panelini doldurur.
   useNuiEvent<EquipmentMap>('setEquipment', (data) => dispatch(setEquipment(data)));
+
+  // Bitirim: legacy kiyafet item -> slot haritasi (surukle-giy highlight'i icin)
+  useNuiEvent<ClothingMap>('setClothingMap', (data) => dispatch(setClothingMap(data)));
 
   // Bitirim: canta seviyesi -> tema rengi (<html data-lv>) + acik/kilitli slotlar
   useNuiEvent<number>('setBagLevel', (level) => {
