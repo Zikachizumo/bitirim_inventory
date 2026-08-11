@@ -2,7 +2,7 @@ import React, { useCallback, useRef } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { selectBagLevel } from '../../store/backpack';
-import { selectEquipment, selectEquippedWeapon, EquipItem } from '../../store/equipment';
+import { selectEquipment, selectEquippedWeapon, selectClothingMap, EquipItem } from '../../store/equipment';
 import { selectLeftInventory } from '../../store/inventory';
 import { openContextMenu } from '../../store/contextMenu';
 import { Items } from '../../store/items';
@@ -101,8 +101,15 @@ const EquipSlot: React.FC<EquipSlotProps> = ({
   const isClothingSlot = !NON_CLOTHING.has(slotKey);
 
   const equippedName = equipped?.item;
-  const equipImageName = equipped?.image || (equippedName ? Items[equippedName]?.image : undefined);
-  const equipUrl = equipImageName ? getItemUrl(equipImageName) : undefined;
+  // Gorsel: apparel'da metadata BASE-adi (equipped.image, or. 'mask_ski') -> getItemUrl
+  // .png ekler; legacy named item'da (or. 'armour') item ADINDAN coz -> getItemUrl,
+  // Items[name].image'i (ox'un cozdugu tam nui:// yolu) dogrudan doner. (Onceki kod
+  // Items[name].image'i TEKRAR getItemUrl'e verip yolu bozuyordu -> slotta gorsel yoktu.)
+  const equipUrl = equipped?.image
+    ? getItemUrl(equipped.image)
+    : equippedName
+      ? getItemUrl(equippedName)
+      : undefined;
   const equipLabel = equipped?.label || (equippedName ? Items[equippedName]?.label || equippedName : undefined);
 
   // DRAG kaynagi ('EQUIP'): unequip icin `slot`; DragPreview icin `item`+`image`
@@ -175,6 +182,7 @@ const CharacterPanel: React.FC = () => {
   const bagLevel = useAppSelector(selectBagLevel);
   const equipment = useAppSelector(selectEquipment);
   const equippedWeapon = useAppSelector(selectEquippedWeapon);
+  const clothingMap = useAppSelector(selectClothingMap);
   const leftInventory = useAppSelector(selectLeftInventory);
   const dispatch = useAppDispatch();
   let slotNo = 0; // tum slotlara sirali numara (1..N)
@@ -199,28 +207,34 @@ const CharacterPanel: React.FC = () => {
     [leftInventory]
   );
 
-  // Bu slota birakilabilir mi? Yalniz OYUNCU envanterinden gelen, kiyafet item'i
-  // VE metadata.wear.slot bu slota esitse (dogru yere birak). Sadece dogru slot vurgulanir.
+  // Suruklenen item'in hedef kiyafet slotu: apparel -> metadata.wear.slot; legacy
+  // named item (or. 'armour') -> clothingMap[item.name] (client Lua'dan gelen harita).
+  const targetSlotOf = useCallback(
+    (src: any): string | undefined => src?.metadata?.wear?.slot ?? (src?.name ? clothingMap[src.name] : undefined),
+    [clothingMap]
+  );
+
+  // Bu slota birakilabilir mi? Yalniz OYUNCU envanterinden gelen, hedef slotu bu slota
+  // esit kiyafet item'i. Sadece dogru slot vurgulanir.
   const canEquipHere = useCallback(
     (slotKey: string, source: DragSource) => {
       if (source.inventory !== 'player') return false;
-      const src = sourceItem(source) as any;
-      return src?.metadata?.wear?.slot === slotKey;
+      return targetSlotOf(sourceItem(source)) === slotKey;
     },
-    [sourceItem]
+    [sourceItem, targetSlotOf]
   );
 
-  // Birak -> giydir. HIZLI equip yolu (ox useItem gecikmesini atlar); sunucu
-  // metadata.wear.slot'a takar. Yalniz dogru slota birakilinca.
+  // Birak -> giydir. HIZLI equip yolu (ox useItem gecikmesini atlar); sunucu item'i
+  // dogru slota takar. Yalniz hedef slotu bu slota esitse.
   const onEquipDrop = useCallback(
     (slotKey: string, source: DragSource) => {
       if (source.inventory !== 'player') return;
       const src = sourceItem(source);
-      if (src && (src as any).metadata?.wear?.slot === slotKey) {
+      if (src && targetSlotOf(src) === slotKey) {
         fetchNui('bitirim:equip', { slot: src.slot }).catch(() => {});
       }
     },
-    [sourceItem]
+    [sourceItem, targetSlotOf]
   );
 
   // Orta pencerede fareyle surukle-dondur.

@@ -115,6 +115,15 @@ local function pushToNui()
     SendNUIMessage({ action = 'setEquipment', data = currentEquip })
 end
 
+--- Legacy named kiyafet item'i -> slot haritasini NUI'ye gonder. apparel item'leri
+--- slotu metadata.wear.slot'ta tasir; legacy item'ler (or. 'armour') tasimaz -> panel
+--- surukle-giy highlight'i (canEquipHere) icin bu haritaya bakar.
+local function pushClothingMap()
+    local map = {}
+    for name, def in pairs(clothing.items) do map[name] = def.slot end
+    SendNUIMessage({ action = 'setClothingMap', data = map })
+end
+
 -- Server giyili ekipmani gonderdi -> uygula + panele yolla.
 RegisterNetEvent('bitirim:client:equipment', function(payload)
     currentEquip = type(payload) == 'table' and payload or {}
@@ -157,6 +166,7 @@ CreateThread(function()
     while true do
         if IsNuiFocused() and not requestedOnce then
             requestedOnce = true
+            pushClothingMap() -- legacy kiyafet -> slot haritasi (surukle-giy highlight)
             CreateThread(function()
                 pcall(function() lib.callback.await('bitirim:server:getEquipment', false) end)
             end)
