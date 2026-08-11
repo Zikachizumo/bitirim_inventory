@@ -23,8 +23,8 @@ MODEL     = argv[1] if len(argv) > 1 else "bitirim_backdrop01"
 SHADER_IX = int(argv[2]) if len(argv) > 2 else 39   # emissive_alpha.sps
 SIZE      = float(argv[3]) if len(argv) > 3 else 20.0  # kare panel kenar (m). Buyuk =
                                                        # kamera arkasinda TAM EKRANI kaplar.
-# Koyu neutral ton (sRGB ~ #14161c)
-R, G, B = 20/255.0, 22/255.0, 28/255.0
+# %100 SIYAH (gri ton yok) — kullanici istegi
+R, G, B = 0.0, 0.0, 0.0
 
 # --- Sollumz etkinlestir ---
 for m in addon_utils.modules():
