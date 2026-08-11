@@ -28,7 +28,7 @@ CreateThread(function()
 end)
 
 -- Klon yerlesimi (yalniz /cam yazdirmasi icin yerel kopya; kaynak PreviewManager).
-local cam_cfg = { dist = 3.35, side = -1.05, down = 0.51 }
+local cam_cfg = { dist = 3.45, side = -1.11, down = 0.02 }
 
 ------------------------------------------------------------------------------
 -- NUI KOPRUSU (index.tsx bunlari yollar — isimler AYNEN korundu)
@@ -49,13 +49,6 @@ RegisterNUICallback('bitirim:charRotate', function(data, cb)
     local mode = type(data) == 'table' and data.mode or nil
     if not mode or mode == 'top' then return end
     Preview:RotatePreview(mode, type(data) == 'table' and data.value or nil)
-end)
-
--- Klavye ince ayar (index.tsx): ok tuslari=klon konumu, Numpad 1/2=zoom. KAMERA DEGISMEZ.
-RegisterNUICallback('bitirim:charTune', function(data, cb)
-    cb(1)
-    local action = type(data) == 'table' and data.action or nil
-    if action then Preview:TuneScene(action) end
 end)
 
 --[[

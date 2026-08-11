@@ -62,31 +62,8 @@ const Inventory: React.FC = () => {
     fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
   }, [inventoryVisible, isDrop, hasContainer]);
 
-  // Bitirim: klon ince ayar (yalniz karakter paneli acikken).
-  //   Ok tuslari = KLON konumu (yukari/asagi/sag/sol).
-  //   Numpad 1/2 = KLON zoom (yakinlastir / uzaklastir).
-  // Sag/sola donme fare surukleme ile (char-view uzerinde).
-  useEffect(() => {
-    const showChar = inventoryVisible && !isDrop && !hasContainer;
-    if (!showChar) return;
-    const onKey = (e: KeyboardEvent) => {
-      let action: string | null = null;
-      switch (e.code) {
-        case 'ArrowUp': action = 'up'; break;
-        case 'ArrowDown': action = 'down'; break;
-        case 'ArrowLeft': action = 'left'; break;
-        case 'ArrowRight': action = 'right'; break;
-        case 'Numpad1': action = 'zoomin'; break;
-        case 'Numpad2': action = 'zoomout'; break;
-      }
-      if (action) {
-        e.preventDefault();
-        fetchNui('bitirim:charTune', { action }).catch(() => {});
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [inventoryVisible, isDrop, hasContainer]);
+  // Bitirim: klon konumu/zoom KALICI sabit (side=-1.11 down=0.02 dist=3.45,
+  // preview_manager.lua). Klavye kontrolu YOK. Sag/sola donme fare surukleme ile.
 
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
