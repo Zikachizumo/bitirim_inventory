@@ -20,18 +20,10 @@
       Z'de konur (`cfg.heightOffset`). X/Y oyuncuyla AYNI oldugu icin cevresindeki
       stream hep "sicak" kalir (kamera uzaklasmaz, sadece dikeyde kayar) -> ani
       kapanista render sorunu olmaz.
-    - **ASAGI (NEGATIF/haritanin alti) DENENDI, TERK EDILDI:** klon gercek zemin/
-      kayaya gomuluyordu (kullanici bildirdi: -1000'de "bel altina kadar toprak
-      icinde" gorunuyordu) -> haritanin altinda HER YERDE guvenilir bos void YOK.
-      **YUKARI (acik gokyuzu) HER ZAMAN guvenilir bos alan** -> cfg.heightOffset
-      +100 (ilk dogrulanmis deger) GERI GETIRILDI.
-    - **"Yakindaki oyuncu goruyor" sorunu ARTIK MESAFEYLE degil LOD-KISITLAMASIYLA
-      cozuluyor:** `SetEntityLodDist(previewPed, 25)` (eskiden 1000) -> klon SADECE
-      ~25m'den yakin bir kameradan render edilir. Kendi scripted kameran klona
-      SADECE ~3m uzaklikta (camDist) -> HER ZAMAN gorursun. Yerdeki BASKA bir
-      oyuncu ise klonun TAM ALTINDA dursa bile araya ~100m DIKEY mesafe girer
-      (>> 25m LOD kesme mesafesi) -> motor seviyesinde render EDILMEZ, mesafeye
-      ne kadar "yakin" dursa dursun (yatay yakinlik onemsiz, klon 100m yukarida).
+    - ASAGI (NEGATIF/haritanin alti) DENENDI, TERK EDILDI: klon gercek zemin/kayaya
+      gomuluyordu -> "haritanin altı" guvenilir bos void degil. YUKARI (acik gokyuzu)
+      guvenilir bos alan -> heightOffset pozitif kalir (su an +5, KUCUK -> asagidaki
+      GERCEK gizlilik cozumu sayesinde artik BUYUK olmasina GEREK YOK).
     - Gameplay kamerasi (TP/FP/egim) hala ONEMSIZ: kendi scripted kameramiz klona
       SABIT bir acidan bakar -> arka plan HER ZAMAN %100 kapli.
     - GECIS ANIMASYONU YOK: envanter acilir acilmaz (bir sonraki frame) direkt studio
@@ -44,15 +36,22 @@
       (computeCameraBasis'teki YON DUZELTMESI notuna bak) -> gorunen manzara artik
       karakterin GERCEKTEN baktigi yonle eslesir.
 
-    Klon local-only (ClonePed isNetwork=false) -> teoride diger oyuncular klonu HIC
-    gormemeli. PRATIKTE (2026-08-12) bir kullanici yakinindaki arkadasinin canta
-    actiginda klonu GORDUGUNU bildirdi — ag-yalitiminin %100 garanti olmadigi
-    ihtimaline karsi, YUKARIDAKI +100m yukseklik + kucuk LOD mesafesi EK bir
-    guvenlik katmani olarak eklendi (network sizintisi olsa bile, klon artik
-    mesafe/LOD yuzunden motor seviyesinde render edilmiyor). **Eger ILERIDE yine
-    "biri klonu gordu" sikayeti gelirse, bu sefer GERCEKTEN network/isNetwork
-    davranisini debug etmek gerekir** (bkz `docs/`'ta not yok, ama ClonePed'in
-    isNetwork parametresi + SetEntityAsMissionEntity cagrisi ilk incelenecek yer).
+    **AG-GORUNURLUGU — GERCEK KOK NEDEN BULUNDU VE COZULDU (2026-08-12):**
+    `ClonePed(...,isNetwork=false,...)` bu sunucuda previewPed'i GERCEKTEN yerel
+    tutmuyor — F8 debug ile KANITLANDI: `NetworkGetEntityIsNetworked(previewPed)`
+    ClonePed'in HEMEN ARDINDAN (bizim hicbir kodumuz calismadan once) bile `true`
+    donuyordu (bircok adimda bisect edildi, SUCLU BIZIM KODUMUZ DEGIL — ClonePed'in
+    kendisi/FiveM'in bu ortamdaki davranisi). Yani "yerel kalma" garantisine
+    GUVENILEMEZ, bu YONTEM TAMAMEN TERK EDILDI (mesafe/LOD tabanli onceki denemeler
+    de bu yuzden yetersiz kaliyordu — networked bir entity'nin LOD/gorunurlugu
+    HER CLIENT KENDI degerini kullanir, yaratanin ayarladigi deger baskalarina
+    YANSIMAZ). **GERCEK COZUM:** klon `SetEntityVisible(previewPed,false,false)`
+    ile agdaki HERKESE (biz dahil) gorunmez yapilir, SONRA render thread'de HER
+    KARE `SetEntityLocallyVisible(previewPed)` ile SADECE bizim client'imizda
+    uzerine yazilir (tipki gercek ped icin kullanilan `SetEntityLocallyInvisible`'in
+    TAM TERSI — ayni desen, matematiksel garantisi var: baska hicbir client bu
+    override'i cagirmiyor, dolayisiyla klon onlarin ekraninda HICBIR ZAMAN
+    gorunmez, mesafe/LOD/ne olursa olsun). Detay: `CreatePreview`'daki ilgili not.
     Gercek ped SADECE yerel gizlenir -> preview'da 2. karakter yok; agda arkadaslar beni
     normal/dogru kiyafetli gorur. Appearance senkron: tek kaynak = gercek ped (~150ms diff).
 
@@ -330,56 +329,33 @@ local function CreatePreview(showCharacter)
     if not ped or ped == 0 then return end
     realPed = ped
 
-    -- 1) Klon = oyuncunun O ANKI gorunumu. isNetwork=FALSE -> YEREL entity; ag uzerinde
-    -- YAYILMAZ, diger oyuncular klonu HIC gormez (default-kiyafet kopya bug'inin kok nedeni).
+    -- 1) Klon = oyuncunun O ANKI gorunumu. NOT (2026-08-12, debug ile KANITLANDI):
+    -- isNetwork=false bu sunucuda previewPed'i GERCEKTEN yerel tutmuyor —
+    -- NetworkGetEntityIsNetworked(previewPed) ClonePed'in HEMEN ARDINDAN (bizim
+    -- hicbir kodumuz calismadan) bile true donuyordu (F8 ile dogrulandi, birden
+    -- fazla adimda bisect edildi). Yani "yerel kal" garantisine GUVENILEMEZ.
     previewPed = ClonePed(ped, GetEntityHeading(ped), false, false)
     if not previewPed or previewPed == 0 or not DoesEntityExist(previewPed) then
         print('^1[bitirim] PreviewManager: ClonePed BASARISIZ^7')
         previewPed = nil
         return
     end
-    -- DEBUG BISECT (GECICI): SetEntityAsMissionEntity fix'i tek basina yetmedi
-    -- (kullanici F8'de "true" gordu). Hangi cagrinin tam olarak networked'e
-    -- CEVIRDIGINI bulmak icin HER adimdan sonra kontrol.
-    print(('^3[bitirim] DEBUG 1) ClonePed HEMEN sonrasi networked = %s^7')
-        :format(tostring(NetworkGetEntityIsNetworked(previewPed))))
     pcall(ClonePedToTarget, ped, previewPed)
-    print(('^3[bitirim] DEBUG 2) ClonePedToTarget sonrasi networked = %s^7')
-        :format(tostring(NetworkGetEntityIsNetworked(previewPed))))
-    -- ONEMLI (2026-08-12, arastirma): ilk parametre (scriptHostObject) eskiden TRUE
-    -- idi. FiveM resmi dokumaniana gore: "if set to false the entity will only be
-    -- protected from despawning locally" VE "Network behavior depends on the
-    -- scriptHostObject parameter value" -> TRUE, ClonePed'in isNetwork=false ile
-    -- kurdugu SADECE-YEREL garantisini BOZUYOR olabilir (kullanici canli test:
-    -- yakinindaki arkadasi klonu goruyordu). ARTIK FALSE -> sadece yerel silinme
-    -- korumasi, ag davranisini etkileyecek ekstra bayrak YOK. (BU FIX TEK BASINA
-    -- YETMEDI, F8'de hala true gorunuyordu -> bu debug bisect'i eklendi.)
     SetEntityAsMissionEntity(previewPed, false, true)
-    print(('^3[bitirim] DEBUG 3) SetEntityAsMissionEntity sonrasi networked = %s^7')
-        :format(tostring(NetworkGetEntityIsNetworked(previewPed))))
     FreezeEntityPosition(previewPed, true)  -- KLON statik
     SetEntityInvincible(previewPed, true)
     SetEntityCollision(previewPed, false, false)
     SetBlockingOfNonTemporaryEvents(previewPed, true)
-    -- ONEMLI: eskiden 1000 idi (klon 1000m'den bile render edilirdi). Klon artik
-    -- oyuncunun 100m USTUNDE -> SADECE kendi (klona ~3m yakin duran) scripted
-    -- kameran onu gormeli, yerdeki BASKA oyuncular (dikey mesafe ~100m) DEGIL.
-    -- Kucuk bir LOD mesafesi (25m) bunu MESAFEYE GORE motor seviyesinde garanti
-    -- eder -> yerde ne kadar yakin dursalar dursunlar (klonun ALTINDA), aradaki
-    -- ~100m dikey mesafe LOD kesme mesafesini asar, render edilmez.
-    SetEntityLodDist(previewPed, 25)
-    SetEntityVisible(previewPed, showCharacter, false)
+    -- GERCEK COZUM: madem klon HER HALUKARDA agda (yukaridaki not), sizinti
+    -- SORUNU YOK ETMEK yerine EKRANDA GIZLEME'YE gecildi. SetEntityVisible(false)
+    -- klonu AGDAKI HERKESE (kendimiz DAHIL) gorunmez yapar -> render loop'ta
+    -- (asagida) HER KARE SetEntityLocallyVisible(previewPed) ile SADECE KENDI
+    -- client'imizda uzerine yazilir. Boylece baska hicbir oyuncu (mesafe/LOD
+    -- ONEMSIZ, garanti) klonu goremez, sadece biz goruruz. `showCharacter=false`
+    -- (kap gorunumlerinde karakter gizli kalsin istegi) icin render loop bu
+    -- override'i hic cagirmaz -> klon bize de gorunmez kalir (eskisiyle ayni sonuc).
+    SetEntityVisible(previewPed, false, false)
     ResetEntityAlpha(previewPed)
-
-    print(('^3[bitirim] DEBUG 4) tum kurulum bitince networked = %s^7')
-        :format(tostring(NetworkGetEntityIsNetworked(previewPed))))
-    CreateThread(function()
-        Wait(2000)
-        if previewPed and DoesEntityExist(previewPed) then
-            print(('^3[bitirim] DEBUG previewPed networked (2sn sonra) = %s^7')
-                :format(tostring(NetworkGetEntityIsNetworked(previewPed))))
-        end
-    end)
 
     -- 2) Klon konumu: oyuncunun O ANKI X/Y'sinde, Z + heightOffset (yukarida, acik
     -- gokyuzu). X/Y oyuncuyla AYNI oldugu icin o bolgenin streami "sicak" kalir ->
@@ -420,6 +396,12 @@ local function CreatePreview(showCharacter)
         local frames = 0
         while active and previewPed and DoesEntityExist(previewPed) do
             if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
+            -- Klon agda GENEL OLARAK gorunmez (yukaridaki not) -> SADECE showCharacter
+            -- ise, SADECE bu client'ta HER KARE uzerine yazip gorunur yapariz (native
+            -- kendini sifirlar, SetEntityLocallyInvisible ile ayni desen). Baska
+            -- oyuncular ASLA gormez; showCharacter=false ise (kap gorunumu) biz de
+            -- gormeyiz (mevcut niyetle ayni).
+            if showCharacter then SetEntityLocallyVisible(previewPed) end
             if frames < 8 then setupStudio(); frames = frames + 1 end
             local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
             SetFocusPosAndVel(chest.x, chest.y, chest.z, 0.0, 0.0, 0.0)
