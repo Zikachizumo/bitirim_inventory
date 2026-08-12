@@ -62,14 +62,15 @@ const Inventory: React.FC = () => {
     if (!inventoryVisible) dispatch(closeSplit());
   }, [inventoryVisible, dispatch]);
 
-  // Bitirim: canli studio sahnesi (klon+kamera+backdrop) artik envanterin HER
-  // gorunumunde acik (karakter/stash/bagaj/drop farketmez) — backdrop paneli TUM
-  // EKRANIN arka plani/opaklik kaynagi oldugu icin (CSS scrim KALDIRILDI, bkz.
-  // .bx-scrim), sahne envanter acik oldugu surece surekli calismali. Client
-  // (character_client.lua) klon+kamera+backdrop sahnesini yonetir.
+  // Bitirim: canli studio sahnesi (klon+kamera+backdrop) — YALNIZ KARAKTER paneli
+  // goruntulenirken acik (kap/drop acikken karakter paneli gizli, o yuzden sahne de
+  // kapali). Onceki turda "her yerde" yapilmisti (yanlis anlasilma), geri alindi —
+  // kullanici konteyner (torpido/bagaj/motel/otel) ve drop gorunumlerinde klonun
+  // GORUNMESINI ISTEMIYOR. Client (character_client.lua) sahneyi yonetir.
   useEffect(() => {
-    fetchNui('bitirim:charScene', { open: inventoryVisible }).catch(() => {});
-  }, [inventoryVisible]);
+    const showChar = inventoryVisible && !isDrop && !hasContainer;
+    fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
+  }, [inventoryVisible, isDrop, hasContainer]);
 
   // Bitirim: STUDIO KAMERA kadraj kontrolleri (yalniz karakter paneli acikken).
   //   Ok tuslari  = kadraj konumu, 2 EKSEN: yukari/asagi = kamera yuksekligi (dikey
@@ -160,11 +161,10 @@ const Inventory: React.FC = () => {
   // Bitirim: OTOMATIK OLCEKLEME — pencereyi ekrana sigacak/dolduracak sekilde
   // olcekle (tam ekran his). Dogal boyutu olcup min(vw,vh) orani ile scale eder.
   const windowRef = useRef<HTMLDivElement>(null);
-  // Bitirim: .bx-scrim + .bx-window-bg ARTIK SEFFAF (opaklik/karartma yok) — tek
-  // arka plan/opaklik kaynagi 3D studio backdrop paneli (bitirim_props.ytyp,
-  // preview_manager.lua cfg.balpha ile SetEntityAlpha uzerinden ayarlanir).
-  // clip-path "delik" mekanizmasi zararsiz kalir (zaten seffaf katmanlarda hicbir
-  // gorsel etkisi yok) — kod sadelik/risk icin oldugu gibi birakildi.
+  // Bitirim: .bx-scrim = pencere DISI tam ekran karartma (%75 opak siyah, HER
+  // envanter gorunumunde). Karakter panelinde AYRICA .bx-char-view'e 3D studio
+  // backdrop'u (bitirim_props.ytyp) clip-path DELIGIYLE gosterilir — bu delik
+  // SADECE karakter panelinde acilir (updateHole, asagida).
   const scrimRef = useRef<HTMLDivElement>(null);
   const windowBgRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef(1);

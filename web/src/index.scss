@@ -783,17 +783,17 @@ body.inv-dragging {
   height: 100%;
 }
 
-/* Bitirim: tam-ekran scrim = pencere DISINDAKI game world overlay'i. SEFFAF —
-   karartma/opaklik ARTIK CSS'te degil, 3D studio backdrop paneli uzerinden
-   (bitirim_props.ytyp, preview_manager.lua cfg.balpha) tek kaynaktan yonetiliyor.
-   Studio sahnesi envanter acikken HER goruntude (karakter/stash/drop) aktif
-   oldugu icin (index.tsx) backdrop paneli zaten TUM ekrani kapliyor. pointer-events yok. */
+/* Bitirim: tam-ekran scrim = pencere DISINDAKI game world overlay'i. %75 OPAK siyah
+   -> oyun dunyasi arkadan %25 gorunur (canta ICI degil). Studio sahnesi (3D backdrop)
+   SADECE karakter panelinde aktif -> orada char-view'e clip-path DELIK acilir (bu
+   scrim'i atlar); diger gorunumlerde (stash/bagaj/drop) delik yok, scrim duz karartir.
+   pointer-events yok. */
 .bx-scrim {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: transparent;
+  background: rgba(0, 0, 0, 0.75);
 }
 
 .bx-window {
@@ -936,18 +936,26 @@ body.inv-dragging {
   padding: 16px;
 }
 
-/* Sol taraftaki TUM panel turleri (karakter / torpido-bagaj-stash gibi kaplar /
-   yerdeki esya) kutu CERCEVESI (border/baslik/boyut) ENVANTER ile ayni kalir, AMA
-   ic dolgu SEFFAF + backdrop-filter YOK — cunku panel cami (blur) 3D studio
-   backdrop'unu (artik envanterin HER gorunumunde tek arka plan kaynagi, bkz.
-   .bx-scrim) BULANIKLASTIRIYORDU. Ucu ayni davransin diye (kullanici istegi)
-   karakter/kap/drop AYNI kural altinda birlestirildi. */
-.bx-panel.bx-character,
-.bx-panel.bx-container,
-.bx-panel.bx-drop {
+/* Karakter paneli: kutu CERCEVESI (border/baslik/boyut) ENVANTER ile ayni kalir, AMA
+   ic dolgu SEFFAF + backdrop-filter YOK. Cunku panel cami (blur) char-view'deki
+   karakteri de BULANIKLASTIRIYORDU. Simdi char-view temiz -> karakter NET (arka
+   plani backdrop OBJESI verir, panel degil). SADECE karakter paneline ozel — kap
+   (torpido/bagaj/stash) ve drop panelleri GENEL .bx-panel (opak+blur) kullanir,
+   studio sahnesi orada AKTIF DEGIL (kullanici istegi: klon sadece karakter
+   panelinde gorunsun). */
+.bx-panel.bx-character {
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+/* Kap (torpido/bagaj/motel/otel) ve drop panelleri: icerik grid'i KISA olabilir
+   (orn. torpido 6 slot = tek sira) ama panel kutusu PlayerPanel ile ayni yukseklige
+   STRETCH edilir (.bx-body align-items:stretch) -> grid ustte kalip altta bosluk
+   birakiyordu. DIKEY ORTALAMA ile duzeltildi (slot sayisi/duzeni DEGISMEDI).*/
+.bx-panel.bx-container,
+.bx-panel.bx-drop {
+  justify-content: center;
 }
 
 /* Envanter paneli (Fast Access + Backpack): panel KUTUSU cam/blur dolgusu kaldirildi
