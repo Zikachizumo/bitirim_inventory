@@ -35,12 +35,16 @@ local cam_cfg = { dist = 2.55, side = 0.0, height = 0.05, fov = 42.0, look = 0.3
 ------------------------------------------------------------------------------
 -- NUI KOPRUSU (index.tsx bunlari yollar — isimler AYNEN korundu)
 ------------------------------------------------------------------------------
--- Karakter paneli gorundu/gizlendi -> onizlemeyi ac/kapat. (Kap/drop acikken
--- karakter paneli gizlenir, index.tsx bu durumda open:false gonderir.)
+-- Karakter paneli VEYA kap (torpido/bagaj/motel/otel) gorundu/gizlendi -> studio
+-- sahnesini ac/kapat. `showCharacter=false` -> backdrop gorunur ama klon GIZLI
+-- (kap gorunumleri). Zaten aktifken mod degisirse (karakter<->kap gecisi, envanter
+-- kapanmadan) ONCE yikilir SONRA yeniden kurulur -> CreatePreview'in "zaten aktif"
+-- guard'i yuzunden eski moddan takilip kalinmaz.
 RegisterNUICallback('bitirim:charScene', function(data, cb)
     cb(1)
     if type(data) == 'table' and data.open then
-        Preview:CreatePreview()
+        if Preview:IsPreviewActive() then Preview:DestroyPreview() end
+        Preview:CreatePreview(data.showCharacter ~= false)
     else
         Preview:DestroyPreview()
     end

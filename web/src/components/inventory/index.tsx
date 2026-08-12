@@ -62,14 +62,16 @@ const Inventory: React.FC = () => {
     if (!inventoryVisible) dispatch(closeSplit());
   }, [inventoryVisible, dispatch]);
 
-  // Bitirim: canli studio sahnesi (klon+kamera+backdrop) — YALNIZ KARAKTER paneli
-  // goruntulenirken acik (kap/drop acikken karakter paneli gizli, o yuzden sahne de
-  // kapali). Onceki turda "her yerde" yapilmisti (yanlis anlasilma), geri alindi —
-  // kullanici konteyner (torpido/bagaj/motel/otel) ve drop gorunumlerinde klonun
-  // GORUNMESINI ISTEMIYOR. Client (character_client.lua) sahneyi yonetir.
+  // Bitirim: canli studio sahnesi (klon+kamera+backdrop). Karakter panelinde VE
+  // kap gorunumlerinde (torpido/bagaj/motel/otel — hasContainer) acik; drop'ta
+  // KAPALI. Kapta klon GIZLI kalir (showCharacter:false, sadece backdrop gorunur) —
+  // kullanici karakterin SADECE karakter panelinde gorunmesini istiyor, ama arka
+  // plani (bitirim_props.ytyp) kap panellerinde de esitlenmesini istedi. Client
+  // (character_client.lua) sahneyi yonetir.
   useEffect(() => {
-    const showChar = inventoryVisible && !isDrop && !hasContainer;
-    fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
+    const sceneOpen = inventoryVisible && !isDrop;
+    const showCharacter = !isDrop && !hasContainer;
+    fetchNui('bitirim:charScene', { open: sceneOpen, showCharacter }).catch(() => {});
   }, [inventoryVisible, isDrop, hasContainer]);
 
   // Bitirim: STUDIO KAMERA kadraj kontrolleri (yalniz karakter paneli acikken).
@@ -162,9 +164,10 @@ const Inventory: React.FC = () => {
   // olcekle (tam ekran his). Dogal boyutu olcup min(vw,vh) orani ile scale eder.
   const windowRef = useRef<HTMLDivElement>(null);
   // Bitirim: .bx-scrim = pencere DISI tam ekran karartma (%75 opak siyah, HER
-  // envanter gorunumunde). Karakter panelinde AYRICA .bx-char-view'e 3D studio
-  // backdrop'u (bitirim_props.ytyp) clip-path DELIGIYLE gosterilir — bu delik
-  // SADECE karakter panelinde acilir (updateHole, asagida).
+  // envanter gorunumunde). Karakter panelinde VE kap panelinde (torpido/bagaj/
+  // motel/otel) AYRICA 3D studio backdrop'u (bitirim_props.ytyp) clip-path
+  // DELIGIYLE gosterilir — bu delik karakter/kap panelinde acilir, drop'ta acilmaz
+  // (updateHole, asagida). Kapta klon GIZLI (showCharacter:false) ama backdrop gorunur.
   const scrimRef = useRef<HTMLDivElement>(null);
   const windowBgRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef(1);
@@ -173,13 +176,14 @@ const Inventory: React.FC = () => {
     const el = windowRef.current;
     if (!el) return;
     const updateHole = () => {
-      // Bitirim (ChatGPT yaklasimi): char-view'de scrim + window-bg katmanlarina clip-path
-      // DELIK acilir -> orada bu iki katman YOK. Karakter (oyun render'i) gorunur; arkasindaki
-      // gameworld'u KARAKTER paneli cami (var(--surface) ~%75 koyu) karartir -> dunya soluk/
-      // geride, karakter net/onde. Kamera DEGISMEZ. Kap/drop acikken char-view yok -> delik yok.
+      // Bitirim (ChatGPT yaklasimi): char-view (karakter) VEYA bx-container (kap:
+      // torpido/bagaj/motel/otel) alaninda scrim + window-bg katmanlarina clip-path
+      // DELIK acilir -> orada bu iki katman YOK, 3D studio backdrop'u gorunur.
+      // Kamera DEGISMEZ. Drop acikken ikisi de yok -> delik yok (duz karartma kalir).
       const scrim = scrimRef.current;
       const bg = windowBgRef.current;
-      const view = document.querySelector('.bx-char-view') as HTMLElement | null;
+      const view = (document.querySelector('.bx-char-view') ||
+        document.querySelector('.bx-panel.bx-container')) as HTMLElement | null;
       const s = scaleRef.current || 1;
       if (!view) {
         if (scrim) { scrim.style.clipPath = 'none'; (scrim.style as any).webkitClipPath = 'none'; }
