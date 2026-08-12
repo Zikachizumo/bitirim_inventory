@@ -176,7 +176,13 @@ Item('clothing', function(data, slot)
 				local texture = GetPedTextureVariation(cache.ped, metadata.component)
 
 				if metadata.drawable == drawable and metadata.texture == texture then
-					return -- item matches (setup defaults so we can strip?)
+					-- BITIRIM: component'lerde None/-1 yok; tekrar kullanınca NUDE'a
+					-- değil, underwear taban katmanına düş. Kaynak: illenium-appearance
+					-- Config.InitialPlayerClothes (Male=Female aynı) — bitirim_clothing/
+					-- config/config.lua Config.Underwear ile SENKRON tutulmalı.
+					local floorDrawable = ({ [3] = 15, [4] = 21, [6] = 0, [8] = 15, [11] = 15 })[metadata.component]
+					if floorDrawable then SetPedComponentVariation(cache.ped, metadata.component, floorDrawable, 0, 0) end
+					return
 				end
 
 				-- { component = 4, drawable = 4, texture = 1 } = jeans w/ belt
