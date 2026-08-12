@@ -166,6 +166,9 @@ input[type='number']::-webkit-outer-spin-button {
   display: flex;
   flex-direction: column;
   box-shadow: 0 24px 60px -18px #000;
+  /* FloatingPortal body'de render eder ama z-index yoktu -> slotların ARKASINDA
+     kalıp tıklanamıyordu (tooltip'te de aynı sorun vardı, aynı fix). */
+  z-index: 9999;
 }
 
 .context-menu-item {
