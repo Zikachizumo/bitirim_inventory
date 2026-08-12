@@ -45,14 +45,14 @@
 local cfg = {
     heightOffset = 100.0,  -- klon, oyuncunun O ANKI konumunun kac metre USTUNDE durur
 
-    camDist   = 2.55,  -- kamera klonun kac metre ONUNDE (klonun bakis yonunde) — Numpad1/2 zoom
-    camSide   = 0.0,   -- kamera YATAY ofseti (ekranda kadraji sag/sol kaydirir) — ok Sol/Sag
-    camHeight = 0.05,  -- kamera DIKEY ofseti (klon UST GOGUS bonuna gore) — ok Yukari/Asagi
+    camDist   = 2.55,  -- kamera klonun ONUNDE kac metre (SABIT; sadece /cam ile degisir)
+    camSide   = 0.0,   -- KLONUN yatay konumu (kamera-sag ekseni) — ok Sol/Sag ile dial
+    camHeight = 0.05,  -- KLONUN dikey konumu (dunya-yukari ekseni) — ok Yukari/Asagi ile dial
     lookDown  = 0.30,  -- bakis hedefi: ust gogusun kac metre ALTI (govde ortasi)
-    fov       = 42.0,  -- gorus acisi (dar = portre, dunya kacagi az)
+    fov       = 42.0,  -- gorus acisi (dar=yakin/buyuk gorunur) — Numpad1/2 ile dial (ZOOM)
     backDist  = 2.40,  -- backdrop klonun kac metre ARKASINDA
     backZ     = 0.0,   -- backdrop dikey ince ayar
-    balpha    = 255,   -- siyah panel opaklik (0..255; tam opak)
+    balpha    = 191,   -- siyah panel opaklik (0..255; 191 ~= %75 opak)
     bmodel    = 'bitirim_backdrop01',  -- stream'deki 20m+ SIYAH panel
 }
 
@@ -80,10 +80,19 @@ local anchorHead   = 0.0    -- klonun heading'i (acilis anindaki oyuncu heading'
 local dragYaw      = 0.0    -- kullanici surukleme/donme ofseti (klonu dondurur)
 local compCache    = {}     -- aynalama diff onbellegi
 local curWeapon    = nil
+local camF         = nil    -- kamera SABIT ileri vektoru (session boyunca degismez)
+local camR         = nil    -- kamera SABIT sag vektoru (session boyunca degismez)
 
 ------------------------------------------------------------------------------
--- YERLESIM (SABIT geometri: klon SABIT dunya konumunda; kamera+backdrop ona gore)
+-- YERLESIM
 ------------------------------------------------------------------------------
+-- ONEMLI TASARIM KARARI: kamera camDist HARIC SABIT kalir; camSide/camHeight KLONU
+-- (kamerayi DEGIL) camera-sag/camera-yukari ekseninde kaydirir. Once kamera hareket
+-- ettirilmisti (klon sabit) ama bu PARALAKS TERSLIGI yaratiyordu: kamera saga kayinca
+-- SABIT klon ekranda SOLA kayar gibi gorunuyor -> "sag" tusuna basinca karakter ters
+-- yone gidiyormus hissi, kullanici kadraji ayarlayamadi. Klon hareket ederken kamera
+-- sabitse, klon basilan tusun yonune DOGRUDAN (ters donmeden) kayar. Zoom (Numpad1/2)
+-- kameranin FOV'unu degistirir (kamera pozisyonuna hic dokunmaz) -> zoom de sabit.
 local function forwardOf(h)
     local r = math.rad(h)
     return vector3(-math.sin(r), math.cos(r), 0.0)  -- heading h'de ileri yon
@@ -94,14 +103,12 @@ local function rightOf(h)
     return vector3(math.cos(r), math.sin(r), 0.0)  -- heading h'nin sagi
 end
 
---- Iki backdrop panelini klonun ARKASINA, kameraya bakacak sekilde yerlestir.
---- Panel yuzu (-Y) heading+180'de +fwd'e (kameraya) bakar; ikinci panel ters -> hangi
---- acidan olursa olsun biri HER ZAMAN kaplar (backface-culling guvencesi).
-local function positionBackdrop(fwd, centerZ)
-    if not anchorPos then return end
-    local a = anchorPos
-    local bx = a.x - fwd.x * cfg.backDist
-    local by = a.y - fwd.y * cfg.backDist
+--- Iki backdrop panelini KLONUN (offsetli konumunun) ARKASINA, kameraya bakacak
+--- sekilde yerlestir. Panel yuzu (-Y) heading+180'de +fwd'e (kameraya) bakar; ikinci
+--- panel ters -> hangi acidan olursa olsun biri HER ZAMAN kaplar (backface guvencesi).
+local function positionBackdrop(fwd, klonX, klonY, centerZ)
+    local bx = klonX - fwd.x * cfg.backDist
+    local by = klonY - fwd.y * cfg.backDist
     local bz = centerZ + cfg.backZ
     if backdrop and DoesEntityExist(backdrop) then
         SetEntityCoordsNoOffset(backdrop, bx, by, bz, false, false, false)
@@ -113,29 +120,47 @@ local function positionBackdrop(fwd, centerZ)
     end
 end
 
---- Klon + kamera + backdrop'u studio geometrisine gore yerlestir. Klon `anchorPos`/
---- `anchorHead`'de durur (acilista bir kez hesaplanir, kamera acikken SABIT kalir);
---- kamera camDist/camSide/camHeight ile o klona gore konumlanir (bunlar ok tuslari +
---- Numpad1/2 ile canli dial edilir). dragYaw sadece klonu kendi ekseninde dondurur.
-local function setupStudio()
+--- KAMERA TABANINI hesaplar (SADECE kamera; klona DOKUNMAZ). previewPed'i GECICI
+--- olarak offsetsiz anchor'a koyup gercek gogus yuksekligini okur -> kamera Z'si
+--- klonun KENDI side/height offsetinden ETKILENMEZ (aksi halde klon yukari kayinca
+--- kamera da onunla birlikte kayar, ekranda hicbir sey degismezmis gibi gorunurdu).
+--- /cam (dist/fov/look) VEYA ilk yerlesim (settle) sirasinda cagrilir; ok tuslari/
+--- Numpad BUNU CAGIRMAZ (kamera dial sirasinda SABIT kalsin diye).
+local function computeCameraBasis()
     if not previewPed or not DoesEntityExist(previewPed) or not studioCam or not anchorPos then return end
-    local a = anchorPos
     local fwd = forwardOf(anchorHead)
-    -- Kamera klonun ONUNE (fwd) bakar; camSide/camHeight KAMERANIN kadraj ofseti
-    -- (kamera-sag vektoru = klona bakan kameranin kendi yaw'ina gore: anchorHead+180).
     local right = rightOf((anchorHead + 180.0) % 360.0)
-    -- Klon: SABIT studio konumunda dur (+dragYaw ile kendi ekseninde donebilir)
-    SetEntityCoordsNoOffset(previewPed, a.x, a.y, a.z, false, false, false)
-    SetEntityHeading(previewPed, (anchorHead + dragYaw) % 360.0)
-    -- Kadraj: ust gogus bonuna gore (klon boyu ne olursa olsun ortali)
+    SetEntityCoordsNoOffset(previewPed, anchorPos.x, anchorPos.y, anchorPos.z, false, false, false)
+    SetEntityHeading(previewPed, anchorHead)
     local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
+    camF = fwd
+    camR = right
     SetCamCoord(studioCam,
-        a.x + fwd.x * cfg.camDist + right.x * cfg.camSide,
-        a.y + fwd.y * cfg.camDist + right.y * cfg.camSide,
-        chest.z + cfg.camHeight)
+        anchorPos.x + fwd.x * cfg.camDist,
+        anchorPos.y + fwd.y * cfg.camDist,
+        chest.z)
     SetCamFov(studioCam, cfg.fov)
-    PointCamAtCoord(studioCam, a.x, a.y, chest.z - cfg.lookDown)
-    positionBackdrop(fwd, chest.z)
+    PointCamAtCoord(studioCam, anchorPos.x, anchorPos.y, chest.z - cfg.lookDown)
+end
+
+--- Klonu (ve arkasindaki backdrop'u) camSide/camHeight/dragYaw'a gore yerlestirir.
+--- KAMERA BURADA DEGISMEZ -> ok tuslari basinca klon basilan yone DOGRUDAN kayar.
+local function placeKlon()
+    if not previewPed or not DoesEntityExist(previewPed) or not camR or not anchorPos then return end
+    local pos = vector3(
+        anchorPos.x + camR.x * cfg.camSide,
+        anchorPos.y + camR.y * cfg.camSide,
+        anchorPos.z + cfg.camHeight)
+    SetEntityCoordsNoOffset(previewPed, pos.x, pos.y, pos.z, false, false, false)
+    SetEntityHeading(previewPed, (anchorHead + dragYaw) % 360.0)
+    local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
+    positionBackdrop(camF, pos.x, pos.y, chest.z)
+end
+
+--- Tam yerlesim: kamera tabani + klon. /cam (chat) ve ilk yerlesim (settle) icin.
+local function setupStudio()
+    computeCameraBasis()
+    placeKlon()
 end
 
 --- Iki siyah paneli spawn et.
@@ -334,6 +359,8 @@ local function DestroyPreview()
     ClearFocus()
     anchorPos = nil
     anchorHead = 0.0
+    camF = nil
+    camR = nil
     compCache = {}
     curWeapon = nil
     dragYaw = 0.0
@@ -408,8 +435,9 @@ local function RotatePreview(mode, value)
     SetEntityHeading(previewPed, (anchorHead + dragYaw) % 360.0)
 end
 
---- Studio kadraj ince ayari (klon SABIT konumda kalir; sadece kamera mesafe/fov/
---- yukseklik/yatay). /cam ile dial edilir (chat). Geriye donuk uyum icin 'down' -> camHeight.
+--- Studio kadraj ince ayari (chat /cam icin — tum degerleri kabul eder, kamera TABANINI
+--- yeniden hesaplar). Ok tuslari/Numpad1-2 (TuneScene) BUNU KULLANMAZ (kamera dial
+--- sirasinda sabit kalsin diye placeKlon/SetCamFov'u dogrudan cagirir).
 local function SetCamera(cfgIn)
     if type(cfgIn) ~= 'table' then return end
     if cfgIn.dist     then cfg.camDist   = cfgIn.dist + 0.0 end
@@ -423,24 +451,38 @@ local function SetCamera(cfgIn)
 end
 
 --- Klavye ayar (index.tsx -> NUI 'bitirim:charTune' -> buraya). 2 EKSEN + zoom:
----   Ok tuslari up/down   = KAMERA YUKSEKLIGI (dikey eksen, camHeight)
----   Ok tuslari left/right = KAMERA YATAY OFSETI (yatay eksen, camSide)
----   Numpad 1/2 zoomin/zoomout = ZOOM (camDist; yakin=buyuk)
---- Klon SABIT konumda kalir (anchorPos/anchorHead, acilista hesaplandi), sadece kamera kadraji degisir.
+---   Ok tuslari up/down    = KLON DIKEY konumu (camHeight) — kamera SABIT
+---   Ok tuslari left/right = KLON YATAY konumu (camSide) — kamera SABIT
+---   Numpad 1/2 zoomin/zoomout = ZOOM (fov; kucuk fov=yakin/buyuk gorunur)
+--- KAMERA POZISYONU BURADA HIC DEGISMEZ (computeCameraBasis/setupStudio CAGRILMAZ) ->
+--- basilan tusun yonu ile klonun ekrandaki hareketi AYNI (ters paralaks YOK).
 --- Begenilen degerleri F8'de gorup soyle -> kalici yaparim.
 local function TuneScene(action)
     if not active then return end
-    local POS, ZSTEP = 0.08, 0.12  -- tek tusa basinca ACIKCA gorunur adim (eskiden 0.03/0.05 -> az farkediliyordu)
-    if action == 'up' then          cfg.camHeight = cfg.camHeight + POS
-    elseif action == 'down' then    cfg.camHeight = cfg.camHeight - POS
-    elseif action == 'left' then    cfg.camSide   = cfg.camSide - POS
-    elseif action == 'right' then   cfg.camSide   = cfg.camSide + POS
-    elseif action == 'zoomin' then  cfg.camDist   = math.max(1.0, cfg.camDist - ZSTEP)
-    elseif action == 'zoomout' then cfg.camDist   = cfg.camDist + ZSTEP
-    else return end
-    setupStudio()
-    print(('^3[bitirim] studio camSide=%.2f camHeight=%.2f camDist=%.2f^7')
-        :format(cfg.camSide, cfg.camHeight, cfg.camDist))
+    local POS, FOVSTEP = 0.10, 2.0  -- tek tusa basinca ACIKCA gorunur adim
+    if action == 'up' then
+        cfg.camHeight = cfg.camHeight + POS
+        placeKlon()
+    elseif action == 'down' then
+        cfg.camHeight = cfg.camHeight - POS
+        placeKlon()
+    elseif action == 'left' then
+        cfg.camSide = cfg.camSide - POS
+        placeKlon()
+    elseif action == 'right' then
+        cfg.camSide = cfg.camSide + POS
+        placeKlon()
+    elseif action == 'zoomin' then
+        cfg.fov = math.max(10.0, cfg.fov - FOVSTEP)
+        if studioCam then SetCamFov(studioCam, cfg.fov) end
+    elseif action == 'zoomout' then
+        cfg.fov = math.min(80.0, cfg.fov + FOVSTEP)
+        if studioCam then SetCamFov(studioCam, cfg.fov) end
+    else
+        return
+    end
+    print(('^3[bitirim] studio camSide=%.2f camHeight=%.2f fov=%.1f^7')
+        :format(cfg.camSide, cfg.camHeight, cfg.fov))
 end
 
 local function IsPreviewActive() return active end
