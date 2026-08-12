@@ -341,7 +341,14 @@ local function CreatePreview(showCharacter)
         return
     end
     pcall(ClonePedToTarget, ped, previewPed)
-    SetEntityAsMissionEntity(previewPed, true, true)
+    -- ONEMLI (2026-08-12, arastirma): ilk parametre (scriptHostObject) eskiden TRUE
+    -- idi. FiveM resmi dokumaniana gore: "if set to false the entity will only be
+    -- protected from despawning locally" VE "Network behavior depends on the
+    -- scriptHostObject parameter value" -> TRUE, ClonePed'in isNetwork=false ile
+    -- kurdugu SADECE-YEREL garantisini BOZUYOR olabilir (kullanici canli test:
+    -- yakinindaki arkadasi klonu goruyordu). ARTIK FALSE -> sadece yerel silinme
+    -- korumasi, ag davranisini etkileyecek ekstra bayrak YOK.
+    SetEntityAsMissionEntity(previewPed, false, true)
     FreezeEntityPosition(previewPed, true)  -- KLON statik
     SetEntityInvincible(previewPed, true)
     SetEntityCollision(previewPed, false, false)
@@ -438,7 +445,7 @@ local function DestroyPreview()
     backdrop2 = nil
 
     if previewPed and DoesEntityExist(previewPed) then
-        SetEntityAsMissionEntity(previewPed, true, true)
+        SetEntityAsMissionEntity(previewPed, false, true)
         DeletePed(previewPed)
     end
     previewPed = nil
