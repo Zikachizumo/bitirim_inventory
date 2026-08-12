@@ -47,7 +47,7 @@
 -- YAPILANDIRMA (studio kamerasi + backdrop; /cam VEYA ok tuslari+Numpad1/2 ile dial edilir)
 ------------------------------------------------------------------------------
 local cfg = {
-    heightOffset = 25.0,  -- klon, oyuncunun O ANKI konumunun kac metre USTUNDE durur (TEST: 100->25)
+    heightOffset = 5.0,  -- klon, oyuncunun O ANKI konumunun kac metre USTUNDE durur (TEST: 100->25->5)
 
     -- Oyuncu bir BINA/INTERIOR icindeyse (GetInteriorFromEntity ~= 0), "ustu" mantikli
     -- degil (interior'lar dunyada farkli/istiflenmis konumlarda olabilir) -> bunun
@@ -151,17 +151,27 @@ end
 --- COK BELIRGIN hale geldi ("dağa bakıyor çanta şehre açılıyor" vb.).
 --- ARTIK KAMERA KLONUN ARKASINA konur (-fwd*camDist, omuz-ustu/3.sahis takip
 --- kamerasi gibi) ve klonla AYNI yone (+fwd) bakar -> manzara ARTIK karakterin
---- GERCEKTEN baktigi yonu gosterir. Bedel: klonun YUZU degil SIRTI kameraya
---- doner (fiziksel olarak kacinilmaz — ayni anda hem yuzu gormek hem ayni yone
---- bakmak IMKANSIZ). camR de ARTIK AYNA-TERSI DEGIL (rightOf(anchorHead) duz) —
---- kamera artik ayna degil, ayni yone bakan bir takip kamerasi oldugu icin sag/sol
---- kavrami klonun KENDI sag/solu ile ayni.
+--- GERCEKTEN baktigi yonu gosterir. camR de ARTIK AYNA-TERSI DEGIL (rightOf(anchorHead)
+--- duz) — kamera artik ayna degil, ayni yone bakan bir takip kamerasi oldugu icin
+--- sag/sol kavrami klonun KENDI sag/solu ile ayni.
+---
+--- YUZ/YON NOTU (HEMEN ARDINDAN duzeltildi, ayni gun): kamera KONUMU/BAKISI (yon
+--- dogrulugu icin) yukaridaki gibi SABIT kalir, AMA klonun KENDI heading'i (SetEntityHeading)
+--- ARTIK ayrica +180 CEVRILIR. Bu SADECE kozmetik/gorsel bir donus — dunyada NEYIN
+--- gorundugunu (arka plan yonu, kameranin gercek konum/bakisiyla belirlenir) HIC
+--- ETKILEMEZ, SADECE izleyicinin klonun ONUNU mu ARKASINI mi gordugunu degistirir.
+--- Boylece kamera hala DOGRU yone bakarken (arka plan hala oyuncunun gercekte
+--- baktigi yon), klon da artik kameraya DONUK (yuzu/kiyafetleri gorunur) —
+--- onceki "ya yuz ya dogru yon" ikilemi boylece COZULDU (ikisi ayni anda mumkunmus).
 local function computeCameraBasis()
     if not previewPed or not DoesEntityExist(previewPed) or not studioCam or not anchorPos then return end
     local fwd = forwardOf(anchorHead)
     local right = rightOf(anchorHead)
     SetEntityCoordsNoOffset(previewPed, anchorPos.x, anchorPos.y, anchorPos.z, false, false, false)
-    SetEntityHeading(previewPed, anchorHead)
+    -- KLONUN YUZU kameraya donuk olsun diye +180 (bkz asagidaki YUZ/YON NOTU) —
+    -- SADECE gorsel/kozmetik, kameranin konumu/baktigi yonu (dolayisiyla arka
+    -- planda gorunen dunya yonu) ETKILEMEZ.
+    SetEntityHeading(previewPed, (anchorHead + 180.0) % 360.0)
     local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
     camF = fwd
     camR = right
@@ -185,7 +195,7 @@ local function placeKlon()
         anchorPos.y + camR.y * cfg.camSide,
         anchorPos.z + cfg.camHeight)
     SetEntityCoordsNoOffset(previewPed, pos.x, pos.y, pos.z, false, false, false)
-    SetEntityHeading(previewPed, (anchorHead + dragYaw) % 360.0)
+    SetEntityHeading(previewPed, (anchorHead + 180.0 + dragYaw) % 360.0)
     local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
     positionBackdrop(camF, pos.x, pos.y, chest.z)
 end
@@ -480,7 +490,7 @@ local function RotatePreview(mode, value)
     elseif mode == 'reset' then
         dragYaw = 0.0
     end
-    SetEntityHeading(previewPed, (anchorHead + dragYaw) % 360.0)
+    SetEntityHeading(previewPed, (anchorHead + 180.0 + dragYaw) % 360.0)
 end
 
 --- Studio kadraj ince ayari (chat /cam icin — tum degerleri kabul eder, kamera TABANINI
