@@ -783,15 +783,23 @@ body.inv-dragging {
   height: 100%;
 }
 
-/* Bitirim: tam-ekran scrim = pencere DISINDAKI game world overlay'i. KULLANICI ISTEGI
-   (2026-08-12): canta arka plani KOMPLE KALDIRILDI, tamamen seffaf -> oyun dunyasi
-   pencere disinda da TAM gorunur, karartma yok. pointer-events yok. */
+/* Bitirim: tam-ekran scrim = TEK opaklik kaynagi, HER YERDE (pencere ici+disi)
+   AYNI. KULLANICI ISTEGI (2026-08-12): "%50 opak yap, karakter/depo/bagaj/torpido/
+   envanter arasinda AYIRMA olmasin, hepsi esit". Once (onceki turlarda) burasi
+   TAMAMEN SEFFAF'ti + panel-turune-gore FARKLI clip-path "delik" acan bir sistem
+   vardi (3D backdrop'a delik acmak icin, backdrop artik yok) -> bu delik SADECE
+   char-view/container/inventory panellerini digerlerinden DAHA SEFFAF yapiyordu,
+   yani "esit degil"di. DELIK MEKANIZMASI TAMAMEN KALDIRILDI (asagida index.tsx'te
+   de) -> scrim artik TEK DUZ renk, pencere seffaf panellerinin (character/
+   container/inventory) ARDINDAN AYNI SEKILDE gorunur, ozel muamele YOK. (drop
+   paneli bu listede DEGIL -> kendi opak+blur `.bx-panel` varsayilanini KORUYOR,
+   kullanici SADECE saydigi 5 panel turunu esitlemek istedi.) */
 .bx-scrim {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: transparent;
+  background: rgba(0, 0, 0, 0.5);
 }
 
 .bx-window {
@@ -801,8 +809,8 @@ body.inv-dragging {
   flex-direction: column;
   width: max-content;
   max-width: 99vw;
-  /* Pencere kendisi SEFFAF; SIYAH gorunum .bx-window-bg katmanindan gelir (char-view
-     bolgesi clip-path ile DELIK -> ped gorunur). */
+  /* Pencere kendisi SEFFAF -> transparan panellerin (character/container/inventory)
+     ardindan .bx-scrim AYNEN gorunur (TEK opaklik kaynagi, delik/katman YOK). */
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 22px;
@@ -810,23 +818,6 @@ body.inv-dragging {
   overflow: hidden;
   /* Otomatik olcekleme (index.tsx) merkezden uygulanir. */
   transform-origin: center center;
-}
-
-/* Pencerenin (canta ICI) arka katmani = TAM OPAK koyu -> canta ici siyah kalir,
-   scrim %50 olsa bile oyun pencere ardindan SIZMAZ. char-view de bu katmanla kaplanir
-   (delik yok) -> envanterle tek parca siyah. */
-.bx-window-bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: transparent; /* opaklik KALDIRILDI -> canta ici arka plani seffaf */
-  pointer-events: none;
-}
-
-/* Tum pencere icerigi siyah katmanin USTUNDE. */
-.bx-window > *:not(.bx-window-bg) {
-  position: relative;
-  z-index: 1;
 }
 
 /* ---- ust bar ---- */
@@ -936,11 +927,11 @@ body.inv-dragging {
 
 /* Karakter paneli VE kap paneli (torpido/bagaj/motel/otel): kutu CERCEVESI
    (border/baslik/boyut) ENVANTER ile ayni kalir, AMA ic dolgu SEFFAF + backdrop-filter
-   YOK. Cunku panel cami (blur) 3D studio backdrop'unu BULANIKLASTIRIYORDU. Backdrop
-   artik ikisinde de gorunur (kullanici istegi: arka plan bitirim_props.ytyp ile
-   esitlensin); KLON ise SADECE karakter panelinde gorunur (showCharacter flag,
-   preview_manager.lua). Drop paneli bu kuraldan HARIC (genel .bx-panel opak+blur
-   kullanir, studio sahnesi orada aktif degil). */
+   YOK -> ardindaki TEK opaklik kaynagi olan `.bx-scrim`'i (yukarida) DUZ gosterir,
+   kendi ayri bir opak/blur katmani EKLEMEZ (kullanici istegi: karakter/depo/bagaj/
+   torpido/envanter arasinda ayirma olmasin, hepsi ayni opaklikta). Drop paneli bu
+   kuraldan HARIC (genel .bx-panel opak+blur kullanir — kullanici drop'u bu esitleme
+   listesine dahil etmedi). */
 .bx-panel.bx-character,
 .bx-panel.bx-container {
   background: transparent;
