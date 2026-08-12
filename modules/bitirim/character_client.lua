@@ -7,6 +7,7 @@
 
         NUI 'bitirim:charScene'  {open}          -> CreatePreview / DestroyPreview
         NUI 'bitirim:charRotate' {mode,value}    -> RotatePreview
+        NUI 'bitirim:charTune'   {action}        -> TuneScene (ok tuslari + Numpad1/2 dial)
         /cam ...                                 -> SetCamera (studio kadraj ince ayar)
 
     Mevcut NUI event isimleri/UI davranisi DEGISMEDI (index.tsx aynen calisir).
@@ -29,7 +30,7 @@ CreateThread(function()
 end)
 
 -- Studio kadraji (yalniz /cam yazdirmasi icin yerel kopya; kaynak PreviewManager).
-local cam_cfg = { dist = 2.55, height = 0.05, fov = 42.0, look = 0.30, backdist = 2.40 }
+local cam_cfg = { dist = 2.55, side = 0.0, height = 0.05, fov = 42.0, look = 0.30, backdist = 2.40 }
 
 ------------------------------------------------------------------------------
 -- NUI KOPRUSU (index.tsx bunlari yollar — isimler AYNEN korundu)
@@ -52,11 +53,21 @@ RegisterNUICallback('bitirim:charRotate', function(data, cb)
     Preview:RotatePreview(mode, type(data) == 'table' and data.value or nil)
 end)
 
+-- Klavye dial (index.tsx -> NUI): ok tuslari = kamera kadraj ofseti (yukari/asagi/
+-- sag/sol), Numpad 1/2 = zoom. Klon SABIT konumda kalir, sadece kamera kadraji degisir.
+RegisterNUICallback('bitirim:charTune', function(data, cb)
+    cb(1)
+    local action = type(data) == 'table' and data.action or nil
+    if action then Preview:TuneScene(action) end
+end)
+
 --[[
     /cam — STUDIO KADRAJI ince ayar (onizleme acikken). GAMEPLAY KAMERASI ONEMSIZ
-    (studio kamerasi devrede) — sadece bu kadraji degistirir.
+    (studio kamerasi devrede) — sadece bu kadraji degistirir. Ok tuslari + Numpad1/2
+    ile de canli dial edilebilir (yukarida bitirim:charTune).
     Begenince degerleri bana soyle, kalici yaparim (preview_manager.lua cfg).
       /cam dist <n>      kamera klonun ONUNDE kac metre (buyuk = uzak/kucuk gorunur)
+      /cam side <n>      kamera YATAY ofseti (negatif = ekranda sola)
       /cam height <n>    kamera dikey ofseti (gogus bonuna gore)
       /cam fov <n>       gorus acisi (kucuk = portre/dar, buyuk = genis)
       /cam look <n>      bakis hedefi gogusun kac metre ALTI
@@ -68,6 +79,6 @@ RegisterCommand('cam', function(_, args)
         cam_cfg[p] = v
         Preview:SetCamera({ [p] = v })
     end
-    print(('^3[bitirim] cam dist=%.2f height=%.2f fov=%.1f look=%.2f backdist=%.2f (aktif:%s)^7')
-        :format(cam_cfg.dist, cam_cfg.height, cam_cfg.fov, cam_cfg.look, cam_cfg.backdist, tostring(Preview:IsPreviewActive())))
+    print(('^3[bitirim] cam dist=%.2f side=%.2f height=%.2f fov=%.1f look=%.2f backdist=%.2f (aktif:%s)^7')
+        :format(cam_cfg.dist, cam_cfg.side, cam_cfg.height, cam_cfg.fov, cam_cfg.look, cam_cfg.backdist, tostring(Preview:IsPreviewActive())))
 end, false)

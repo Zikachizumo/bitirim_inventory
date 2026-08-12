@@ -2,19 +2,27 @@
     Bitirim — PREVIEW MANAGER (STUDIO / "Studio Camera" KARAKTER ONIZLEMESI)
     ============================================================================
     STUDIO MIMARISI: Envanter acilinca, oyuncunun YEREL (local-only) bir klonu
-    oyuncunun bulundugu yerde durur; ona bakan SCRIPTED bir kamera devreye girer;
-    klonun arkasina TAM KAPLAYAN siyah panel konur.
+    SABIT bir DUNYA KONUMUNDA (void/bos bir noktada, oyuncunun gercek konumundan
+    BAGIMSIZ) durur; ona bakan SCRIPTED bir kamera devreye girer; klonun arkasina
+    TAM KAPLAYAN siyah panel konur.
         GERCEK OYUNCU ──► Gercek Player Ped  (yerel GIZLI; agda normal gorunur)
-                      └──► Mirror Klon Ped    (YEREL; studio kamerasi buna bakar)
+                      └──► Mirror Klon Ped    (YEREL; SABIT void konumunda; studio
+                                                kamerasi buna bakar)
 
-    NEDEN STUDIO KAMERA (onceki "sabit gameplay kamerasi" yerine):
+    NEDEN STUDIO KAMERA + SABIT VOID KONUM (onceki "sabit gameplay kamerasi +
+    oyuncunun oldugu yer" yerine):
     - Gameplay kamerasi sabit degildi: TP/FP/egimli zemin -> kameranin pitch'i degisiyor,
-      dik tek-yuzlu backdrop paneli o acilarda kameradan kacip GORUNMEZ oluyordu
-      (kullanici: "backdrop tum kamera modlarinda ayarlanmamis, FP/egimde bozuluyor").
-    - Scripted kamerada kamera MODU ONEMSIZ: kendi kameramizi klona sabit bir acidan
-      dogrultruruz -> arka plan HER ZAMAN %100 kapli, karakter hep ayni net kadrajda.
-    - Kamera/klon/backdrop geometrisi ARTIK SABIT -> panelin backface-culling sorunu biter
-      (heading bir kez dogru ayarlanir, her acida ayni). Insurance icin 2 panel (on/arka).
+      dik tek-yuzlu backdrop paneli o acilarda kameradan kacip GORUNMEZ oluyordu.
+    - Oyuncunun GERCEK konumunda klonlamak, oyuncunun bulundugu yere gore (bina,
+      esya, baska ped) arka planin her zaman temiz olmasini GARANTI EDEMEZ.
+      SABIT VOID KONUM (kullanicinin belirledigi `cfg.worldPos/worldHead`, bos bir
+      nokta -mesela gokyuzu-) + scripted kamera -> arka plan HER ZAMAN %100 kapli,
+      karakter hep ayni net kadrajda, kamera MODUNDAN (FP/TP/egim) TAMAMEN BAGIMSIZ.
+    - GECIS ANIMASYONU YOK: envanter acilir acilmaz (bir sonraki frame) direkt studio
+      kadrajina gecilir (RenderScriptCams ease=false); kapaninca da aninda gameplay'e
+      doner (yaris durumu/entity sizintisi riskine karsi da aninda kesim tercih edildi).
+    - Insurance icin 2 backdrop paneli (ters heading; hangisi "on yuz" olursa olsun
+      biri HER ZAMAN kameraya doner).
 
     Klon local-only (ClonePed isNetwork=false) -> diger oyuncular klonu HIC gormez.
     Gercek ped SADECE yerel gizlenir -> preview'da 2. karakter yok; agda arkadaslar beni
@@ -23,15 +31,21 @@
     EXPORT API (exports.ox_inventory:<fn>):
         CreatePreview() DestroyPreview() IsPreviewActive()
         UpdateComponent(c,d,t,p) UpdateProp(p,d,t) UpdateWeapon(hash)
-        UpdateOutfit() SyncFromPlayer() RotatePreview(mode,val) SetCamera(cfg)
+        UpdateOutfit() SyncFromPlayer() RotatePreview(mode,val) SetCamera(cfg) TuneScene(action)
 ]]
 
 ------------------------------------------------------------------------------
--- YAPILANDIRMA (studio kamerasi + backdrop; /cam ile dial edilebilir)
+-- YAPILANDIRMA (studio kamerasi + backdrop; /cam VEYA ok tuslari+Numpad1/2 ile dial edilir)
 ------------------------------------------------------------------------------
 local cfg = {
-    camDist   = 2.55,  -- kamera klonun kac metre ONUNDE (klonun bakis yonunde)
-    camHeight = 0.05,  -- kamera z ofseti (klon UST GOGUS bonuna gore) — ~goz hizasi
+    -- KLONUN SABIT DUNYA KONUMU (void/bos nokta). Kullanici belirledi. Oyuncunun
+    -- gercek konumundan TAMAMEN BAGIMSIZ -> her zaman ayni temiz arka plan.
+    worldPos  = vector3(-301.72, -71.13, 316.92),
+    worldHead = 149.61,
+
+    camDist   = 2.55,  -- kamera klonun kac metre ONUNDE (klonun bakis yonunde) — Numpad1/2 zoom
+    camSide   = 0.0,   -- kamera YATAY ofseti (ekranda kadraji sag/sol kaydirir) — ok Sol/Sag
+    camHeight = 0.05,  -- kamera DIKEY ofseti (klon UST GOGUS bonuna gore) — ok Yukari/Asagi
     lookDown  = 0.30,  -- bakis hedefi: ust gogusun kac metre ALTI (govde ortasi)
     fov       = 42.0,  -- gorus acisi (dar = portre, dunya kacagi az)
     backDist  = 2.40,  -- backdrop klonun kac metre ARKASINDA
@@ -59,50 +73,61 @@ local realPed      = nil    -- referans (aynalama) + YEREL gizlenir
 local studioCam    = nil    -- scripted kamera
 local backdrop     = nil    -- siyah panel (on yuz kameraya bakar)
 local backdrop2    = nil    -- ikinci panel (backface guvencesi)
-local studioAnchor = nil    -- klonun durdugu dunya konumu (vec3)
-local studioHead   = 0.0    -- studio taban heading'i (kamera bunu kullanir; SABIT)
 local dragYaw      = 0.0    -- kullanici surukleme/donme ofseti (klonu dondurur)
 local compCache    = {}     -- aynalama diff onbellegi
 local curWeapon    = nil
 
 ------------------------------------------------------------------------------
--- YERLESIM (SABIT geometri: klon + kamera + backdrop hep ayni acida)
+-- YERLESIM (SABIT geometri: klon SABIT dunya konumunda; kamera+backdrop ona gore)
 ------------------------------------------------------------------------------
 local function forwardOf(h)
     local r = math.rad(h)
     return vector3(-math.sin(r), math.cos(r), 0.0)  -- heading h'de ileri yon
 end
 
+local function rightOf(h)
+    local r = math.rad(h)
+    return vector3(math.cos(r), math.sin(r), 0.0)  -- heading h'nin sagi
+end
+
 --- Iki backdrop panelini klonun ARKASINA, kameraya bakacak sekilde yerlestir.
 --- Panel yuzu (-Y) heading+180'de +fwd'e (kameraya) bakar; ikinci panel ters -> hangi
 --- acidan olursa olsun biri HER ZAMAN kaplar (backface-culling guvencesi).
 local function positionBackdrop(fwd, centerZ)
-    if not studioAnchor then return end
-    local bx = studioAnchor.x - fwd.x * cfg.backDist
-    local by = studioAnchor.y - fwd.y * cfg.backDist
+    local a = cfg.worldPos
+    local bx = a.x - fwd.x * cfg.backDist
+    local by = a.y - fwd.y * cfg.backDist
     local bz = centerZ + cfg.backZ
     if backdrop and DoesEntityExist(backdrop) then
         SetEntityCoordsNoOffset(backdrop, bx, by, bz, false, false, false)
-        SetEntityHeading(backdrop, (studioHead + 180.0) % 360.0)
+        SetEntityHeading(backdrop, (cfg.worldHead + 180.0) % 360.0)
     end
     if backdrop2 and DoesEntityExist(backdrop2) then
         SetEntityCoordsNoOffset(backdrop2, bx - fwd.x * 0.1, by - fwd.y * 0.1, bz, false, false, false)
-        SetEntityHeading(backdrop2, studioHead % 360.0)
+        SetEntityHeading(backdrop2, cfg.worldHead % 360.0)
     end
 end
 
---- Klon + kamera + backdrop'u studio geometrisine gore yerlestir. Kamera SABIT acidan
---- klonu cerceveler; dragYaw sadece klonu kendi ekseninde dondurur (kamera degismez).
+--- Klon + kamera + backdrop'u studio geometrisine gore yerlestir. Klon SABIT dunya
+--- konumunda durur (cfg.worldPos/worldHead); kamera camDist/camSide/camHeight ile o
+--- klona gore konumlanir (bunlar ok tuslari + Numpad1/2 ile canli dial edilir).
+--- dragYaw sadece klonu kendi ekseninde dondurur (kamera degismez).
 local function setupStudio()
-    if not previewPed or not DoesEntityExist(previewPed) or not studioAnchor or not studioCam then return end
-    local a = studioAnchor
-    local fwd = forwardOf(studioHead)
-    -- Klon: studio konumunda dur, kameraya bak (+dragYaw ile dondurulebilir)
+    if not previewPed or not DoesEntityExist(previewPed) or not studioCam then return end
+    local a = cfg.worldPos
+    local fwd = forwardOf(cfg.worldHead)
+    -- Kamera klonun ONUNE (fwd) bakar; camSide/camHeight KAMERANIN kadraj ofseti
+    -- (kamera-sag vektoru = klona bakan kameranin kendi yaw'ina gore: worldHead+180).
+    local right = rightOf((cfg.worldHead + 180.0) % 360.0)
+    -- Klon: SABIT studio konumunda dur (+dragYaw ile kendi ekseninde donebilir)
     SetEntityCoordsNoOffset(previewPed, a.x, a.y, a.z, false, false, false)
-    SetEntityHeading(previewPed, (studioHead + dragYaw) % 360.0)
+    SetEntityHeading(previewPed, (cfg.worldHead + dragYaw) % 360.0)
     -- Kadraj: ust gogus bonuna gore (klon boyu ne olursa olsun ortali)
     local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
-    SetCamCoord(studioCam, a.x + fwd.x * cfg.camDist, a.y + fwd.y * cfg.camDist, chest.z + cfg.camHeight)
+    SetCamCoord(studioCam,
+        a.x + fwd.x * cfg.camDist + right.x * cfg.camSide,
+        a.y + fwd.y * cfg.camDist + right.y * cfg.camSide,
+        chest.z + cfg.camHeight)
     SetCamFov(studioCam, cfg.fov)
     PointCamAtCoord(studioCam, a.x, a.y, chest.z - cfg.lookDown)
     positionBackdrop(fwd, chest.z)
@@ -119,7 +144,7 @@ local function spawnBackdrop()
     local t = 0
     while not HasModelLoaded(h) and t < 100 do Wait(10); t = t + 1 end
     if not HasModelLoaded(h) then print('^1[bitirim] backdrop model yuklenemedi^7'); return end
-    local ep = studioAnchor or GetGameplayCamCoord()
+    local ep = cfg.worldPos
     for i = 1, 2 do
         local obj = CreateObject(h, ep.x, ep.y, ep.z, false, false, false)
         if obj and DoesEntityExist(obj) then
@@ -216,15 +241,13 @@ local function CreatePreview()
     SetEntityVisible(previewPed, true, false)
     ResetEntityAlpha(previewPed)
 
-    -- 2) Studio taban geometrisi: klon oyuncunun DURDUGU yerde durur (bolge yuklu ->
-    -- render/stream sorunsuz). studioHead SABIT -> kamera/backdrop hep ayni acida.
-    studioAnchor = GetEntityCoords(ped)
-    studioHead   = GetEntityHeading(ped)
+    -- 2) Klon SABIT dunya konumunda durur (cfg.worldPos/worldHead) — oyuncunun gercek
+    -- konumundan BAGIMSIZ, her zaman ayni temiz void arka plan.
     dragYaw = 0.0
 
-    -- 3) Scripted kamera (once gameplay kamerasi konumunda -> smooth gecis icin)
-    local ep = GetGameplayCamCoord()
-    studioCam = CreateCamWithParams('DEFAULT_SCRIPTED_CAMERA', ep.x, ep.y, ep.z, 0.0, 0.0, 0.0, cfg.fov, false, 2)
+    -- 3) Scripted kamera (dogrudan studio konumunda olusturulur; GECIS ANIMASYONU YOK)
+    local wp = cfg.worldPos
+    studioCam = CreateCamWithParams('DEFAULT_SCRIPTED_CAMERA', wp.x, wp.y, wp.z, 0.0, 0.0, 0.0, cfg.fov, false, 2)
 
     spawnBackdrop()
 
@@ -233,7 +256,9 @@ local function CreatePreview()
     curWeapon = nil
     setupStudio()               -- klon+kamera+backdrop studio konumuna
     SetCamActive(studioCam, true)
-    RenderScriptCams(true, true, 400, true, true)  -- gameplay -> studio SMOOTH devral
+    -- ANINDA GECIS: bir sonraki frame direkt studio kadrajinda goruntulenir (ease=false,
+    -- sure=0). Smooth blend YOK — kullanici istegi.
+    RenderScriptCams(true, false, 0, true, true)
     playIdle()
     mirrorWeapon(true)
 
@@ -299,7 +324,6 @@ local function DestroyPreview()
     realPed = nil
 
     ClearFocus()
-    studioAnchor = nil
     compCache = {}
     curWeapon = nil
     dragYaw = 0.0
@@ -371,20 +395,41 @@ local function RotatePreview(mode, value)
     elseif mode == 'reset' then
         dragYaw = 0.0
     end
-    SetEntityHeading(previewPed, (studioHead + dragYaw) % 360.0)
+    SetEntityHeading(previewPed, (cfg.worldHead + dragYaw) % 360.0)
 end
 
---- Studio kadraj ince ayari (KAMERA sabit acida kalir; sadece mesafe/fov/yukseklik).
---- /cam ile dial edilir (chat). Geriye donuk uyum icin 'down' -> camHeight.
+--- Studio kadraj ince ayari (klon SABIT konumda kalir; sadece kamera mesafe/fov/
+--- yukseklik/yatay). /cam ile dial edilir (chat). Geriye donuk uyum icin 'down' -> camHeight.
 local function SetCamera(cfgIn)
     if type(cfgIn) ~= 'table' then return end
     if cfgIn.dist     then cfg.camDist   = cfgIn.dist + 0.0 end
     if cfgIn.fov      then cfg.fov       = cfgIn.fov + 0.0 end
     if cfgIn.height   then cfg.camHeight = cfgIn.height + 0.0 end
     if cfgIn.down     then cfg.camHeight = cfgIn.down + 0.0 end   -- eski /cam uyumu
+    if cfgIn.side     then cfg.camSide   = cfgIn.side + 0.0 end
     if cfgIn.look     then cfg.lookDown  = cfgIn.look + 0.0 end
     if cfgIn.backdist then cfg.backDist  = cfgIn.backdist + 0.0 end
     setupStudio()
+end
+
+--- Klavye ayar (index.tsx -> NUI 'bitirim:charTune' -> buraya):
+---   Ok tuslari (up/down/left/right) = KAMERA kadraj ofseti (camHeight/camSide).
+---   Numpad 1/2 (zoomin/zoomout)     = ZOOM (camDist; yakin=buyuk).
+--- Klon SABIT konumda kalir (cfg.worldPos/worldHead), sadece kamera kadraji degisir.
+--- Begenilen degerleri F8'de gorup soyle -> kalici yaparim.
+local function TuneScene(action)
+    if not active then return end
+    local POS, ZSTEP = 0.03, 0.05
+    if action == 'up' then          cfg.camHeight = cfg.camHeight + POS
+    elseif action == 'down' then    cfg.camHeight = cfg.camHeight - POS
+    elseif action == 'left' then    cfg.camSide   = cfg.camSide - POS
+    elseif action == 'right' then   cfg.camSide   = cfg.camSide + POS
+    elseif action == 'zoomin' then  cfg.camDist   = math.max(1.0, cfg.camDist - ZSTEP)
+    elseif action == 'zoomout' then cfg.camDist   = cfg.camDist + ZSTEP
+    else return end
+    setupStudio()
+    print(('^3[bitirim] studio camSide=%.2f camHeight=%.2f camDist=%.2f^7')
+        :format(cfg.camSide, cfg.camHeight, cfg.camDist))
 end
 
 local function IsPreviewActive() return active end
@@ -401,6 +446,7 @@ exports('UpdateWeapon',    UpdateWeapon)
 exports('UpdateOutfit',    UpdateOutfit)
 exports('SyncFromPlayer',  SyncFromPlayer)
 exports('RotatePreview',   RotatePreview)
+exports('TuneScene',       TuneScene)
 exports('SetCamera',       SetCamera)
 
 -- Emniyet: kaynak durursa temizle.
