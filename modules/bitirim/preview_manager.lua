@@ -47,7 +47,7 @@
 -- YAPILANDIRMA (studio kamerasi + backdrop; /cam VEYA ok tuslari+Numpad1/2 ile dial edilir)
 ------------------------------------------------------------------------------
 local cfg = {
-    heightOffset = 5.0,  -- klon, oyuncunun O ANKI konumunun kac metre USTUNDE durur (TEST: 100->25->5)
+    heightOffset = 2.0,  -- klon, oyuncunun O ANKI konumunun kac metre USTUNDE durur (TEST: 100->25->5->2)
 
     -- Oyuncu bir BINA/INTERIOR icindeyse (GetInteriorFromEntity ~= 0), "ustu" mantikli
     -- degil (interior'lar dunyada farkli/istiflenmis konumlarda olabilir) -> bunun
