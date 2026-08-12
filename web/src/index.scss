@@ -786,14 +786,14 @@ body.inv-dragging {
 /* Bitirim: tam-ekran scrim = TEK opaklik kaynagi, HER YERDE (pencere ici+disi)
    AYNI (karakter/depo/bagaj/torpido/envanter arasinda AYIRMA yok — panel-turune-gore
    FARKLI clip-path "delik" acan eski sistem TAMAMEN KALDIRILDI, bkz asagidaki
-   .bx-window yorumu). Opaklik degeri: %50 -> %75 -> %25 (2026-08-12, ayni gun,
-   kullanici sirayla test etti). */
+   .bx-window yorumu). Opaklik degeri: %50 -> %75 -> %25 -> %10 (2026-08-12, ayni
+   gun, kullanici sirayla test etti). */
 .bx-scrim {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .bx-window {
