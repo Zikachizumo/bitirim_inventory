@@ -62,13 +62,14 @@ const Inventory: React.FC = () => {
     if (!inventoryVisible) dispatch(closeSplit());
   }, [inventoryVisible, dispatch]);
 
-  // Bitirim: canli karakter sahnesi — yalniz KARAKTER paneli goruntulenirken acik
-  // (kap/drop acikken karakter paneli gizli, o yuzden sahne de kapali). Client
-  // (character_client.lua) klon+kamera+isik sahnesini yonetir.
+  // Bitirim: canli studio sahnesi (klon+kamera+backdrop) artik envanterin HER
+  // gorunumunde acik (karakter/stash/bagaj/drop farketmez) — backdrop paneli TUM
+  // EKRANIN arka plani/opaklik kaynagi oldugu icin (CSS scrim KALDIRILDI, bkz.
+  // .bx-scrim), sahne envanter acik oldugu surece surekli calismali. Client
+  // (character_client.lua) klon+kamera+backdrop sahnesini yonetir.
   useEffect(() => {
-    const showChar = inventoryVisible && !isDrop && !hasContainer;
-    fetchNui('bitirim:charScene', { open: showChar }).catch(() => {});
-  }, [inventoryVisible, isDrop, hasContainer]);
+    fetchNui('bitirim:charScene', { open: inventoryVisible }).catch(() => {});
+  }, [inventoryVisible]);
 
   // Bitirim: STUDIO KAMERA kadraj kontrolleri (yalniz karakter paneli acikken).
   //   Ok tuslari  = kadraj konumu, 2 EKSEN: yukari/asagi = kamera yuksekligi (dikey
@@ -159,11 +160,11 @@ const Inventory: React.FC = () => {
   // Bitirim: OTOMATIK OLCEKLEME — pencereyi ekrana sigacak/dolduracak sekilde
   // olcekle (tam ekran his). Dogal boyutu olcup min(vw,vh) orani ile scale eder.
   const windowRef = useRef<HTMLDivElement>(null);
-  // Bitirim: arka plan SAYDAM (oyun gorunur). Kenar (pencere disi) oyun BLURLANIR
-  // (.bx-scrim). Pencere %75 opak koyu cam (.bx-window-bg). Karakter onizlemesi
-  // (.bx-char-view) HEM scrim'de (blur atlanir) HEM %75 tint katmaninda (tint
-  // atlanir) clip-path DELIK -> ped'in arkasinda TAM PARLAKLIK oyun/harita gorunur,
-  // ped NET. Kap/drop acikken char yok -> delik yok.
+  // Bitirim: .bx-scrim + .bx-window-bg ARTIK SEFFAF (opaklik/karartma yok) — tek
+  // arka plan/opaklik kaynagi 3D studio backdrop paneli (bitirim_props.ytyp,
+  // preview_manager.lua cfg.balpha ile SetEntityAlpha uzerinden ayarlanir).
+  // clip-path "delik" mekanizmasi zararsiz kalir (zaten seffaf katmanlarda hicbir
+  // gorsel etkisi yok) — kod sadelik/risk icin oldugu gibi birakildi.
   const scrimRef = useRef<HTMLDivElement>(null);
   const windowBgRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef(1);

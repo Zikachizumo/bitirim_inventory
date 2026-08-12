@@ -783,15 +783,17 @@ body.inv-dragging {
   height: 100%;
 }
 
-/* Bitirim: tam-ekran scrim = pencere DISINDAKI game world overlay'i. %75 OPAK siyah
-   -> oyun dunyasi arkadan %25 gorunur (canta ICI degil). Pencere ici (canta) opak
-   kalir cunku window-bg tam opak (asagi). pointer-events yok. */
+/* Bitirim: tam-ekran scrim = pencere DISINDAKI game world overlay'i. SEFFAF —
+   karartma/opaklik ARTIK CSS'te degil, 3D studio backdrop paneli uzerinden
+   (bitirim_props.ytyp, preview_manager.lua cfg.balpha) tek kaynaktan yonetiliyor.
+   Studio sahnesi envanter acikken HER goruntude (karakter/stash/drop) aktif
+   oldugu icin (index.tsx) backdrop paneli zaten TUM ekrani kapliyor. pointer-events yok. */
 .bx-scrim {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: rgba(0, 0, 0, 0.75); /* %75 opak — kullanici istegi */
+  background: transparent;
 }
 
 .bx-window {
