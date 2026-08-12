@@ -361,13 +361,28 @@ local function CreatePreview(showCharacter)
     SetEntityVisible(previewPed, showCharacter, false)
     ResetEntityAlpha(previewPed)
 
-    -- 2) Klon konumu: oyuncunun O ANKI X/Y'sinde, Z + heightOffset (ARTIK NEGATIF ->
-    -- haritanin cok altinda, void). X/Y oyuncuyla AYNI oldugu icin o bolgenin
-    -- streami "sicak" kalir -> kapaniste render sorunu olmaz (uzak sabit koordinat
-    -- denendi, bu soruna yol acti — kaldirildi). ISTISNA: oyuncu bir BINA/INTERIOR
-    -- icindeyse "ayni X/Y'nin cok altina in" guvenilir degil (interior'lar dunyada
-    -- farkli/istiflenmis konumlarda olabilir, altta baska bir interior'un ici olabilir)
-    -- -> bu durumda SABIT, onceden test edilmis sehir-yolu konumuna dusulur.
+    -- DEBUG (2026-08-12, GECICI): SetEntityAsMissionEntity fix'i sonrasi kullanici
+    -- HALA yakinindaki arkadasinin klonu gordugunu bildirdi -> gercek veri lazim,
+    -- tahmin yetmiyor. previewPed GERCEKTEN aga kayitli mi kesin olarak olc.
+    -- Aninda + 2sn sonra (bazi kayitlar gecikmeli olabilir ihtimaline karsi) kontrol
+    -- eder, F8 konsoluna yazdirir. Sonuc alinip kok neden bulununca bu blok SILINECEK.
+    print(('^3[bitirim] DEBUG previewPed networked (aninda) = %s^7')
+        :format(tostring(NetworkGetEntityIsNetworked(previewPed))))
+    CreateThread(function()
+        Wait(2000)
+        if previewPed and DoesEntityExist(previewPed) then
+            print(('^3[bitirim] DEBUG previewPed networked (2sn sonra) = %s^7')
+                :format(tostring(NetworkGetEntityIsNetworked(previewPed))))
+        end
+    end)
+
+    -- 2) Klon konumu: oyuncunun O ANKI X/Y'sinde, Z + heightOffset (yukarida, acik
+    -- gokyuzu). X/Y oyuncuyla AYNI oldugu icin o bolgenin streami "sicak" kalir ->
+    -- kapaniste render sorunu olmaz (uzak sabit koordinat denendi, bu soruna yol
+    -- acti — kaldirildi). ISTISNA: oyuncu bir BINA/INTERIOR icindeyse "ustu" guvenilir
+    -- degil (interior'lar dunyada farkli/istiflenmis konumlarda olabilir, +Z acik
+    -- gokyuzune cikmayabilir) -> bu durumda SABIT, onceden test edilmis sehir-yolu
+    -- konumuna dusulur.
     if GetInteriorFromEntity(ped) ~= 0 then
         anchorPos  = cfg.interiorFallbackPos
         anchorHead = cfg.interiorFallbackHead
