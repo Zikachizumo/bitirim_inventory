@@ -936,25 +936,33 @@ body.inv-dragging {
   padding: 16px;
 }
 
-/* Karakter paneli: kutu CERCEVESI (border/baslik/boyut) ENVANTER ile ayni kalir, AMA
-   ic dolgu SEFFAF + backdrop-filter YOK. Cunku panel cami (blur) char-view'deki
-   karakteri de BULANIKLASTIRIYORDU. Simdi char-view temiz -> karakter NET (arka
-   plani backdrop OBJESI verir, panel degil). SADECE karakter paneline ozel — kap
-   (torpido/bagaj/stash) ve drop panelleri GENEL .bx-panel (opak+blur) kullanir,
-   studio sahnesi orada AKTIF DEGIL (kullanici istegi: klon sadece karakter
-   panelinde gorunsun). */
-.bx-panel.bx-character {
+/* Karakter paneli VE kap paneli (torpido/bagaj/motel/otel): kutu CERCEVESI
+   (border/baslik/boyut) ENVANTER ile ayni kalir, AMA ic dolgu SEFFAF + backdrop-filter
+   YOK. Cunku panel cami (blur) 3D studio backdrop'unu BULANIKLASTIRIYORDU. Backdrop
+   artik ikisinde de gorunur (kullanici istegi: arka plan bitirim_props.ytyp ile
+   esitlensin); KLON ise SADECE karakter panelinde gorunur (showCharacter flag,
+   preview_manager.lua). Drop paneli bu kuraldan HARIC (genel .bx-panel opak+blur
+   kullanir, studio sahnesi orada aktif degil). */
+.bx-panel.bx-character,
+.bx-panel.bx-container {
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
-/* Kap (torpido/bagaj/motel/otel) ve drop panelleri: icerik grid'i KISA olabilir
-   (orn. torpido 6 slot = tek sira) ama panel kutusu PlayerPanel ile ayni yukseklige
-   STRETCH edilir (.bx-body align-items:stretch) -> grid ustte kalip altta bosluk
-   birakiyordu. DIKEY ORTALAMA ile duzeltildi (slot sayisi/duzeni DEGISMEDI).*/
-.bx-panel.bx-container,
+/* Drop panelinde icerik grid'i KISA olabilir ama panel kutusu PlayerPanel ile ayni
+   yukseklige STRETCH edilir (.bx-body align-items:stretch) -> grid ustte kalip altta
+   bosluk birakiyordu. DIKEY ORTALAMA ile duzeltildi (slot sayisi/duzeni DEGISMEDI). */
 .bx-panel.bx-drop {
+  justify-content: center;
+}
+
+/* Kap panelinde (torpido/bagaj/motel/otel) grid SABIT 6 sutun genisliginde ama
+   grid KUTUSU panel genisligine STRETCH ediliyordu (flex column varsayilan
+   align-items:stretch) -> 6 sutunluk icerik SOLA yasliyip sagda bosluk birakiyordu.
+   Grid'in KENDI justify-content'i (CSS Grid track dagitimi, flex'ten AYRI bir
+   ozellik) ile YATAYDA ortalandi — dikey konum/slot sayisi DEGISMEDI. */
+.bx-container .inventory-grid-container {
   justify-content: center;
 }
 

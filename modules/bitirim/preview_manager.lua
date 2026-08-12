@@ -253,7 +253,12 @@ end
 ------------------------------------------------------------------------------
 -- YASAM DONGUSU
 ------------------------------------------------------------------------------
-local function CreatePreview()
+--- showCharacter=false: klon YINE olusturulur/konumlanir (kamera cercevelemesi
+--- gogus bonuna gore hesaplanir) ama GORUNMEZ yapilir -> backdrop panel gorunur,
+--- karakter gorunmez. Torpido/bagaj/motel/otel gibi kap gorunumlerinde kullanilir
+--- (kullanici istegi: arka plan HER YERDE ama karakter SADECE karakter panelinde).
+local function CreatePreview(showCharacter)
+    if showCharacter == nil then showCharacter = true end
     if active then return end
     local ped = PlayerPedId()
     if not ped or ped == 0 then return end
@@ -274,7 +279,7 @@ local function CreatePreview()
     SetEntityCollision(previewPed, false, false)
     SetBlockingOfNonTemporaryEvents(previewPed, true)
     SetEntityLodDist(previewPed, 1000)
-    SetEntityVisible(previewPed, true, false)
+    SetEntityVisible(previewPed, showCharacter, false)
     ResetEntityAlpha(previewPed)
 
     -- 2) Klon konumu: oyuncunun O ANKI X/Y'sinde, Z + heightOffset (havada). X/Y
