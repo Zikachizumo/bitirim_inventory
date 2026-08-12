@@ -59,13 +59,11 @@ local cfg = {
     backDist  = 2.40,  -- backdrop klonun kac metre ARKASINDA
     backZ     = 0.0,   -- backdrop dikey ince ayar
     -- TEK NOKTA: butun panellerin (karakter/envanter/depo/bagaj/torpido) arka plan
-    -- OPAKLIGI burasi. 128 (~%50) YANLISTI -> panel YARI SAYDAMDI, arkasindaki
-    -- GERCEK DUNYA (dag/sehir) %50 sizip goruntuye karisiyordu -> "sol panel seffaf
-    -- duruyor" VE "review ped ters yone bakiyor" sikayetleri (ikisi de AYNI kok
-    -- neden: kamera karakterin YUZUNE bakmak icin onun baktigi yonun TERSINE bakar,
-    -- o yuzden sizan gercek dunya HER ZAMAN karakterin baktigi yonun tersini
-    -- gosterirdi). 255 = TAM OPAK -> hicbir sizinti yok, kamera yonu ARTIK ONEMSIZ.
-    balpha    = 255,
+    -- OPAKLIGI burasi. KULLANICI ISTEGI (2026-08-12): arka plan KOMPLE KALDIRILDI,
+    -- tamamen seffaf -> 0. spawnBackdrop() balpha<=0 iken hic obje SPAWN ETMEZ
+    -- (asagida) -> gercek gorunmez obje degil, GERCEKTEN yok. Geri istenirse SADECE
+    -- bu sayiyi degistir (>0 yap), baska hicbir yeri DOKUNMA.
+    balpha    = 0,
     bmodel    = 'bitirim_backdrop01',  -- stream'deki 50m SIYAH panel (SABIT - canta seviyesine gore degismez)
 }
 
@@ -176,8 +174,10 @@ local function setupStudio()
     placeKlon()
 end
 
---- Iki siyah paneli spawn et.
+--- Iki siyah paneli spawn et. balpha<=0 -> arka plan KOMPLE KALDIRILDI (kullanici
+--- istegi), hic obje spawn edilmez (gorunmez obje degil, GERCEKTEN yok).
 local function spawnBackdrop()
+    if cfg.balpha <= 0 then return end
     local h = GetHashKey(cfg.bmodel)
     if not IsModelInCdimage(h) or not IsModelValid(h) then
         print(('^1[bitirim] backdrop model gecersiz: "%s" (stream/ytyp yuklendi mi?)^7'):format(cfg.bmodel))
