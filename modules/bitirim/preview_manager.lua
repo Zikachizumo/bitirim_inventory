@@ -59,12 +59,15 @@
 ------------------------------------------------------------------------------
 local cfg = {
     -- klon, oyuncunun O ANKI konumunun (ayni X/Y) kac metre USTUNDE/ALTINDA durur.
-    -- NEGATIF = ASAGI (haritanin cok altinda, bos void) -> yakindaki BASKA
-    -- oyunculara ARTIK gorunmez (2026-08-12: +2m'de yakindaki arkadas klonu
-    -- goruyordu, bkz yukaridaki dosya-basi not). X/Y AYNI kaldigi icin stream-
-    -- sicakligi garantisi bozulmadi (yukaridaki not). TEST GECMISI: 100->25->5->2
-    -- (hepsi +, yukari) -> -1000 (asagi, gorunmezlik icin).
-    heightOffset = -1000.0,
+    -- NEGATIF = ASAGI (haritanin altinda, bos void, yakindaki oyunculara gorunmez).
+    -- KULLANICI ISTEGI (2026-08-12, ayni gun, -1000'in HEMEN ardindan): "eski haline
+    -- geri al" -> ARTIK TEKRAR POZITIF/YUKARIDA (+5.0). ONEMLI: bu, bir onceki
+    -- commit'te bulunan ve duzeltilen "yakindaki arkadas klonu goruyor" bug'ini
+    -- BILEREK GERI GETIRIYOR — kullaniciya (AskUserQuestion ile) acikca soruldu,
+    -- riski bilerek onayladi. Bir sonraki oturumda "yine biri klonu gordu" sikayeti
+    -- gelirse ONCELIKLE burayi (+5 -> negatif) kontrol et, kod hatasi degil bilinen
+    -- bir tradeoff. TEST GECMISI: 100->25->5->2 (+) -> -1000 (bug-fix) -> +5.0 (geri).
+    heightOffset = 5.0,
 
     -- Oyuncu bir BINA/INTERIOR icindeyse (GetInteriorFromEntity ~= 0), "ustu" mantikli
     -- degil (interior'lar dunyada farkli/istiflenmis konumlarda olabilir) -> bunun
