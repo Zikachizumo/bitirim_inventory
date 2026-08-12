@@ -54,7 +54,7 @@
   --accent-line: rgba(139, 147, 167, 0.5);
   --accent-glow: 0 0 0 1px rgba(139, 147, 167, 0.45), 0 0 16px -4px rgba(139, 147, 167, 0.4);
   /* karakter onizleme arka plani (backdrop) tonu — canta seviyesine gore degisir */
-  --backdrop-tint: rgba(139, 147, 167, 0.75);
+  --backdrop-tint: rgba(139, 147, 167, 0.50);
 }
 
 /* --- canta seviyesine gore tema --- */
@@ -65,7 +65,7 @@
   --accent-dim: rgba(139, 147, 167, 0.14);
   --accent-line: rgba(139, 147, 167, 0.5);
   --accent-glow: 0 0 0 1px rgba(139, 147, 167, 0.45), 0 0 16px -4px rgba(139, 147, 167, 0.4);
-  --backdrop-tint: rgba(139, 147, 167, 0.75);
+  --backdrop-tint: rgba(139, 147, 167, 0.50);
 }
 :root[data-lv='1'] {
   /* Beyaz */
@@ -75,7 +75,7 @@
   --accent-dim: rgba(223, 226, 238, 0.12);
   --accent-line: rgba(223, 226, 238, 0.5);
   --accent-glow: 0 0 0 1px rgba(223, 226, 238, 0.5), 0 0 18px -3px rgba(223, 226, 238, 0.4);
-  --backdrop-tint: rgba(223, 226, 238, 0.75);
+  --backdrop-tint: rgba(223, 226, 238, 0.50);
 }
 :root[data-lv='2'] {
   /* Mavi */
@@ -85,7 +85,7 @@
   --accent-dim: rgba(47, 155, 255, 0.15);
   --accent-line: rgba(47, 155, 255, 0.55);
   --accent-glow: 0 0 0 1px rgba(47, 155, 255, 0.5), 0 0 20px -3px rgba(47, 155, 255, 0.5);
-  --backdrop-tint: rgba(47, 155, 255, 0.75);
+  --backdrop-tint: rgba(47, 155, 255, 0.50);
 }
 :root[data-lv='3'] {
   /* Mor */
@@ -95,7 +95,7 @@
   --accent-dim: rgba(192, 38, 211, 0.15);
   --accent-line: rgba(192, 38, 211, 0.55);
   --accent-glow: 0 0 0 1px rgba(192, 38, 211, 0.5), 0 0 20px -3px rgba(192, 38, 211, 0.5);
-  --backdrop-tint: rgba(192, 38, 211, 0.75);
+  --backdrop-tint: rgba(192, 38, 211, 0.50);
 }
 :root[data-lv='4'] {
   /* Turuncu */
@@ -105,7 +105,7 @@
   --accent-dim: rgba(255, 122, 26, 0.15);
   --accent-line: rgba(255, 122, 26, 0.55);
   --accent-glow: 0 0 0 1px rgba(255, 122, 26, 0.5), 0 0 20px -3px rgba(255, 122, 26, 0.55);
-  --backdrop-tint: rgba(255, 122, 26, 0.75);
+  --backdrop-tint: rgba(255, 122, 26, 0.50);
 }
 :root[data-lv='5'] {
   /* Altin */
@@ -115,7 +115,7 @@
   --accent-dim: rgba(245, 197, 24, 0.16);
   --accent-line: rgba(245, 197, 24, 0.6);
   --accent-glow: 0 0 0 1px rgba(245, 197, 24, 0.55), 0 0 22px -3px rgba(245, 197, 24, 0.6);
-  --backdrop-tint: rgba(245, 197, 24, 0.75);
+  --backdrop-tint: rgba(245, 197, 24, 0.50);
 }
 
 $mainFont: var(--font);

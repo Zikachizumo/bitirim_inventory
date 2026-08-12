@@ -58,7 +58,7 @@ local cfg = {
     fov       = 64.0,  -- gorus acisi (dar=yakin/buyuk gorunur) — KALICI (kullanici dial etti)
     backDist  = 2.40,  -- backdrop klonun kac metre ARKASINDA
     backZ     = 0.0,   -- backdrop dikey ince ayar
-    balpha    = 191,   -- siyah panel opaklik (0..255; 191 ~= %75 opak)
+    balpha    = 128,   -- renkli panel opaklik (0..255; 128 ~= %50 opak)
 }
 
 -- Canta seviyesine (0-5) gore backdrop MODELI. Her biri stream/'de ayri .ydr (ayni
