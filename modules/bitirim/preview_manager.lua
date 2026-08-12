@@ -74,6 +74,17 @@ local cfg = {
     -- kalitesi icin ayarlanir.
     heightOffset = 2.0,
 
+    -- ARAC/YURUYUS TAKIBI (2026-08-12, kullanici istegi): "araç hareket halinde
+    -- iken 1mt uzaklaştığında görüntü tekrardan oluşturulsun". Oyuncu (aracla
+    -- birlikte) acilis anindaki konumdan bu kadar (metre) uzaklasinca stuido
+    -- sahnesi (kamera+klon+backdrop) SESSIZCE yeniden o anki konuma/yone
+    -- ANKORLANIR -> araç/uçak/helikopterle hareket ederken sahne "arkada kalmaz".
+    -- ESIK-BAZLI (her karede DEGIL): cok kucuk titremelerde (dururken bile olan
+    -- ufak fizik sarsintilari) yeniden konumlanip goruntude sarsinti/bulaniklik
+    -- YARATMASIN diye (bu projede daha once "her kare yeniden konumlandir"
+    -- denenip AYNI sebeple terk edilmisti, esik-bazliya gecilmisti).
+    trackThreshold = 1.0,
+
     -- Oyuncu bir BINA/INTERIOR icindeyse (GetInteriorFromEntity ~= 0), "ustu" mantikli
     -- degil (interior'lar dunyada farkli/istiflenmis konumlarda olabilir) -> bunun
     -- yerine kullanicinin daha once test ettigi SABIT sehir-yolu konumuna dusulur.
@@ -117,6 +128,7 @@ local backdrop     = nil    -- siyah panel (on yuz kameraya bakar)
 local backdrop2    = nil    -- ikinci panel (backface guvencesi)
 local anchorPos    = nil    -- klonun durdugu konum (oyuncu XY + heightOffset Z) — HER ACILISTA yeniden hesaplanir
 local anchorHead   = 0.0    -- klonun heading'i (acilis anindaki oyuncu heading'i) — SABIT (kamera bunu kullanir)
+local anchorBasePos = nil   -- son ankor hesaplamasindaki GERCEK oyuncu konumu (heightOffset'siz); interior-fallback'ta nil (takip edilmez, bkz trackThreshold)
 local dragYaw      = 0.0    -- kullanici surukleme/donme ofseti (klonu dondurur)
 local compCache    = {}     -- aynalama diff onbellegi
 local curWeapon    = nil
@@ -366,10 +378,12 @@ local function CreatePreview(showCharacter)
     if GetInteriorFromEntity(ped) ~= 0 then
         anchorPos  = cfg.interiorFallbackPos
         anchorHead = cfg.interiorFallbackHead
+        anchorBasePos = nil  -- sabit konum, oyuncu takibi YOK
     else
         local basePos = GetEntityCoords(ped)
         anchorPos  = basePos + vector3(0.0, 0.0, cfg.heightOffset)
         anchorHead = GetEntityHeading(ped)
+        anchorBasePos = basePos
     end
     dragYaw = 0.0
 
@@ -401,7 +415,21 @@ local function CreatePreview(showCharacter)
             -- oyuncular ASLA gormez; showCharacter=false ise (kap gorunumu) biz de
             -- gormeyiz (mevcut niyetle ayni).
             if showCharacter then SetEntityLocallyVisible(previewPed) end
-            if frames < 8 then setupStudio(); frames = frames + 1 end
+            if frames < 8 then
+                setupStudio(); frames = frames + 1
+            elseif anchorBasePos and realPed and DoesEntityExist(realPed) then
+                -- ESIK-BAZLI TAKIP: arac/oyuncu trackThreshold'dan (varsayilan 1m)
+                -- fazla uzaklastiysa sahneyi o anki konum/yone yeniden ankorla.
+                -- Kucuk titremelerde (esik alti) HICBIR SEY YAPILMAZ -> donuk/net
+                -- goruntu korunur, ani sarsinti/bulaniklik olusmaz.
+                local curPos = GetEntityCoords(realPed)
+                if #(curPos - anchorBasePos) > cfg.trackThreshold then
+                    anchorPos = curPos + vector3(0.0, 0.0, cfg.heightOffset)
+                    anchorHead = GetEntityHeading(realPed)
+                    anchorBasePos = curPos
+                    setupStudio()
+                end
+            end
             local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
             SetFocusPosAndVel(chest.x, chest.y, chest.z, 0.0, 0.0, 0.0)
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
@@ -459,6 +487,7 @@ local function DestroyPreview()
     ClearFocus()
     anchorPos = nil
     anchorHead = 0.0
+    anchorBasePos = nil
     camF = nil
     camR = nil
     compCache = {}
