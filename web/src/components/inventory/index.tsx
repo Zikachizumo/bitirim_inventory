@@ -71,10 +71,12 @@ const Inventory: React.FC = () => {
   }, [inventoryVisible, isDrop, hasContainer]);
 
   // Bitirim: STUDIO KAMERA kadraj kontrolleri (yalniz karakter paneli acikken).
-  //   Ok tuslari  = kadraj konumu (yukari/asagi = kamera yuksekligi, sag/sol = kamera
-  //                 yatay ofseti). Karakter SABIT bir dunya konumunda durur; bu tuslar
-  //                 sadece stüdyo kamerasinin o karaktere gore kadrajini ayarlar.
-  //   Numpad 1/2  = ZOOM (yakinlastir / uzaklastir).
+  //   Ok tuslari  = kadraj konumu, 2 EKSEN: yukari/asagi = kamera yuksekligi (dikey
+  //                 eksen), sag/sol = kamera yatay ofseti (yatay eksen). Ikisi
+  //                 birlikte de kullanilabilir (basili tutunca tekrarlar).
+  //   Numpad 1/2  = ZOOM (3. eksen: yakinlastir / uzaklastir).
+  // Karakter, oyuncunun konumunun ustunde durur (acilista hesaplanir); bu tuslar
+  // sadece stüdyo kamerasinin o karaktere gore kadrajini ayarlar.
   // Karakter sag/sola donme yine fare surukleme ile (char-view uzerinde).
   useEffect(() => {
     const showChar = inventoryVisible && !isDrop && !hasContainer;
