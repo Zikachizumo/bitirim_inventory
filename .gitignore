@@ -4,6 +4,10 @@ node_modules
 .idea
 .luarc.jsonc
 
+# dotnet build ciktilari (docs/props/ytypgen gibi yardimci asset araclari)
+bin/
+obj/
+
 # Bitirim: web/build BILEREK commit edilir.
 # init.lua acilista 'web/build/index.html' arar; yoksa kaynak hic baslamaz.
 # Sunucuda (Ubuntu) Bun/Node kurulu olmadigi icin derleme orada yapilamaz —
