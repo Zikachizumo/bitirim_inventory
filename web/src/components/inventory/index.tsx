@@ -164,10 +164,12 @@ const Inventory: React.FC = () => {
   // olcekle (tam ekran his). Dogal boyutu olcup min(vw,vh) orani ile scale eder.
   const windowRef = useRef<HTMLDivElement>(null);
   // Bitirim: .bx-scrim = pencere DISI tam ekran karartma (%75 opak siyah, HER
-  // envanter gorunumunde). Karakter panelinde VE kap panelinde (torpido/bagaj/
-  // motel/otel) AYRICA 3D studio backdrop'u (bitirim_props.ytyp) clip-path
-  // DELIGIYLE gosterilir — bu delik karakter/kap panelinde acilir, drop'ta acilmaz
-  // (updateHole, asagida). Kapta klon GIZLI (showCharacter:false) ama backdrop gorunur.
+  // envanter gorunumunde). Pencere ICINDE ise (drop haric) SOL panel (karakter/
+  // torpido/bagaj/motel/depo) + SAG panel (kendi envanterimiz) BIRLIKTE clip-path
+  // DELIGIYLE 3D studio backdrop'unu (bitirim_props.ytyp) gosterir -> tum panellerin
+  // arka plan opakligi TEK NOKTADAN (preview_manager.lua cfg.balpha) gelir, ayri bir
+  // scrim degeri YOK (updateHole, asagida). Kapta klon GIZLI (showCharacter:false)
+  // ama backdrop gorunur.
   const scrimRef = useRef<HTMLDivElement>(null);
   const windowBgRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef(1);
@@ -176,23 +178,30 @@ const Inventory: React.FC = () => {
     const el = windowRef.current;
     if (!el) return;
     const updateHole = () => {
-      // Bitirim (ChatGPT yaklasimi): char-view (karakter) VEYA bx-container (kap:
-      // torpido/bagaj/motel/otel) alaninda scrim + window-bg katmanlarina clip-path
-      // DELIK acilir -> orada bu iki katman YOK, 3D studio backdrop'u gorunur.
-      // Kamera DEGISMEZ. Drop acikken ikisi de yok -> delik yok (duz karartma kalir).
+      // Bitirim: TEK DELIK, SOL+SAG panelleri BIRLIKTE kapsar (union rect) -> arka
+      // plan opakligi TEK NOKTADAN (preview_manager.lua cfg.balpha) gelir, sag panel
+      // (kendi envanterimiz) artik ayri bir scrim degeriyle degil, SOL panelle (karakter/
+      // torpido/bagaj/motel/depo) AYNI 3D backdrop'u gosterir. Kamera DEGISMEZ. Drop
+      // acikken hicbiri yok -> delik yok (duz karartma kalir).
       const scrim = scrimRef.current;
       const bg = windowBgRef.current;
-      const view = (document.querySelector('.bx-char-view') ||
+      const leftView = (document.querySelector('.bx-char-view') ||
         document.querySelector('.bx-panel.bx-container')) as HTMLElement | null;
+      const rightView = document.querySelector('.bx-panel.bx-inventory') as HTMLElement | null;
+      const views = [leftView, rightView].filter(Boolean) as HTMLElement[];
       const s = scaleRef.current || 1;
-      if (!view) {
+      if (views.length === 0) {
         if (scrim) { scrim.style.clipPath = 'none'; (scrim.style as any).webkitClipPath = 'none'; }
         if (bg) { bg.style.clipPath = 'none'; (bg.style as any).webkitClipPath = 'none'; }
         return;
       }
-      const v = view.getBoundingClientRect();
+      const rects = views.map((v) => v.getBoundingClientRect());
+      const vLeft = Math.min(...rects.map((r) => r.left));
+      const vTop = Math.min(...rects.map((r) => r.top));
+      const vRight = Math.max(...rects.map((r) => r.right));
+      const vBottom = Math.max(...rects.map((r) => r.bottom));
       if (scrim) {
-        const L = Math.max(0, v.left), T = Math.max(0, v.top), R = v.right, B = v.bottom;
+        const L = Math.max(0, vLeft), T = Math.max(0, vTop), R = vRight, B = vBottom;
         const poly =
           `polygon(evenodd, 0px 0px, 100vw 0px, 100vw 100vh, 0px 100vh, 0px 0px, ` +
           `${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
@@ -201,8 +210,8 @@ const Inventory: React.FC = () => {
       }
       if (bg) {
         const w = el.getBoundingClientRect();
-        const L = (v.left - w.left) / s, T = (v.top - w.top) / s;
-        const R = (v.right - w.left) / s, B = (v.bottom - w.top) / s;
+        const L = (vLeft - w.left) / s, T = (vTop - w.top) / s;
+        const R = (vRight - w.left) / s, B = (vBottom - w.top) / s;
         const poly =
           `polygon(evenodd, 0px 0px, 100% 0px, 100% 100%, 0px 100%, 0px 0px, ` +
           `${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
