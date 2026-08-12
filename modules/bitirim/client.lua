@@ -27,7 +27,6 @@ local requestedFromServer = false
 RegisterNetEvent('bitirim:client:bagLevel', function(level)
     level = tonumber(level) or 0
     currentBagLevel = level
-    exports[GetCurrentResourceName()]:UpdateBagLevel(level)  -- karakter onizleme backdrop rengi
     if IsNuiFocused() then
         SendNUIMessage({ action = 'setBagLevel', data = level })
     end
@@ -42,7 +41,6 @@ RegisterCommand('cantatest', function(_, args)
     end
 
     currentBagLevel = math.floor(lvl)
-    exports[GetCurrentResourceName()]:UpdateBagLevel(currentBagLevel)  -- karakter onizleme backdrop rengi
     SendNUIMessage({ action = 'setBagLevel', data = currentBagLevel })
     lib.notify({ type = 'inform', description = ('Canta seviyesi (GORSEL test): %d'):format(currentBagLevel) })
 end, false)
@@ -140,10 +138,7 @@ CreateThread(function()
                 requestedFromServer = true
                 CreateThread(function()
                     local lvl = lib.callback.await('bitirim:server:getBagLevel', false)
-                    if type(lvl) == 'number' then
-                        currentBagLevel = lvl
-                        exports[GetCurrentResourceName()]:UpdateBagLevel(lvl)  -- karakter onizleme backdrop rengi
-                    end
+                    if type(lvl) == 'number' then currentBagLevel = lvl end
                 end)
             end
 

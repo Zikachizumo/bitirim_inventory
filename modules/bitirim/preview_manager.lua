@@ -58,21 +58,8 @@ local cfg = {
     fov       = 64.0,  -- gorus acisi (dar=yakin/buyuk gorunur) — KALICI (kullanici dial etti)
     backDist  = 2.40,  -- backdrop klonun kac metre ARKASINDA
     backZ     = 0.0,   -- backdrop dikey ince ayar
-    balpha    = 128,   -- renkli panel opaklik (0..255; 128 ~= %50 opak)
-}
-
--- Canta seviyesine (0-5) gore backdrop MODELI. Her biri stream/'de ayri .ydr (ayni
--- 20m panel geometri, farkli DUZ RENK doku — bitirim_backdrop01 uretiminde kullanilan
--- ayni Blender+Sollumz pipeline'i ile uretildi, bkz. docs/props/make_backdrop.py).
--- Renkler web/src/index.scss :root[data-lv] --accent degerleriyle BIREBIR AYNI
--- (Beyaz/Mavi/Mor/Turuncu/Altin) -> NUI tint katmani + 3D prop kendisi TUTARLI.
-local BACKDROP_MODEL_BY_LEVEL = {
-    [0] = 'bitirim_backdrop01',      -- notr siyah (cantasiz)
-    [1] = 'bitirim_backdrop_lv1',    -- Beyaz
-    [2] = 'bitirim_backdrop_lv2',    -- Mavi
-    [3] = 'bitirim_backdrop_lv3',    -- Mor
-    [4] = 'bitirim_backdrop_lv4',    -- Turuncu
-    [5] = 'bitirim_backdrop_lv5',    -- Altin
+    balpha    = 128,   -- siyah panel opaklik (0..255; 128 ~= %50 opak)
+    bmodel    = 'bitirim_backdrop01',  -- stream'deki 20m+ SIYAH panel (SABIT — canta seviyesine gore degismez)
 }
 
 -- Idle (klon temiz durus). Cinsiyete gore.
@@ -92,9 +79,8 @@ local active       = false
 local previewPed   = nil    -- YEREL klon (studio kamerasi buna bakar)
 local realPed      = nil    -- referans (aynalama) + YEREL gizlenir
 local studioCam    = nil    -- scripted kamera
-local backdrop     = nil    -- renkli panel (on yuz kameraya bakar)
+local backdrop     = nil    -- siyah panel (on yuz kameraya bakar)
 local backdrop2    = nil    -- ikinci panel (backface guvencesi)
-local bagLevel     = 0      -- canta seviyesi (0-5) — client.lua UpdateBagLevel ile gonderir
 local anchorPos    = nil    -- klonun durdugu konum (oyuncu XY + heightOffset Z) — HER ACILISTA yeniden hesaplanir
 local anchorHead   = 0.0    -- klonun heading'i (acilis anindaki oyuncu heading'i) — SABIT (kamera bunu kullanir)
 local dragYaw      = 0.0    -- kullanici surukleme/donme ofseti (klonu dondurur)
@@ -183,12 +169,11 @@ local function setupStudio()
     placeKlon()
 end
 
---- Iki paneli (canta seviyesine gore renkli model) spawn et.
+--- Iki siyah paneli spawn et.
 local function spawnBackdrop()
-    local modelName = BACKDROP_MODEL_BY_LEVEL[bagLevel] or BACKDROP_MODEL_BY_LEVEL[0]
-    local h = GetHashKey(modelName)
+    local h = GetHashKey(cfg.bmodel)
     if not IsModelInCdimage(h) or not IsModelValid(h) then
-        print(('^1[bitirim] backdrop model gecersiz: "%s" (stream/ytyp yuklendi mi?)^7'):format(modelName))
+        print(('^1[bitirim] backdrop model gecersiz: "%s" (stream/ytyp yuklendi mi?)^7'):format(cfg.bmodel))
         return
     end
     RequestModel(h)
@@ -446,25 +431,6 @@ local function SyncFromPlayer()
     mirrorWeapon(false)
 end
 
---- Canta seviyesi degisti (client.lua currentBagLevel guncellenince cagrilir).
---- Preview ACIKKEN degisirse backdrop'u yeni renkli modelle ANINDA degistirir.
-local function UpdateBagLevel(level)
-    level = tonumber(level) or 0
-    if level == bagLevel then return end
-    bagLevel = level
-    if not active then return end  -- preview kapaliysa sadece degeri sakla, sonraki acilista kullanilir
-    if backdrop and DoesEntityExist(backdrop) then
-        SetEntityAsMissionEntity(backdrop, true, true); DeleteObject(backdrop)
-    end
-    backdrop = nil
-    if backdrop2 and DoesEntityExist(backdrop2) then
-        SetEntityAsMissionEntity(backdrop2, true, true); DeleteObject(backdrop2)
-    end
-    backdrop2 = nil
-    spawnBackdrop()
-    placeKlon()  -- yeni backdrop'u dogru konuma/acilara yerlestirir
-end
-
 ------------------------------------------------------------------------------
 -- DONME / YERLESIM API
 ------------------------------------------------------------------------------
@@ -549,7 +515,6 @@ exports('SyncFromPlayer',  SyncFromPlayer)
 exports('RotatePreview',   RotatePreview)
 exports('TuneScene',       TuneScene)
 exports('SetCamera',       SetCamera)
-exports('UpdateBagLevel',  UpdateBagLevel)
 
 -- Emniyet: kaynak durursa temizle.
 AddEventHandler('onResourceStop', function(res)
