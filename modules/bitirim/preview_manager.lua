@@ -20,13 +20,18 @@
       Z'de konur (`cfg.heightOffset`). X/Y oyuncuyla AYNI oldugu icin cevresindeki
       stream hep "sicak" kalir (kamera uzaklasmaz, sadece dikeyde kayar) -> ani
       kapanista render sorunu olmaz.
-    - **YON: ARTIK ASAGI (NEGATIF), YUKARI DEGIL** (2026-08-12, kullanici bildirdi):
-      klon +Z (havada, oyuncunun ustunde) iken YAKINDAKI BASKA OYUNCULAR onu
-      GORUYORDU (birkac metre yukarida yuzen bir klon, cok belirgin/goze batan).
-      cfg.heightOffset ARTIK BUYUK NEGATIF (haritanin COK altinda, gercek terrain'in
-      altindaki bos "void") -> hicbir oyuncu normal oyun icinde oraya bakamaz/
-      gidemez, klon PRATIKTE kimseye gorunmez. X/Y ayni kaldigi icin stream-sicakligi
-      garantisi (yukaridaki madde) DEGISMEDI, sadece yon ters cevrildi.
+    - **ASAGI (NEGATIF/haritanin alti) DENENDI, TERK EDILDI:** klon gercek zemin/
+      kayaya gomuluyordu (kullanici bildirdi: -1000'de "bel altina kadar toprak
+      icinde" gorunuyordu) -> haritanin altinda HER YERDE guvenilir bos void YOK.
+      **YUKARI (acik gokyuzu) HER ZAMAN guvenilir bos alan** -> cfg.heightOffset
+      +100 (ilk dogrulanmis deger) GERI GETIRILDI.
+    - **"Yakindaki oyuncu goruyor" sorunu ARTIK MESAFEYLE degil LOD-KISITLAMASIYLA
+      cozuluyor:** `SetEntityLodDist(previewPed, 25)` (eskiden 1000) -> klon SADECE
+      ~25m'den yakin bir kameradan render edilir. Kendi scripted kameran klona
+      SADECE ~3m uzaklikta (camDist) -> HER ZAMAN gorursun. Yerdeki BASKA bir
+      oyuncu ise klonun TAM ALTINDA dursa bile araya ~100m DIKEY mesafe girer
+      (>> 25m LOD kesme mesafesi) -> motor seviyesinde render EDILMEZ, mesafeye
+      ne kadar "yakin" dursa dursun (yatay yakinlik onemsiz, klon 100m yukarida).
     - Gameplay kamerasi (TP/FP/egim) hala ONEMSIZ: kendi scripted kameramiz klona
       SABIT bir acidan bakar -> arka plan HER ZAMAN %100 kapli.
     - GECIS ANIMASYONU YOK: envanter acilir acilmaz (bir sonraki frame) direkt studio
@@ -42,9 +47,12 @@
     Klon local-only (ClonePed isNetwork=false) -> teoride diger oyuncular klonu HIC
     gormemeli. PRATIKTE (2026-08-12) bir kullanici yakinindaki arkadasinin canta
     actiginda klonu GORDUGUNU bildirdi — ag-yalitiminin %100 garanti olmadigi
-    ihtimaline karsi, YUKARIDAKI "haritanin cok altina gonder" onlemi de EK bir
+    ihtimaline karsi, YUKARIDAKI +100m yukseklik + kucuk LOD mesafesi EK bir
     guvenlik katmani olarak eklendi (network sizintisi olsa bile, klon artik
-    kimsenin normalde bulunamayacagi bir konumda).
+    mesafe/LOD yuzunden motor seviyesinde render edilmiyor). **Eger ILERIDE yine
+    "biri klonu gordu" sikayeti gelirse, bu sefer GERCEKTEN network/isNetwork
+    davranisini debug etmek gerekir** (bkz `docs/`'ta not yok, ama ClonePed'in
+    isNetwork parametresi + SetEntityAsMissionEntity cagrisi ilk incelenecek yer).
     Gercek ped SADECE yerel gizlenir -> preview'da 2. karakter yok; agda arkadaslar beni
     normal/dogru kiyafetli gorur. Appearance senkron: tek kaynak = gercek ped (~150ms diff).
 
@@ -58,16 +66,17 @@
 -- YAPILANDIRMA (studio kamerasi + backdrop; /cam VEYA ok tuslari+Numpad1/2 ile dial edilir)
 ------------------------------------------------------------------------------
 local cfg = {
-    -- klon, oyuncunun O ANKI konumunun (ayni X/Y) kac metre USTUNDE/ALTINDA durur.
-    -- NEGATIF = ASAGI (haritanin altinda, bos void, yakindaki oyunculara gorunmez).
-    -- KULLANICI ISTEGI (2026-08-12, ayni gun, -1000'in HEMEN ardindan): "eski haline
-    -- geri al" -> ARTIK TEKRAR POZITIF/YUKARIDA (+5.0). ONEMLI: bu, bir onceki
-    -- commit'te bulunan ve duzeltilen "yakindaki arkadas klonu goruyor" bug'ini
-    -- BILEREK GERI GETIRIYOR — kullaniciya (AskUserQuestion ile) acikca soruldu,
-    -- riski bilerek onayladi. Bir sonraki oturumda "yine biri klonu gordu" sikayeti
-    -- gelirse ONCELIKLE burayi (+5 -> negatif) kontrol et, kod hatasi degil bilinen
-    -- bir tradeoff. TEST GECMISI: 100->25->5->2 (+) -> -1000 (bug-fix) -> +5.0 (geri).
-    heightOffset = 5.0,
+    -- klon, oyuncunun O ANKI konumunun (ayni X/Y) kac metre USTUNDE durur.
+    -- NEGATIF (ASAGI/haritanin alti) DENENDI, TERK EDILDI: kullanici bildirdi, -1000'de
+    -- klon GERCEK ZEMIN/KAYAYA gomuluyordu (bel altina kadar toprak icinde gorunuyordu)
+    -- -> "haritanin altı" GUVENILIR BIR VOID DEGIL (dunyanin cogu yerinde bir yerlerde
+    -- katı zemin var). SADECE YUKARI (acik gokyuzu) GUVENILIR BOS ALAN -> +100 (ilk
+    -- dogrulanmis deger) GERI GETIRILDI. "Yakindaki oyuncu goruyor" sorunu ARTIK
+    -- mesafeyle DEGIL asagidaki LOD-KISITLAMASIYLA cozuluyor (bkz CreatePreview'daki
+    -- SetEntityLodDist notu) -> 100m yukaride + kucuk LOD mesafesi = SADECE kendi
+    -- (klona ~3m yakin duran) scripted kameran gorur, yerdeki HERKES (dikey mesafe
+    -- ~100m >> LOD kesme mesafesi) neye ne kadar yakin dursa dursun goremez.
+    heightOffset = 100.0,
 
     -- Oyuncu bir BINA/INTERIOR icindeyse (GetInteriorFromEntity ~= 0), "ustu" mantikli
     -- degil (interior'lar dunyada farkli/istiflenmis konumlarda olabilir) -> bunun
@@ -337,7 +346,13 @@ local function CreatePreview(showCharacter)
     SetEntityInvincible(previewPed, true)
     SetEntityCollision(previewPed, false, false)
     SetBlockingOfNonTemporaryEvents(previewPed, true)
-    SetEntityLodDist(previewPed, 1000)
+    -- ONEMLI: eskiden 1000 idi (klon 1000m'den bile render edilirdi). Klon artik
+    -- oyuncunun 100m USTUNDE -> SADECE kendi (klona ~3m yakin duran) scripted
+    -- kameran onu gormeli, yerdeki BASKA oyuncular (dikey mesafe ~100m) DEGIL.
+    -- Kucuk bir LOD mesafesi (25m) bunu MESAFEYE GORE motor seviyesinde garanti
+    -- eder -> yerde ne kadar yakin dursalar dursunlar (klonun ALTINDA), aradaki
+    -- ~100m dikey mesafe LOD kesme mesafesini asar, render edilmez.
+    SetEntityLodDist(previewPed, 25)
     SetEntityVisible(previewPed, showCharacter, false)
     ResetEntityAlpha(previewPed)
 
