@@ -783,17 +783,15 @@ body.inv-dragging {
   height: 100%;
 }
 
-/* Bitirim: tam-ekran scrim = pencere DISINDAKI game world overlay'i. %75 OPAK siyah
-   -> oyun dunyasi arkadan %25 gorunur (canta ICI degil). Studio sahnesi (3D backdrop)
-   SADECE karakter panelinde aktif -> orada char-view'e clip-path DELIK acilir (bu
-   scrim'i atlar); diger gorunumlerde (stash/bagaj/drop) delik yok, scrim duz karartir.
-   pointer-events yok. */
+/* Bitirim: tam-ekran scrim = pencere DISINDAKI game world overlay'i. KULLANICI ISTEGI
+   (2026-08-12): canta arka plani KOMPLE KALDIRILDI, tamamen seffaf -> oyun dunyasi
+   pencere disinda da TAM gorunur, karartma yok. pointer-events yok. */
 .bx-scrim {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: rgba(0, 0, 0, 0.75);
+  background: transparent;
 }
 
 .bx-window {
