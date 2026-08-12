@@ -9,18 +9,24 @@
                       └──► Mirror Klon Ped    (YEREL; oyuncunun USTUNDE; studio
                                                 kamerasi buna bakar)
 
-    NEDEN "OYUNCUNUN USTU" (SABIT UZAK VOID KOORDINATI DEGIL):
+    NEDEN "OYUNCUNUN AYNI X/Y'SI, FARKLI Z'SI" (SABIT UZAK VOID KOORDINATI DEGIL):
     - Once tek bir SABIT uzak dunya koordinati (kullanicinin verdigi vec4) denendi.
       Sorun: kamera + klon + backdrop o UZAK noktaya tasininca, motor o bolgeyi
       stream etmeye baslar ve oyuncunun GERCEK bulundugu yerin cevresi "soguyabilir"
       (stream disi kalabilir). Envanter kapaninca kamera ANINDA (0ms) gameplay'e
       donunce, oyuncunun etrafi henuz tam stream olmamis olabilir -> "oyuna donunce
       render sorunu" (pop-in/LOD/kara ekran hissi). Kullanici bunu bildirdi.
-    - COZUM: klon HER ACILISTA oyuncunun O ANKI X/Y konumunun tam ustunde (+Z) konur.
-      X/Y oyuncuyla AYNI oldugu icin cevresindeki stream hep "sicak" kalir (kamera
-      uzaklasmaz, sadece yukari cikar) -> ani kapanista render sorunu olmaz. Z+100
-      (varsayilan) hemen hemen her yerde acik gokyuzu -> temiz arka plan garantisi
-      SABIT koordinatla ayni sekilde saglanir, ama render riski olmadan.
+    - COZUM: klon HER ACILISTA oyuncunun O ANKI X/Y konumunun AYNISINDA, farkli bir
+      Z'de konur (`cfg.heightOffset`). X/Y oyuncuyla AYNI oldugu icin cevresindeki
+      stream hep "sicak" kalir (kamera uzaklasmaz, sadece dikeyde kayar) -> ani
+      kapanista render sorunu olmaz.
+    - **YON: ARTIK ASAGI (NEGATIF), YUKARI DEGIL** (2026-08-12, kullanici bildirdi):
+      klon +Z (havada, oyuncunun ustunde) iken YAKINDAKI BASKA OYUNCULAR onu
+      GORUYORDU (birkac metre yukarida yuzen bir klon, cok belirgin/goze batan).
+      cfg.heightOffset ARTIK BUYUK NEGATIF (haritanin COK altinda, gercek terrain'in
+      altindaki bos "void") -> hicbir oyuncu normal oyun icinde oraya bakamaz/
+      gidemez, klon PRATIKTE kimseye gorunmez. X/Y ayni kaldigi icin stream-sicakligi
+      garantisi (yukaridaki madde) DEGISMEDI, sadece yon ters cevrildi.
     - Gameplay kamerasi (TP/FP/egim) hala ONEMSIZ: kendi scripted kameramiz klona
       SABIT bir acidan bakar -> arka plan HER ZAMAN %100 kapli.
     - GECIS ANIMASYONU YOK: envanter acilir acilmaz (bir sonraki frame) direkt studio
@@ -33,7 +39,12 @@
       (computeCameraBasis'teki YON DUZELTMESI notuna bak) -> gorunen manzara artik
       karakterin GERCEKTEN baktigi yonle eslesir.
 
-    Klon local-only (ClonePed isNetwork=false) -> diger oyuncular klonu HIC gormez.
+    Klon local-only (ClonePed isNetwork=false) -> teoride diger oyuncular klonu HIC
+    gormemeli. PRATIKTE (2026-08-12) bir kullanici yakinindaki arkadasinin canta
+    actiginda klonu GORDUGUNU bildirdi — ag-yalitiminin %100 garanti olmadigi
+    ihtimaline karsi, YUKARIDAKI "haritanin cok altina gonder" onlemi de EK bir
+    guvenlik katmani olarak eklendi (network sizintisi olsa bile, klon artik
+    kimsenin normalde bulunamayacagi bir konumda).
     Gercek ped SADECE yerel gizlenir -> preview'da 2. karakter yok; agda arkadaslar beni
     normal/dogru kiyafetli gorur. Appearance senkron: tek kaynak = gercek ped (~150ms diff).
 
@@ -47,7 +58,13 @@
 -- YAPILANDIRMA (studio kamerasi + backdrop; /cam VEYA ok tuslari+Numpad1/2 ile dial edilir)
 ------------------------------------------------------------------------------
 local cfg = {
-    heightOffset = 2.0,  -- klon, oyuncunun O ANKI konumunun kac metre USTUNDE durur (TEST: 100->25->5->2)
+    -- klon, oyuncunun O ANKI konumunun (ayni X/Y) kac metre USTUNDE/ALTINDA durur.
+    -- NEGATIF = ASAGI (haritanin cok altinda, bos void) -> yakindaki BASKA
+    -- oyunculara ARTIK gorunmez (2026-08-12: +2m'de yakindaki arkadas klonu
+    -- goruyordu, bkz yukaridaki dosya-basi not). X/Y AYNI kaldigi icin stream-
+    -- sicakligi garantisi bozulmadi (yukaridaki not). TEST GECMISI: 100->25->5->2
+    -- (hepsi +, yukari) -> -1000 (asagi, gorunmezlik icin).
+    heightOffset = -1000.0,
 
     -- Oyuncu bir BINA/INTERIOR icindeyse (GetInteriorFromEntity ~= 0), "ustu" mantikli
     -- degil (interior'lar dunyada farkli/istiflenmis konumlarda olabilir) -> bunun
@@ -321,11 +338,12 @@ local function CreatePreview(showCharacter)
     SetEntityVisible(previewPed, showCharacter, false)
     ResetEntityAlpha(previewPed)
 
-    -- 2) Klon konumu: oyuncunun O ANKI X/Y'sinde, Z + heightOffset (havada). X/Y
-    -- oyuncuyla AYNI oldugu icin o bolgenin streami "sicak" kalir -> kapaniste render
-    -- sorunu olmaz (uzak sabit koordinat denendi, bu soruna yol acti — kaldirildi).
-    -- ISTISNA: oyuncu bir BINA/INTERIOR icindeyse "ustu" güvenilir degil (interior'lar
-    -- dunyada farkli/istiflenmis konumlarda olabilir, +Z acik gokyuzune cikmayabilir)
+    -- 2) Klon konumu: oyuncunun O ANKI X/Y'sinde, Z + heightOffset (ARTIK NEGATIF ->
+    -- haritanin cok altinda, void). X/Y oyuncuyla AYNI oldugu icin o bolgenin
+    -- streami "sicak" kalir -> kapaniste render sorunu olmaz (uzak sabit koordinat
+    -- denendi, bu soruna yol acti — kaldirildi). ISTISNA: oyuncu bir BINA/INTERIOR
+    -- icindeyse "ayni X/Y'nin cok altina in" guvenilir degil (interior'lar dunyada
+    -- farkli/istiflenmis konumlarda olabilir, altta baska bir interior'un ici olabilir)
     -- -> bu durumda SABIT, onceden test edilmis sehir-yolu konumuna dusulur.
     if GetInteriorFromEntity(ped) ~= 0 then
         anchorPos  = cfg.interiorFallbackPos
