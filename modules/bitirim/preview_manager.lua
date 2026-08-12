@@ -1,10 +1,12 @@
 --[[
     Bitirim — PREVIEW MANAGER (AYNA / "Mirror" KARAKTER ONIZLEMESI, Sabit Kamera)
     ============================================================================
-    AYNA MIMARISI (kullanici spec'i): gercek karakter OYUNDA GORUNMEYE DEVAM EDER;
-    review'da onun canli bir AYNASI (mirror klon) gosterilir -> 2 yerde karakter.
-        GERCEK OYUNCU (mevcut appearance) ──► Gercek Player Ped  (oyunda GORUNUR kalir)
-                                          └──► Mirror Klon Ped    (review'da; canli aynalanir)
+    AYNA MIMARISI: review'da oyuncunun canli bir AYNASI (mirror klon) gosterilir. Klon
+    YEREL (local-only) entity'dir -> ag uzerinde YAYILMAZ, diger oyuncular gormez.
+    Gercek ped SADECE yerel (kendi ekranimda) gizlenir -> preview'da 2. karakter yok;
+    arkadaslarim beni normal/dogru kiyafetli gormeye devam eder.
+        GERCEK OYUNCU (mevcut appearance) ──► Gercek Player Ped  (yerel GIZLI; agda normal gorunur)
+                                          └──► Mirror Klon Ped    (YEREL; review'da canli aynalanir)
 
     EN ONEMLI KURAL: GAMEPLAY KAMERASINA HIC DOKUNULMAZ.
     - Scripted kamera OLUSTURULMAZ, RenderScriptCams CAGRILMAZ. Kamera YAW/pozisyon
@@ -16,7 +18,8 @@
       DURURKEN kamera sabit -> klon dunyada donuk (motion blur yok, net); oyuncu YURURKEN
       kamera onunla ilerler -> klon takip eder, KADRAJDAN CIKMAZ. Klon kameraya bakar
       (heading = camYaw+180+dragYaw).
-    - GERCEK PED GIZLENMEZ (ayna modu). Arkada o noktadaki oyun dunyasi gorunur.
+    - GERCEK PED YEREL GIZLENIR (SetEntityLocallyInvisible, her kare). Sadece kendi
+      ekranimda; agda/arkadaslarda etkisi yok. Klon local-only -> kimse klonu gormez.
     - Appearance senkron: tek kaynak = gercek ped. ~150ms diff-loop ile klona
       AYNALANIR (sadece DEGISEN component/prop/silah). Movement/anim AYNALANMAZ.
     - Kapaninca mirror klon silinir; gercek ped'e zaten dokunulmadi.
@@ -111,10 +114,15 @@ local function positionBackdrop()
     local r = vector3(czr, szr, 0.0)
     local u = vector3(szr * sxr, -czr * sxr, cxr)
     local D = cfg.dist + cfg.bdist
+    -- Panel KLONLA HIZALI olsun (klon side/down ofsetinde; bx/bz sadece ince ayar deltasi).
+    -- Boylece buyuk panel karakterin TAM ARKASINDA/ortasinda durur -> kenarlardan dunya
+    -- sizmaz (onceki hali panel ortada, klon solda -> hizasizdi, yan acilarda dunya gorunur).
+    local hoff = cfg.side + cfg.bx  -- yatay: klonla ayni + delta
+    local voff = cfg.down + cfg.bz  -- dikey: klonla ayni + delta
     SetEntityCoordsNoOffset(backdrop,
-        camPos.x + f.x * D + r.x * cfg.bx + u.x * cfg.bz,
-        camPos.y + f.y * D + r.y * cfg.bx + u.y * cfg.bz,
-        camPos.z + f.z * D + r.z * cfg.bx + u.z * cfg.bz,
+        camPos.x + f.x * D + r.x * hoff + u.x * voff,
+        camPos.y + f.y * D + r.y * hoff + u.y * voff,
+        camPos.z + f.z * D + r.z * hoff + u.z * voff,
         false, false, false)
     -- Panel TEK yuzlu; heading = camYaw (kameraya bakar; +180 backface culling -> gorunmez).
     SetEntityHeading(backdrop, rot.z % 360.0)
@@ -209,9 +217,13 @@ local function CreatePreview()
     if not ped or ped == 0 then return end
     realPed = ped -- referans (aynalama) + LOKAL gizlenir; dunya/network DOKUNULMAZ
 
-    -- 1) Klon = oyuncunun O ANKI gorunumu. ONCE klonla (ped HALA gorunur) -> klon
-    -- gorunmezligi MIRAS ALMAZ. Gizlemeyi klon kurulduktan SONRA yapariz.
-    previewPed = ClonePed(ped, GetEntityHeading(ped), true, true)
+    -- 1) Klon = oyuncunun O ANKI gorunumu.
+    -- KRITIK: isNetwork=FALSE, scriptHost=FALSE -> klon YEREL (local-only) entity.
+    -- Ag uzerinde REPLIKE EDILMEZ; diger oyuncular klonu HIC GORMEZ. (Onceki
+    -- isNetwork=true, klonu aga yayiyordu -> arkadaslar oyuncunun DEFAULT-kiyafetli
+    -- bir kopyasini haritada goruyordu; ClonePedToTarget appearance senkronu sadece
+    -- yerel oldugu icin de kiyafetler onlara replike olmuyordu. Bu bug'in kok nedeni.)
+    previewPed = ClonePed(ped, GetEntityHeading(ped), false, false)
     if not previewPed or previewPed == 0 or not DoesEntityExist(previewPed) then
         print('^1[bitirim] PreviewManager: ClonePed BASARISIZ^7')
         previewPed = nil
@@ -227,8 +239,10 @@ local function CreatePreview()
     SetEntityVisible(previewPed, true, false)  -- MIRROR KESIN GORUNUR
     ResetEntityAlpha(previewPed)
 
-    -- 2) AYNA MODU: gercek ped GIZLENMEZ -> oyunda karakter gorunmeye devam eder;
-    -- mirror klon review'da ayrica gorunur (2 yerde karakter). Kullanici istegi.
+    -- 2) Gercek ped SADECE YEREL olarak (kendi ekranimda) gizlenir -> preview'da 2.
+    -- karakter gorunmez. Ag uzerinde ETKISI YOK: arkadaslarim beni normal, dogru
+    -- kiyafetli halimle gormeye devam eder. SetEntityLocallyInvisible her kare cagrilir
+    -- (kendini sifirlar) -> preview kapaninca thread durunca ped OTOMATIK geri gorunur.
 
     -- 3) Ilk yerlesim + odak (klonun oldugu yer render/stream edilsin). Kamera YAW/pozisyon
     -- degismez; sadece PITCH render loop'ta cfg.pitch'e kilitlenir (klon hep ayni acida).
@@ -256,6 +270,9 @@ local function CreatePreview()
         local lastCamRot = GetGameplayCamRot(2)
         while active and previewPed and DoesEntityExist(previewPed) do
             SetGameplayCamRelativePitch(cfg.pitch, 1.0)
+            -- Gercek bedeni YEREL gizle (2. karakter gorunmesin). Her kare gerekli:
+            -- native kendini sifirlar -> thread durunca ped otomatik geri gorunur.
+            if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
             -- Kamera ne kadar oynadi? Oyuncu dururken ~0 (donuk kalir); yururken kamera
             -- onunla ilerler (dPos esigi asar) -> klon yeniden yerlesip takip eder.
             local camPos = GetGameplayCamCoord()
@@ -304,7 +321,14 @@ local function DestroyPreview()
         DeletePed(previewPed)
     end
     previewPed = nil
-    realPed = nil  -- ayna modunda gizlenmedi -> geri acmaya gerek yok
+
+    -- Gercek bedeni kesin geri goster (SetEntityLocallyInvisible thread durunca zaten
+    -- kendini sifirlar; bu emniyet kemeri, her ihtimale karsi).
+    if realPed and DoesEntityExist(realPed) then
+        SetEntityVisible(realPed, true, false)
+        ResetEntityAlpha(realPed)
+    end
+    realPed = nil
 
     ClearFocus()
     compCache = {}
