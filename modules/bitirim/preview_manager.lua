@@ -74,17 +74,6 @@ local cfg = {
     -- kalitesi icin ayarlanir.
     heightOffset = 2.0,
 
-    -- ARAC/YURUYUS TAKIBI (2026-08-12, kullanici istegi): "araç hareket halinde
-    -- iken 1mt uzaklaştığında görüntü tekrardan oluşturulsun". Oyuncu (aracla
-    -- birlikte) acilis anindaki konumdan bu kadar (metre) uzaklasinca stuido
-    -- sahnesi (kamera+klon+backdrop) SESSIZCE yeniden o anki konuma/yone
-    -- ANKORLANIR -> araç/uçak/helikopterle hareket ederken sahne "arkada kalmaz".
-    -- ESIK-BAZLI (her karede DEGIL): cok kucuk titremelerde (dururken bile olan
-    -- ufak fizik sarsintilari) yeniden konumlanip goruntude sarsinti/bulaniklik
-    -- YARATMASIN diye (bu projede daha once "her kare yeniden konumlandir"
-    -- denenip AYNI sebeple terk edilmisti, esik-bazliya gecilmisti).
-    trackThreshold = 1.0,
-
     -- Oyuncu bir BINA/INTERIOR icindeyse (GetInteriorFromEntity ~= 0), "ustu" mantikli
     -- degil (interior'lar dunyada farkli/istiflenmis konumlarda olabilir) -> bunun
     -- yerine kullanicinin daha once test ettigi SABIT sehir-yolu konumuna dusulur.
@@ -243,6 +232,28 @@ local function setupStudio()
     placeKlon()
 end
 
+--- Ankoru (anchorPos/anchorHead/anchorBasePos) GUNCEL oyuncu konumundan yeniden
+--- hesaplar (klona/kameraya DOKUNMAZ — bu setupStudio'nun isi, ayri cagrilir).
+--- Hem ilk kurulumda (CreatePreview) HEM HER KAREDE (render thread) cagrilir ->
+--- araç/uçak/helikopterle hareket ederken sahne SUREKLI/AKICI takip eder (esik-
+--- bazli "sicramali" yontem SIKAYET UZERINE terk edildi — konum girdisi motor
+--- tarafindan zaten yumusak/interpolasyonlu oldugu icin HER KARE okumak sicrama
+--- YARATMAZ; eski "titreme" kaygisi FARKLI bir mimarideki gameplay-kamera-
+--- rotasyonu gurultusundendi, buradaki SADECE konum icin gecerli degil).
+local function updateAnchor()
+    if not realPed or not DoesEntityExist(realPed) then return end
+    if GetInteriorFromEntity(realPed) ~= 0 then
+        anchorPos  = cfg.interiorFallbackPos
+        anchorHead = cfg.interiorFallbackHead
+        anchorBasePos = nil
+    else
+        local basePos = GetEntityCoords(realPed)
+        anchorPos  = basePos + vector3(0.0, 0.0, cfg.heightOffset)
+        anchorHead = GetEntityHeading(realPed)
+        anchorBasePos = basePos
+    end
+end
+
 --- Iki siyah paneli spawn et. balpha<=0 -> arka plan KOMPLE KALDIRILDI (kullanici
 --- istegi), hic obje spawn edilmez (gorunmez obje degil, GERCEKTEN yok).
 local function spawnBackdrop()
@@ -374,17 +385,8 @@ local function CreatePreview(showCharacter)
     -- acti — kaldirildi). ISTISNA: oyuncu bir BINA/INTERIOR icindeyse "ustu" guvenilir
     -- degil (interior'lar dunyada farkli/istiflenmis konumlarda olabilir, +Z acik
     -- gokyuzune cikmayabilir) -> bu durumda SABIT, onceden test edilmis sehir-yolu
-    -- konumuna dusulur.
-    if GetInteriorFromEntity(ped) ~= 0 then
-        anchorPos  = cfg.interiorFallbackPos
-        anchorHead = cfg.interiorFallbackHead
-        anchorBasePos = nil  -- sabit konum, oyuncu takibi YOK
-    else
-        local basePos = GetEntityCoords(ped)
-        anchorPos  = basePos + vector3(0.0, 0.0, cfg.heightOffset)
-        anchorHead = GetEntityHeading(ped)
-        anchorBasePos = basePos
-    end
+    -- konumuna dusulur. (updateAnchor() HER KAREDE de cagrilir, bkz render thread.)
+    updateAnchor()
     dragYaw = 0.0
 
     -- 3) Scripted kamera (dogrudan studio konumunda olusturulur; GECIS ANIMASYONU YOK)
@@ -403,10 +405,10 @@ local function CreatePreview(showCharacter)
     playIdle()
     mirrorWeapon(true)
 
-    -- RENDER thread (Wait 0): gercek bedeni yerel gizle + ilk karelerde kadraji
-    -- oturt (bone'lar settle olunca) + odak klona + ox screenblur kapat.
+    -- RENDER thread (Wait 0): gercek bedeni yerel gizle + HER KAREDE ankoru guncelle
+    -- (araç/uçak/helikopterle hareket ederken sahne akici sekilde takip eder) + kadraji
+    -- oturt + odak klona + ox screenblur kapat.
     CreateThread(function()
-        local frames = 0
         while active and previewPed and DoesEntityExist(previewPed) do
             if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
             -- Klon agda GENEL OLARAK gorunmez (yukaridaki not) -> SADECE showCharacter
@@ -415,21 +417,8 @@ local function CreatePreview(showCharacter)
             -- oyuncular ASLA gormez; showCharacter=false ise (kap gorunumu) biz de
             -- gormeyiz (mevcut niyetle ayni).
             if showCharacter then SetEntityLocallyVisible(previewPed) end
-            if frames < 8 then
-                setupStudio(); frames = frames + 1
-            elseif anchorBasePos and realPed and DoesEntityExist(realPed) then
-                -- ESIK-BAZLI TAKIP: arac/oyuncu trackThreshold'dan (varsayilan 1m)
-                -- fazla uzaklastiysa sahneyi o anki konum/yone yeniden ankorla.
-                -- Kucuk titremelerde (esik alti) HICBIR SEY YAPILMAZ -> donuk/net
-                -- goruntu korunur, ani sarsinti/bulaniklik olusmaz.
-                local curPos = GetEntityCoords(realPed)
-                if #(curPos - anchorBasePos) > cfg.trackThreshold then
-                    anchorPos = curPos + vector3(0.0, 0.0, cfg.heightOffset)
-                    anchorHead = GetEntityHeading(realPed)
-                    anchorBasePos = curPos
-                    setupStudio()
-                end
-            end
+            updateAnchor()
+            setupStudio()
             local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
             SetFocusPosAndVel(chest.x, chest.y, chest.z, 0.0, 0.0, 0.0)
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
