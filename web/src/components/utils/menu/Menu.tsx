@@ -7,7 +7,6 @@ import {
   FloatingFocusManager,
   FloatingList,
   FloatingNode,
-  FloatingOverlay,
   FloatingPortal,
   FloatingTree,
   offset,
@@ -211,19 +210,23 @@ export const MenuComponent = React.forwardRef<HTMLButtonElement, MenuProps & Rea
         >
           <FloatingList elementsRef={elementsRef} labelsRef={labelsRef}>
             {isMounted && (
+              // Bitirim (2026-08-12): FloatingOverlay (position:fixed tam-ekran
+              // sarmalayici, sadece scroll-kilit icin) KALDIRILDI — FiveM'in CEF
+              // NUI'sinde ic ice fixed katmanlarla ilgili bir tuhaflik yuzunden
+              // menu z-index'e RAGMEN slotlarin ARKASINDA kaliyordu (normal
+              // Chromium'da SORUNSUZDU, sadece CEF'te). Scroll-kilit envanterde
+              // kritik degil (oyun dunyasi scroll olmaz).
               <FloatingPortal>
-                <FloatingOverlay lockScroll>
-                  <FloatingFocusManager context={context} modal={true} initialFocus={refs.floating}>
-                    <div
-                      ref={refs.setFloating}
-                      className="context-menu-list"
-                      style={{ ...floatingStyles, ...styles }}
-                      {...getFloatingProps()}
-                    >
-                      {children}
-                    </div>
-                  </FloatingFocusManager>
-                </FloatingOverlay>
+                <FloatingFocusManager context={context} modal={true} initialFocus={refs.floating}>
+                  <div
+                    ref={refs.setFloating}
+                    className="context-menu-list"
+                    style={{ ...floatingStyles, ...styles }}
+                    {...getFloatingProps()}
+                  >
+                    {children}
+                  </div>
+                </FloatingFocusManager>
               </FloatingPortal>
             )}
           </FloatingList>
