@@ -58,8 +58,15 @@ local cfg = {
     fov       = 64.0,  -- gorus acisi (dar=yakin/buyuk gorunur) — KALICI (kullanici dial etti)
     backDist  = 2.40,  -- backdrop klonun kac metre ARKASINDA
     backZ     = 0.0,   -- backdrop dikey ince ayar
-    balpha    = 128,   -- siyah panel opaklik (0..255; 128 ~= %50 opak)
-    bmodel    = 'bitirim_backdrop01',  -- stream'deki 20m+ SIYAH panel (SABIT — canta seviyesine gore degismez)
+    -- TEK NOKTA: butun panellerin (karakter/envanter/depo/bagaj/torpido) arka plan
+    -- OPAKLIGI burasi. 128 (~%50) YANLISTI -> panel YARI SAYDAMDI, arkasindaki
+    -- GERCEK DUNYA (dag/sehir) %50 sizip goruntuye karisiyordu -> "sol panel seffaf
+    -- duruyor" VE "review ped ters yone bakiyor" sikayetleri (ikisi de AYNI kok
+    -- neden: kamera karakterin YUZUNE bakmak icin onun baktigi yonun TERSINE bakar,
+    -- o yuzden sizan gercek dunya HER ZAMAN karakterin baktigi yonun tersini
+    -- gosterirdi). 255 = TAM OPAK -> hicbir sizinti yok, kamera yonu ARTIK ONEMSIZ.
+    balpha    = 255,
+    bmodel    = 'bitirim_backdrop01',  -- stream'deki 50m SIYAH panel (SABIT - canta seviyesine gore degismez)
 }
 
 -- Idle (klon temiz durus). Cinsiyete gore.
