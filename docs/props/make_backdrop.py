@@ -23,8 +23,11 @@ MODEL     = argv[1] if len(argv) > 1 else "bitirim_backdrop01"
 SHADER_IX = int(argv[2]) if len(argv) > 2 else 39   # emissive_alpha.sps
 SIZE      = float(argv[3]) if len(argv) > 3 else 20.0  # kare panel kenar (m). Buyuk =
                                                        # kamera arkasinda TAM EKRANI kaplar.
-# %100 SIYAH (gri ton yok) — kullanici istegi
-R, G, B = 0.0, 0.0, 0.0
+# Renk (0..1 float, varsayilan %100 SIYAH). Canta-seviye renkli varyantlar icin
+# argv[4..6] ile RGB verilir (0..255 tam sayi -> 0..1'e cevrilir).
+R = (int(argv[4]) / 255.0) if len(argv) > 4 else 0.0
+G = (int(argv[5]) / 255.0) if len(argv) > 5 else 0.0
+B = (int(argv[6]) / 255.0) if len(argv) > 6 else 0.0
 
 # --- Sollumz etkinlestir ---
 for m in addon_utils.modules():

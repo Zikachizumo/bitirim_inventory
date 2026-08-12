@@ -43,7 +43,13 @@
 -- YAPILANDIRMA (studio kamerasi + backdrop; /cam VEYA ok tuslari+Numpad1/2 ile dial edilir)
 ------------------------------------------------------------------------------
 local cfg = {
-    heightOffset = 100.0,  -- klon, oyuncunun O ANKI konumunun kac metre USTUNDE durur
+    heightOffset = 25.0,  -- klon, oyuncunun O ANKI konumunun kac metre USTUNDE durur (TEST: 100->25)
+
+    -- Oyuncu bir BINA/INTERIOR icindeyse (GetInteriorFromEntity ~= 0), "ustu" mantikli
+    -- degil (interior'lar dunyada farkli/istiflenmis konumlarda olabilir) -> bunun
+    -- yerine kullanicinin daha once test ettigi SABIT sehir-yolu konumuna dusulur.
+    interiorFallbackPos  = vector3(-301.72, -71.13, 316.92),
+    interiorFallbackHead = 149.61,
 
     camDist   = 2.55,  -- kamera klonun ONUNDE kac metre (SABIT; sadece /cam ile degisir)
     camSide   = -1.10, -- KLONUN yatay konumu (kamera-sag ekseni) — KALICI (kullanici dial etti)
@@ -53,7 +59,20 @@ local cfg = {
     backDist  = 2.40,  -- backdrop klonun kac metre ARKASINDA
     backZ     = 0.0,   -- backdrop dikey ince ayar
     balpha    = 191,   -- siyah panel opaklik (0..255; 191 ~= %75 opak)
-    bmodel    = 'bitirim_backdrop01',  -- stream'deki 20m+ SIYAH panel
+}
+
+-- Canta seviyesine (0-5) gore backdrop MODELI. Her biri stream/'de ayri .ydr (ayni
+-- 20m panel geometri, farkli DUZ RENK doku — bitirim_backdrop01 uretiminde kullanilan
+-- ayni Blender+Sollumz pipeline'i ile uretildi, bkz. docs/props/make_backdrop.py).
+-- Renkler web/src/index.scss :root[data-lv] --accent degerleriyle BIREBIR AYNI
+-- (Beyaz/Mavi/Mor/Turuncu/Altin) -> NUI tint katmani + 3D prop kendisi TUTARLI.
+local BACKDROP_MODEL_BY_LEVEL = {
+    [0] = 'bitirim_backdrop01',      -- notr siyah (cantasiz)
+    [1] = 'bitirim_backdrop_lv1',    -- Beyaz
+    [2] = 'bitirim_backdrop_lv2',    -- Mavi
+    [3] = 'bitirim_backdrop_lv3',    -- Mor
+    [4] = 'bitirim_backdrop_lv4',    -- Turuncu
+    [5] = 'bitirim_backdrop_lv5',    -- Altin
 }
 
 -- Idle (klon temiz durus). Cinsiyete gore.
@@ -73,8 +92,9 @@ local active       = false
 local previewPed   = nil    -- YEREL klon (studio kamerasi buna bakar)
 local realPed      = nil    -- referans (aynalama) + YEREL gizlenir
 local studioCam    = nil    -- scripted kamera
-local backdrop     = nil    -- siyah panel (on yuz kameraya bakar)
+local backdrop     = nil    -- renkli panel (on yuz kameraya bakar)
 local backdrop2    = nil    -- ikinci panel (backface guvencesi)
+local bagLevel     = 0      -- canta seviyesi (0-5) — client.lua UpdateBagLevel ile gonderir
 local anchorPos    = nil    -- klonun durdugu konum (oyuncu XY + heightOffset Z) — HER ACILISTA yeniden hesaplanir
 local anchorHead   = 0.0    -- klonun heading'i (acilis anindaki oyuncu heading'i) — SABIT (kamera bunu kullanir)
 local dragYaw      = 0.0    -- kullanici surukleme/donme ofseti (klonu dondurur)
@@ -163,11 +183,12 @@ local function setupStudio()
     placeKlon()
 end
 
---- Iki siyah paneli spawn et.
+--- Iki paneli (canta seviyesine gore renkli model) spawn et.
 local function spawnBackdrop()
-    local h = GetHashKey(cfg.bmodel)
+    local modelName = BACKDROP_MODEL_BY_LEVEL[bagLevel] or BACKDROP_MODEL_BY_LEVEL[0]
+    local h = GetHashKey(modelName)
     if not IsModelInCdimage(h) or not IsModelValid(h) then
-        print(('^1[bitirim] backdrop model gecersiz: "%s" (stream/ytyp yuklendi mi?)^7'):format(cfg.bmodel))
+        print(('^1[bitirim] backdrop model gecersiz: "%s" (stream/ytyp yuklendi mi?)^7'):format(modelName))
         return
     end
     RequestModel(h)
@@ -274,9 +295,17 @@ local function CreatePreview()
     -- 2) Klon konumu: oyuncunun O ANKI X/Y'sinde, Z + heightOffset (havada). X/Y
     -- oyuncuyla AYNI oldugu icin o bolgenin streami "sicak" kalir -> kapaniste render
     -- sorunu olmaz (uzak sabit koordinat denendi, bu soruna yol acti — kaldirildi).
-    local basePos = GetEntityCoords(ped)
-    anchorPos  = basePos + vector3(0.0, 0.0, cfg.heightOffset)
-    anchorHead = GetEntityHeading(ped)
+    -- ISTISNA: oyuncu bir BINA/INTERIOR icindeyse "ustu" güvenilir degil (interior'lar
+    -- dunyada farkli/istiflenmis konumlarda olabilir, +Z acik gokyuzune cikmayabilir)
+    -- -> bu durumda SABIT, onceden test edilmis sehir-yolu konumuna dusulur.
+    if GetInteriorFromEntity(ped) ~= 0 then
+        anchorPos  = cfg.interiorFallbackPos
+        anchorHead = cfg.interiorFallbackHead
+    else
+        local basePos = GetEntityCoords(ped)
+        anchorPos  = basePos + vector3(0.0, 0.0, cfg.heightOffset)
+        anchorHead = GetEntityHeading(ped)
+    end
     dragYaw = 0.0
 
     -- 3) Scripted kamera (dogrudan studio konumunda olusturulur; GECIS ANIMASYONU YOK)
@@ -417,6 +446,25 @@ local function SyncFromPlayer()
     mirrorWeapon(false)
 end
 
+--- Canta seviyesi degisti (client.lua currentBagLevel guncellenince cagrilir).
+--- Preview ACIKKEN degisirse backdrop'u yeni renkli modelle ANINDA degistirir.
+local function UpdateBagLevel(level)
+    level = tonumber(level) or 0
+    if level == bagLevel then return end
+    bagLevel = level
+    if not active then return end  -- preview kapaliysa sadece degeri sakla, sonraki acilista kullanilir
+    if backdrop and DoesEntityExist(backdrop) then
+        SetEntityAsMissionEntity(backdrop, true, true); DeleteObject(backdrop)
+    end
+    backdrop = nil
+    if backdrop2 and DoesEntityExist(backdrop2) then
+        SetEntityAsMissionEntity(backdrop2, true, true); DeleteObject(backdrop2)
+    end
+    backdrop2 = nil
+    spawnBackdrop()
+    placeKlon()  -- yeni backdrop'u dogru konuma/acilara yerlestirir
+end
+
 ------------------------------------------------------------------------------
 -- DONME / YERLESIM API
 ------------------------------------------------------------------------------
@@ -501,6 +549,7 @@ exports('SyncFromPlayer',  SyncFromPlayer)
 exports('RotatePreview',   RotatePreview)
 exports('TuneScene',       TuneScene)
 exports('SetCamera',       SetCamera)
+exports('UpdateBagLevel',  UpdateBagLevel)
 
 -- Emniyet: kaynak durursa temizle.
 AddEventHandler('onResourceStop', function(res)
