@@ -27,7 +27,11 @@
       kadrajina gecilir (RenderScriptCams ease=false); kapaninca da aninda gameplay'e
       doner (yaris durumu/entity sizintisi riskine karsi da aninda kesim tercih edildi).
     - Insurance icin 2 backdrop paneli (ters heading; hangisi "on yuz" olursa olsun
-      biri HER ZAMAN kameraya doner).
+      biri HER ZAMAN kameraya doner). NOT: backdrop artik varsayilan olarak KAPALI
+      (cfg.balpha=0, kullanici istegi, bkz asagisi) — arka plan artik GERCEK oyun
+      dunyasi (seffaf). Kamera KLONUN ARKASINDA durur ve klonla AYNI yone bakar
+      (computeCameraBasis'teki YON DUZELTMESI notuna bak) -> gorunen manzara artik
+      karakterin GERCEKTEN baktigi yonle eslesir.
 
     Klon local-only (ClonePed isNetwork=false) -> diger oyuncular klonu HIC gormez.
     Gercek ped SADECE yerel gizlenir -> preview'da 2. karakter yok; agda arkadaslar beni
@@ -137,20 +141,38 @@ end
 --- kamera da onunla birlikte kayar, ekranda hicbir sey degismezmis gibi gorunurdu).
 --- /cam (dist/fov/look) VEYA ilk yerlesim (settle) sirasinda cagrilir; ok tuslari/
 --- Numpad BUNU CAGIRMAZ (kamera dial sirasinda SABIT kalsin diye).
+---
+--- YON DUZELTMESI (2026-08-12, KULLANICI GORSEL KANITLA BILDIRDI): eskiden kamera
+--- klonun ONUNE (anchorHead yonunde, +fwd*camDist) konup GERIYE (-fwd) bakiyordu
+--- ("selfie" kurulumu -> karakterin YUZUNU gormek icin sart). Ama bu YUZDEN
+--- kameranin GERCEKTE gosterdigi manzara HER ZAMAN karakterin baktigi yonun TAM
+--- TERSIYDI (herhangi bir selfie'de arka plan hep SIRTINIZIN arkasindaki yerdir,
+--- BAKTIGINIZ yer degil) — arka plan komple kaldirilinca (seffaf) bu ters yon
+--- COK BELIRGIN hale geldi ("dağa bakıyor çanta şehre açılıyor" vb.).
+--- ARTIK KAMERA KLONUN ARKASINA konur (-fwd*camDist, omuz-ustu/3.sahis takip
+--- kamerasi gibi) ve klonla AYNI yone (+fwd) bakar -> manzara ARTIK karakterin
+--- GERCEKTEN baktigi yonu gosterir. Bedel: klonun YUZU degil SIRTI kameraya
+--- doner (fiziksel olarak kacinilmaz — ayni anda hem yuzu gormek hem ayni yone
+--- bakmak IMKANSIZ). camR de ARTIK AYNA-TERSI DEGIL (rightOf(anchorHead) duz) —
+--- kamera artik ayna degil, ayni yone bakan bir takip kamerasi oldugu icin sag/sol
+--- kavrami klonun KENDI sag/solu ile ayni.
 local function computeCameraBasis()
     if not previewPed or not DoesEntityExist(previewPed) or not studioCam or not anchorPos then return end
     local fwd = forwardOf(anchorHead)
-    local right = rightOf((anchorHead + 180.0) % 360.0)
+    local right = rightOf(anchorHead)
     SetEntityCoordsNoOffset(previewPed, anchorPos.x, anchorPos.y, anchorPos.z, false, false, false)
     SetEntityHeading(previewPed, anchorHead)
     local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
     camF = fwd
     camR = right
     SetCamCoord(studioCam,
-        anchorPos.x + fwd.x * cfg.camDist,
-        anchorPos.y + fwd.y * cfg.camDist,
+        anchorPos.x - fwd.x * cfg.camDist,
+        anchorPos.y - fwd.y * cfg.camDist,
         chest.z)
     SetCamFov(studioCam, cfg.fov)
+    -- Kamera ARKADA (-fwd), buraya (anchorPos, klonun konumu) bakar -> bakis yonu
+    -- otomatik +fwd olur (klonla AYNI yon) — pozisyon flip'i yeterli, ayrica bir
+    -- "ileriye bak" hedefi gerekmez.
     PointCamAtCoord(studioCam, anchorPos.x, anchorPos.y, chest.z - cfg.lookDown)
 end
 
