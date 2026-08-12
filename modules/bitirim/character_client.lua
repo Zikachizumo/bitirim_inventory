@@ -35,7 +35,9 @@ local cam_cfg = { dist = 2.55, side = 0.0, height = 0.05, fov = 42.0, look = 0.3
 ------------------------------------------------------------------------------
 -- NUI KOPRUSU (index.tsx bunlari yollar — isimler AYNEN korundu)
 ------------------------------------------------------------------------------
--- Karakter paneli gorundu/gizlendi -> onizlemeyi ac/kapat.
+-- Envanter acildi/kapandi (HER gorunum: karakter/stash/drop) -> studio sahnesini
+-- (klon+kamera+backdrop) ac/kapat. Backdrop artik tek arka plan/opaklik kaynagi
+-- oldugu icin sadece karakter panelinde degil, envanter acikken HER ZAMAN aktif.
 RegisterNUICallback('bitirim:charScene', function(data, cb)
     cb(1)
     if type(data) == 'table' and data.open then
