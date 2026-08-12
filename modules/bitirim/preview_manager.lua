@@ -67,16 +67,14 @@
 ------------------------------------------------------------------------------
 local cfg = {
     -- klon, oyuncunun O ANKI konumunun (ayni X/Y) kac metre USTUNDE durur.
-    -- NEGATIF (ASAGI/haritanin alti) DENENDI, TERK EDILDI: kullanici bildirdi, -1000'de
-    -- klon GERCEK ZEMIN/KAYAYA gomuluyordu (bel altina kadar toprak icinde gorunuyordu)
-    -- -> "haritanin altı" GUVENILIR BIR VOID DEGIL (dunyanin cogu yerinde bir yerlerde
-    -- katı zemin var). SADECE YUKARI (acik gokyuzu) GUVENILIR BOS ALAN -> +100 (ilk
-    -- dogrulanmis deger) GERI GETIRILDI. "Yakindaki oyuncu goruyor" sorunu ARTIK
-    -- mesafeyle DEGIL asagidaki LOD-KISITLAMASIYLA cozuluyor (bkz CreatePreview'daki
-    -- SetEntityLodDist notu) -> 100m yukaride + kucuk LOD mesafesi = SADECE kendi
-    -- (klona ~3m yakin duran) scripted kameran gorur, yerdeki HERKES (dikey mesafe
-    -- ~100m >> LOD kesme mesafesi) neye ne kadar yakin dursa dursun goremez.
-    heightOffset = 100.0,
+    -- NEGATIF (ASAGI/haritanin alti) DENENDI, TERK EDILDI: -1000'de klon GERCEK
+    -- ZEMIN/KAYAYA gomuluyordu -> "haritanin altı" guvenilir void degil, SADECE
+    -- YUKARI (acik gokyuzu) guvenilir bos alan. Asil ag-sizintisi kok nedeni
+    -- (SetEntityAsMissionEntity scriptHostObject=true) DUZELTILDIGI ICIN artik
+    -- BUYUK bir yukseklige gerek yok -> +5.0 (yakin/rahat, kullanici test icin
+    -- istedi). Guvenlik agi olarak SetEntityLodDist(previewPed,25) HALA DURUYOR
+    -- (CreatePreview'da), ama asil koruma artik ag-izolasyonunun KENDISI.
+    heightOffset = 5.0,
 
     -- Oyuncu bir BINA/INTERIOR icindeyse (GetInteriorFromEntity ~= 0), "ustu" mantikli
     -- degil (interior'lar dunyada farkli/istiflenmis konumlarda olabilir) -> bunun
