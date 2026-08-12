@@ -7,11 +7,12 @@
 
         NUI 'bitirim:charScene'  {open}          -> CreatePreview / DestroyPreview
         NUI 'bitirim:charRotate' {mode,value}    -> RotatePreview
-        /cam ...                                 -> SetCamera (klon yerlesimi ince ayar)
+        /cam ...                                 -> SetCamera (studio kadraj ince ayar)
 
     Mevcut NUI event isimleri/UI davranisi DEGISMEDI (index.tsx aynen calisir).
-    GAMEPLAY KAMERASINA DOKUNULMAZ — /cam yalnizca klonun sabit kamera onundeki
-    YERLESIMINI ayarlar. (Backdrop objesi KALDIRILDI — sadece canli klon.)
+    STUDIO KAMERA MIMARISI: onizleme acikken PreviewManager kendi scripted kamerasini
+    devreye alir (gameplay kamerasi ONEMSIZ hale gelir -> FP/TP/egim farketmez, arka
+    plan her zaman kaplanir). /cam yalnizca bu studio kadrajinin ince ayarini yapar.
 ]]
 
 local Preview = exports[GetCurrentResourceName()]
@@ -27,8 +28,8 @@ CreateThread(function()
     if client then client.screenblur = false end
 end)
 
--- Klon yerlesimi (yalniz /cam yazdirmasi icin yerel kopya; kaynak PreviewManager).
-local cam_cfg = { dist = 3.45, side = -1.11, down = 0.02 }
+-- Studio kadraji (yalniz /cam yazdirmasi icin yerel kopya; kaynak PreviewManager).
+local cam_cfg = { dist = 2.55, height = 0.05, fov = 42.0, look = 0.30, backdist = 2.40 }
 
 ------------------------------------------------------------------------------
 -- NUI KOPRUSU (index.tsx bunlari yollar — isimler AYNEN korundu)
@@ -52,11 +53,14 @@ RegisterNUICallback('bitirim:charRotate', function(data, cb)
 end)
 
 --[[
-    /cam — KLON YERLESIMI ince ayar (onizleme acikken). GAMEPLAY KAMERASI DEGISMEZ.
-    Begenince degerleri bana soyle, kalici yaparim. (Backdrop kaldirildi — sadece klon.)
-      /cam dist <n>   klon kameranin ONUNDE kac metre (buyuk = uzak/kucuk)
-      /cam side <n>   YATAY ofset (negatif = ekranda sola)
-      /cam down <n>   DIKEY ofset (negatif = klon asagi; ayak-bas ortala)
+    /cam — STUDIO KADRAJI ince ayar (onizleme acikken). GAMEPLAY KAMERASI ONEMSIZ
+    (studio kamerasi devrede) — sadece bu kadraji degistirir.
+    Begenince degerleri bana soyle, kalici yaparim (preview_manager.lua cfg).
+      /cam dist <n>      kamera klonun ONUNDE kac metre (buyuk = uzak/kucuk gorunur)
+      /cam height <n>    kamera dikey ofseti (gogus bonuna gore)
+      /cam fov <n>       gorus acisi (kucuk = portre/dar, buyuk = genis)
+      /cam look <n>      bakis hedefi gogusun kac metre ALTI
+      /cam backdist <n>  siyah panel klonun kac metre ARKASINDA
 ]]
 RegisterCommand('cam', function(_, args)
     local p, v = args[1], tonumber(args[2])
@@ -64,6 +68,6 @@ RegisterCommand('cam', function(_, args)
         cam_cfg[p] = v
         Preview:SetCamera({ [p] = v })
     end
-    print(('^3[bitirim] cam dist=%.2f side=%.2f down=%.2f (aktif:%s)^7')
-        :format(cam_cfg.dist, cam_cfg.side, cam_cfg.down, tostring(Preview:IsPreviewActive())))
+    print(('^3[bitirim] cam dist=%.2f height=%.2f fov=%.1f look=%.2f backdist=%.2f (aktif:%s)^7')
+        :format(cam_cfg.dist, cam_cfg.height, cam_cfg.fov, cam_cfg.look, cam_cfg.backdist, tostring(Preview:IsPreviewActive())))
 end, false)
