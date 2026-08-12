@@ -784,22 +784,16 @@ body.inv-dragging {
 }
 
 /* Bitirim: tam-ekran scrim = TEK opaklik kaynagi, HER YERDE (pencere ici+disi)
-   AYNI. KULLANICI ISTEGI (2026-08-12): "%50 opak yap, karakter/depo/bagaj/torpido/
-   envanter arasinda AYIRMA olmasin, hepsi esit". Once (onceki turlarda) burasi
-   TAMAMEN SEFFAF'ti + panel-turune-gore FARKLI clip-path "delik" acan bir sistem
-   vardi (3D backdrop'a delik acmak icin, backdrop artik yok) -> bu delik SADECE
-   char-view/container/inventory panellerini digerlerinden DAHA SEFFAF yapiyordu,
-   yani "esit degil"di. DELIK MEKANIZMASI TAMAMEN KALDIRILDI (asagida index.tsx'te
-   de) -> scrim artik TEK DUZ renk, pencere seffaf panellerinin (character/
-   container/inventory) ARDINDAN AYNI SEKILDE gorunur, ozel muamele YOK. (drop
-   paneli bu listede DEGIL -> kendi opak+blur `.bx-panel` varsayilanini KORUYOR,
-   kullanici SADECE saydigi 5 panel turunu esitlemek istedi.) */
+   AYNI (karakter/depo/bagaj/torpido/envanter arasinda AYIRMA yok — panel-turune-gore
+   FARKLI clip-path "delik" acan eski sistem TAMAMEN KALDIRILDI, bkz asagidaki
+   .bx-window yorumu). Opaklik degeri: %50 (2026-08-12) -> %75 (2026-08-12, ayni gun,
+   kullanici istegi). */
 .bx-scrim {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.75);
 }
 
 .bx-window {
