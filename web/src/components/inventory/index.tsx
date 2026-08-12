@@ -163,62 +163,11 @@ const Inventory: React.FC = () => {
   // Bitirim: OTOMATIK OLCEKLEME — pencereyi ekrana sigacak/dolduracak sekilde
   // olcekle (tam ekran his). Dogal boyutu olcup min(vw,vh) orani ile scale eder.
   const windowRef = useRef<HTMLDivElement>(null);
-  // Bitirim: .bx-scrim = pencere DISI tam ekran karartma (%75 opak siyah, HER
-  // envanter gorunumunde). Pencere ICINDE ise (drop haric) SOL panel (karakter/
-  // torpido/bagaj/motel/depo) + SAG panel (kendi envanterimiz) BIRLIKTE clip-path
-  // DELIGIYLE 3D studio backdrop'unu (bitirim_props.ytyp) gosterir -> tum panellerin
-  // arka plan opakligi TEK NOKTADAN (preview_manager.lua cfg.balpha) gelir, ayri bir
-  // scrim degeri YOK (updateHole, asagida). Kapta klon GIZLI (showCharacter:false)
-  // ama backdrop gorunur.
-  const scrimRef = useRef<HTMLDivElement>(null);
-  const windowBgRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef(1);
   useLayoutEffect(() => {
     if (!inventoryVisible) return;
     const el = windowRef.current;
     if (!el) return;
-    const updateHole = () => {
-      // Bitirim: TEK DELIK, SOL+SAG panelleri BIRLIKTE kapsar (union rect) -> arka
-      // plan opakligi TEK NOKTADAN (preview_manager.lua cfg.balpha) gelir, sag panel
-      // (kendi envanterimiz) artik ayri bir scrim degeriyle degil, SOL panelle (karakter/
-      // torpido/bagaj/motel/depo) AYNI 3D backdrop'u gosterir. Kamera DEGISMEZ. Drop
-      // acikken hicbiri yok -> delik yok (duz karartma kalir).
-      const scrim = scrimRef.current;
-      const bg = windowBgRef.current;
-      const leftView = (document.querySelector('.bx-char-view') ||
-        document.querySelector('.bx-panel.bx-container')) as HTMLElement | null;
-      const rightView = document.querySelector('.bx-panel.bx-inventory') as HTMLElement | null;
-      const views = [leftView, rightView].filter(Boolean) as HTMLElement[];
-      const s = scaleRef.current || 1;
-      if (views.length === 0) {
-        if (scrim) { scrim.style.clipPath = 'none'; (scrim.style as any).webkitClipPath = 'none'; }
-        if (bg) { bg.style.clipPath = 'none'; (bg.style as any).webkitClipPath = 'none'; }
-        return;
-      }
-      const rects = views.map((v) => v.getBoundingClientRect());
-      const vLeft = Math.min(...rects.map((r) => r.left));
-      const vTop = Math.min(...rects.map((r) => r.top));
-      const vRight = Math.max(...rects.map((r) => r.right));
-      const vBottom = Math.max(...rects.map((r) => r.bottom));
-      if (scrim) {
-        const L = Math.max(0, vLeft), T = Math.max(0, vTop), R = vRight, B = vBottom;
-        const poly =
-          `polygon(evenodd, 0px 0px, 100vw 0px, 100vw 100vh, 0px 100vh, 0px 0px, ` +
-          `${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
-        scrim.style.clipPath = poly;
-        (scrim.style as any).webkitClipPath = poly;
-      }
-      if (bg) {
-        const w = el.getBoundingClientRect();
-        const L = (vLeft - w.left) / s, T = (vTop - w.top) / s;
-        const R = (vRight - w.left) / s, B = (vBottom - w.top) / s;
-        const poly =
-          `polygon(evenodd, 0px 0px, 100% 0px, 100% 100%, 0px 100%, 0px 0px, ` +
-          `${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
-        bg.style.clipPath = poly;
-        (bg.style as any).webkitClipPath = poly;
-      }
-    };
     const fit = () => {
       const w = el.offsetWidth;
       const h = el.offsetHeight;
@@ -227,15 +176,12 @@ const Inventory: React.FC = () => {
       const s = Math.min(1, (window.innerWidth * 0.99) / w, (window.innerHeight * 0.985) / h);
       el.style.transform = `scale(${s})`;
       scaleRef.current = s;
-      updateHole(); // transform sonrasi gercek dikdortgeni oku
     };
     fit();
     const t = window.setTimeout(fit, 60); // layout otursun
-    const t2 = window.setTimeout(updateHole, 180); // ekipman/gorsel oturunca yeniden
     window.addEventListener('resize', fit);
     return () => {
       window.clearTimeout(t);
-      window.clearTimeout(t2);
       window.removeEventListener('resize', fit);
     };
   }, [inventoryVisible, isDrop, hasContainer]);
@@ -244,11 +190,10 @@ const Inventory: React.FC = () => {
     <>
       <Fade in={inventoryVisible}>
         <div className="inventory-wrapper">
-          {/* Kenar (pencere disi) oyun BLUR — karartma yok. char-view deligi acilir. */}
-          <div className="bx-scrim" ref={scrimRef} />
+          {/* TEK opaklik kaynagi: %50 opak siyah, pencere ici+disi HER YERDE ayni
+              (karakter/depo/bagaj/torpido/envanter arasinda ayrim YOK). */}
+          <div className="bx-scrim" />
           <div className="bx-window" ref={windowRef}>
-            {/* Pencere SIYAH arka katman (opak); char-view bolumu clip-path DELIK. */}
-            <div className="bx-window-bg" ref={windowBgRef} />
             <BitirimTopBar />
 
             {/* 2x2 grid: satir1 = ana kutular (esit yukseklik),
