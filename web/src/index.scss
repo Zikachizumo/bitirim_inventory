@@ -791,15 +791,15 @@ body.inv-dragging {
   height: 100%;
 }
 
-/* Bitirim: tam-ekran scrim = pencere DISINDAKI game world overlay'i. %25 OPAK siyah
-   -> oyun dunyasi arkadan %75 gorunur (canta ICI degil). Pencere ici (canta) opak
+/* Bitirim: tam-ekran scrim = pencere DISINDAKI game world overlay'i. %75 OPAK siyah
+   -> oyun dunyasi arkadan %25 gorunur (canta ICI degil). Pencere ici (canta) opak
    kalir cunku window-bg tam opak (asagi). pointer-events yok. */
 .bx-scrim {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: rgba(0, 0, 0, 0.25); /* %25 opak — kullanici istegi */
+  background: rgba(0, 0, 0, 0.75); /* %75 opak — kullanici istegi */
 }
 
 .bx-window {
