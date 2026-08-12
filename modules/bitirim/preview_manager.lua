@@ -46,10 +46,10 @@ local cfg = {
     heightOffset = 100.0,  -- klon, oyuncunun O ANKI konumunun kac metre USTUNDE durur
 
     camDist   = 2.55,  -- kamera klonun ONUNDE kac metre (SABIT; sadece /cam ile degisir)
-    camSide   = 0.0,   -- KLONUN yatay konumu (kamera-sag ekseni) — ok Sol/Sag ile dial
-    camHeight = 0.05,  -- KLONUN dikey konumu (dunya-yukari ekseni) — ok Yukari/Asagi ile dial
+    camSide   = -1.10, -- KLONUN yatay konumu (kamera-sag ekseni) — KALICI (kullanici dial etti)
+    camHeight = 0.05,  -- KLONUN dikey konumu (dunya-yukari ekseni) — KALICI (kullanici dial etti)
     lookDown  = 0.30,  -- bakis hedefi: ust gogusun kac metre ALTI (govde ortasi)
-    fov       = 42.0,  -- gorus acisi (dar=yakin/buyuk gorunur) — Numpad1/2 ile dial (ZOOM)
+    fov       = 64.0,  -- gorus acisi (dar=yakin/buyuk gorunur) — KALICI (kullanici dial etti)
     backDist  = 2.40,  -- backdrop klonun kac metre ARKASINDA
     backZ     = 0.0,   -- backdrop dikey ince ayar
     balpha    = 191,   -- siyah panel opaklik (0..255; 191 ~= %75 opak)

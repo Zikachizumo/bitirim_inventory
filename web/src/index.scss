@@ -53,6 +53,8 @@
   --accent-dim: rgba(139, 147, 167, 0.14);
   --accent-line: rgba(139, 147, 167, 0.5);
   --accent-glow: 0 0 0 1px rgba(139, 147, 167, 0.45), 0 0 16px -4px rgba(139, 147, 167, 0.4);
+  /* karakter onizleme arka plani (backdrop) tonu — canta seviyesine gore degisir */
+  --backdrop-tint: rgba(139, 147, 167, 0.35);
 }
 
 /* --- canta seviyesine gore tema --- */
@@ -63,46 +65,57 @@
   --accent-dim: rgba(139, 147, 167, 0.14);
   --accent-line: rgba(139, 147, 167, 0.5);
   --accent-glow: 0 0 0 1px rgba(139, 147, 167, 0.45), 0 0 16px -4px rgba(139, 147, 167, 0.4);
+  --backdrop-tint: rgba(139, 147, 167, 0.35);
 }
 :root[data-lv='1'] {
+  /* Beyaz */
   --accent: #dfe2ee;
   --accent-2: #ffffff;
   --accent-ink: #14121c;
   --accent-dim: rgba(223, 226, 238, 0.12);
   --accent-line: rgba(223, 226, 238, 0.5);
   --accent-glow: 0 0 0 1px rgba(223, 226, 238, 0.5), 0 0 18px -3px rgba(223, 226, 238, 0.4);
+  --backdrop-tint: rgba(223, 226, 238, 0.35);
 }
 :root[data-lv='2'] {
+  /* Mavi */
   --accent: #2f9bff;
   --accent-2: #6ab8ff;
   --accent-ink: #eaf5ff;
   --accent-dim: rgba(47, 155, 255, 0.15);
   --accent-line: rgba(47, 155, 255, 0.55);
   --accent-glow: 0 0 0 1px rgba(47, 155, 255, 0.5), 0 0 20px -3px rgba(47, 155, 255, 0.5);
+  --backdrop-tint: rgba(47, 155, 255, 0.35);
 }
 :root[data-lv='3'] {
+  /* Mor */
   --accent: #c026d3;
   --accent-2: #e05bef;
   --accent-ink: #f7d9fb;
   --accent-dim: rgba(192, 38, 211, 0.15);
   --accent-line: rgba(192, 38, 211, 0.55);
   --accent-glow: 0 0 0 1px rgba(192, 38, 211, 0.5), 0 0 20px -3px rgba(192, 38, 211, 0.5);
+  --backdrop-tint: rgba(192, 38, 211, 0.35);
 }
 :root[data-lv='4'] {
+  /* Turuncu */
   --accent: #ff7a1a;
   --accent-2: #ff9f4d;
   --accent-ink: #fff0e2;
   --accent-dim: rgba(255, 122, 26, 0.15);
   --accent-line: rgba(255, 122, 26, 0.55);
   --accent-glow: 0 0 0 1px rgba(255, 122, 26, 0.5), 0 0 20px -3px rgba(255, 122, 26, 0.55);
+  --backdrop-tint: rgba(255, 122, 26, 0.35);
 }
 :root[data-lv='5'] {
+  /* Altin */
   --accent: #f5c518;
   --accent-2: #ffdd57;
   --accent-ink: #1c1503;
   --accent-dim: rgba(245, 197, 24, 0.16);
   --accent-line: rgba(245, 197, 24, 0.6);
   --accent-glow: 0 0 0 1px rgba(245, 197, 24, 0.55), 0 0 22px -3px rgba(245, 197, 24, 0.6);
+  --backdrop-tint: rgba(245, 197, 24, 0.35);
 }
 
 $mainFont: var(--font);
@@ -1016,6 +1029,19 @@ body.inv-dragging {
   cursor: grab;
   &:active {
     cursor: grabbing;
+  }
+  /* Canta seviyesi rengi (Beyaz/Mavi/Mor/Turuncu/Altin — data-lv 1-5) siyah studio
+     backdrop'unun uzerine kenarlardan renkli bir "wash" olarak biner; karakterin
+     kendisi merkezde (transparent 40%) net kalir, sadece kenar/arka plan renklenir.
+     pointer-events:none -> surukleyip dondurmeyi engellemez. */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: var(--r);
+    background: radial-gradient(ellipse 70% 85% at 50% 62%, transparent 40%, var(--backdrop-tint) 100%);
+    transition: background-color 0.4s ease;
   }
 }
 
