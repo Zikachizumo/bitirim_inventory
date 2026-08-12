@@ -338,15 +338,25 @@ local function CreatePreview(showCharacter)
         previewPed = nil
         return
     end
+    -- DEBUG BISECT (GECICI): SetEntityAsMissionEntity fix'i tek basina yetmedi
+    -- (kullanici F8'de "true" gordu). Hangi cagrinin tam olarak networked'e
+    -- CEVIRDIGINI bulmak icin HER adimdan sonra kontrol.
+    print(('^3[bitirim] DEBUG 1) ClonePed HEMEN sonrasi networked = %s^7')
+        :format(tostring(NetworkGetEntityIsNetworked(previewPed))))
     pcall(ClonePedToTarget, ped, previewPed)
+    print(('^3[bitirim] DEBUG 2) ClonePedToTarget sonrasi networked = %s^7')
+        :format(tostring(NetworkGetEntityIsNetworked(previewPed))))
     -- ONEMLI (2026-08-12, arastirma): ilk parametre (scriptHostObject) eskiden TRUE
     -- idi. FiveM resmi dokumaniana gore: "if set to false the entity will only be
     -- protected from despawning locally" VE "Network behavior depends on the
     -- scriptHostObject parameter value" -> TRUE, ClonePed'in isNetwork=false ile
     -- kurdugu SADECE-YEREL garantisini BOZUYOR olabilir (kullanici canli test:
     -- yakinindaki arkadasi klonu goruyordu). ARTIK FALSE -> sadece yerel silinme
-    -- korumasi, ag davranisini etkileyecek ekstra bayrak YOK.
+    -- korumasi, ag davranisini etkileyecek ekstra bayrak YOK. (BU FIX TEK BASINA
+    -- YETMEDI, F8'de hala true gorunuyordu -> bu debug bisect'i eklendi.)
     SetEntityAsMissionEntity(previewPed, false, true)
+    print(('^3[bitirim] DEBUG 3) SetEntityAsMissionEntity sonrasi networked = %s^7')
+        :format(tostring(NetworkGetEntityIsNetworked(previewPed))))
     FreezeEntityPosition(previewPed, true)  -- KLON statik
     SetEntityInvincible(previewPed, true)
     SetEntityCollision(previewPed, false, false)
@@ -361,12 +371,7 @@ local function CreatePreview(showCharacter)
     SetEntityVisible(previewPed, showCharacter, false)
     ResetEntityAlpha(previewPed)
 
-    -- DEBUG (2026-08-12, GECICI): SetEntityAsMissionEntity fix'i sonrasi kullanici
-    -- HALA yakinindaki arkadasinin klonu gordugunu bildirdi -> gercek veri lazim,
-    -- tahmin yetmiyor. previewPed GERCEKTEN aga kayitli mi kesin olarak olc.
-    -- Aninda + 2sn sonra (bazi kayitlar gecikmeli olabilir ihtimaline karsi) kontrol
-    -- eder, F8 konsoluna yazdirir. Sonuc alinip kok neden bulununca bu blok SILINECEK.
-    print(('^3[bitirim] DEBUG previewPed networked (aninda) = %s^7')
+    print(('^3[bitirim] DEBUG 4) tum kurulum bitince networked = %s^7')
         :format(tostring(NetworkGetEntityIsNetworked(previewPed))))
     CreateThread(function()
         Wait(2000)
