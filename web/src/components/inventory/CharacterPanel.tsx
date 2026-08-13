@@ -105,11 +105,15 @@ const EquipSlot: React.FC<EquipSlotProps> = ({
   // .png ekler; legacy named item'da (or. 'armour') item ADINDAN coz -> getItemUrl,
   // Items[name].image'i (ox'un cozdugu tam nui:// yolu) dogrudan doner. (Onceki kod
   // Items[name].image'i TEKRAR getItemUrl'e verip yolu bozuyordu -> slotta gorsel yoktu.)
-  const equipUrl = equipped?.image
-    ? getItemUrl(equipped.image)
-    : equippedName
-      ? getItemUrl(equippedName)
-      : undefined;
+  // imageurl TAM bir URL'dir (bitirim_clothing magazasi boyle veriyor) -> oldugu
+  // gibi kullanilir; getItemUrl'e verilirse basina imagepath eklenip bozulur.
+  const equipUrl = equipped?.imageurl
+    ? equipped.imageurl
+    : equipped?.image
+      ? getItemUrl(equipped.image)
+      : equippedName
+        ? getItemUrl(equippedName)
+        : undefined;
   const equipLabel = equipped?.label || (equippedName ? Items[equippedName]?.label || equippedName : undefined);
 
   // DRAG kaynagi ('EQUIP'): unequip icin `slot`; DragPreview icin `item`+`image`

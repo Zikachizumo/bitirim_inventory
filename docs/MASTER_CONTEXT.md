@@ -174,6 +174,40 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
 
 ---
 
+## 6.5. Kıyafet / Ekipman Sistemi
+
+Giyilen her şey bir **item**'dir. Tek kaynak: `data/bitirim_clothing.lua`
+(`slots` = panel slotu → GTA hedefi, `underwear` = boş slotun tabanı, `items` = legacy adlı
+parçalar). Server otoriter: `modules/bitirim/equipment_server.lua`, DB tablosu
+`bitirim_equipment` (citizenid → JSON).
+
+- **Giyme:** item use / çift-tık / panele sürükle → `equip()`. Slot doluysa eski parça **önce
+  envantere iade** edilir, sonra yenisi girer → bir slotta hep tek parça, üst üste binme yok.
+- **Çıkarma:** panelden tık veya envantere sürükle → item geri döner (`fromSlot`/`toSlot`).
+- **Boş slot = çıplak.** `equipment_client.lua` `applyEquip` boş component slotunu
+  `underwear` tabanına indirir, boş prop slotunu `ClearPedProp` ile temizler. Yani tüm
+  kıyafetler çıkarılınca karakterde yalnızca iç çamaşırı kalır ve **sahip olmadığın bir
+  kıyafet üzerinde görünmez** (illenium'un kaydettiği kıyafetler dahil — spawn'da da uygulanır).
+  Bu kural **yalnızca freemode ped'lerde** çalışır; iş/hikâye skinlerinde boş slotlara
+  dokunulmaz (uniformayı silmemek için).
+- **`underwear` tablosu** illenium `Config.InitialPlayerClothes`'tan gelir ve
+  `bitirim_clothing/config/config.lua` → `Config.Underwear` ile **senkron tutulmalıdır**.
+- **Parça formatları** (`resolvePiece`): ① `apparel` + `metadata.wear = { slot, drawable,
+  texture }` (yeni ve tercih edilen — market/mağaza bunu yazar), ② eski `clothing` item'ı
+  (metadata kökünde `component|prop` + `drawable` + `texture`; GTA id'sinden slot ters
+  haritayla bulunur), ③ legacy adlı item + `clothing.items` map'i.
+- **Görsel:** `metadata.image` ox'un `web/images/<ad>.png`'si, `metadata.imageurl` ise tam
+  URL (mağazanın `nui://bitirim_clothing/...` yolu). Panel önce `imageurl`'e bakar.
+- **Zırh:** `armour` slotu hem görsel yelek (component 9) hem gerçek zırh değeri
+  (`wear.armour`) taşır; değer yalnızca armour slotu değişince yazılır.
+
+**bitirim_clothing entegrasyonu:** mağaza `apparel` item'ı verir, `metadata.wear.slot`'u
+`config/config.lua` → `Config.Categories[].slot` alanından yazar. O alan bu dosyadaki `slots`
+anahtarlarıyla birebir aynı olmak zorundadır (`torso→jacket`, `arms→gloves`, `vest→armour`,
+`pant→pants`, `glass→glasses`, `earing→ears`, `chain→necklace`, `bracelet→ring`).
+
+---
+
 ## 7. Slot Sistemi
 
 - **Oyuncu envanteri = 45 slot** (`init.lua` `inventory:slots` varsayılanı 50→45):
@@ -303,8 +337,9 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
 - ❌ **Çanta görselleri** — `web/images/bag_lv1.png..bag_lv5.png` placeholder; **sanat** bekleniyor.
 - ❌ **L3-5 kraft** (%30, başarısız = kayıp) — opsiyonel/ileride; **tarifler** kullanıcıdan bekleniyor.
 - ❌ **L0 (çantasız) ağırlık kapasitesi** 10 KG placeholder — onay bekliyor.
-- ❌ **Ekipman giyme sistemi** (zırh/silah/maske, illenium-appearance köprüsü) — sol paneldeki
-  equip slotları şu an **görsel**. (Çanta artık item+use ile işlevsel; görsel-çanta-slotu bu işle gelir.)
+- ✅ **Ekipman giyme sistemi** — YAPILDI (`modules/bitirim/equipment_*.lua`, server-otoriter,
+  DB'de kalıcı). Boş slot artık **underwear**'a düşer; kıyafet mağazası (`bitirim_clothing`)
+  `apparel` + `metadata.wear` ile satar. Bkz. bölüm 6.5.
 - ❌ **Ver barı yakın-oyuncu seçici** (`bitirim_stranger` ile ID+isim / Stranger) — şu an
   sadece ox `onGive`.
 - ❌ **Araç bagaj kilitleri** (araç seviyesi/modeline göre slot aç/kapa).

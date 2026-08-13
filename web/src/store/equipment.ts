@@ -26,6 +26,10 @@ export interface EquipItem {
   item?: string; // base item adı ('apparel' veya legacy named item)
   label?: string; // metadata.label — panelde gösterilen ad
   image?: string; // metadata.image — web/images/<image>.png
+  // metadata.imageurl — TAM URL (ör. bitirim_clothing mağazasının ürettiği
+  // nui://bitirim_clothing/web/images/<anahtar>.png). Varsa `image`'e tercih
+  // edilir; ox'un kendi görsel klasörüne bağlı kalmadan ikon gösterir.
+  imageurl?: string;
   // Görünüm client Lua'da cinsiyete göre çözülür; panel `wear`'ı kullanmaz.
   wear?: EquipWear;
 }
