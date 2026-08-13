@@ -120,9 +120,19 @@ local autoMatchArms = true
     underwear.gloves = 15, yani CIPLAK kol — ustsuzken dogru ama bir ust
     giyildiginde kiyafet kolsuz/eksik gorunuyor. Ust giyili + KOL slotu bos +
     parcanin kendi kol kaydi (wear.arms) yoksa kol buraya duser.
+
+    Component 3'un indeksleri PED MODELINE gore degisir, o yuzden cinsiyete
+    ayri: erkegin degeri kadinda baska bir parcaya denk gelebilir. Gecersiz bir
+    deger sessizce atlanir (kol ciplak kalir, kirilmaz).
+
     bitirim_clothing/config/config.lua -> Config.DefaultArms ile SENKRON.
 ]]
-local defaultArms = { drawable = 0, texture = 0 }
+local defaultArms = {
+    -- 135: oyun icinde olculdu (/bc_kol).
+    male   = { drawable = 135, texture = 0 },
+    -- Kadin ped'inde HENUZ OLCULMEDI — kadin karakterle /bc_kol yazip gecir.
+    female = { drawable = 0, texture = 0 },
+}
 
 return {
     slots = slots,

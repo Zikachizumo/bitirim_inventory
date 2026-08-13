@@ -159,8 +159,12 @@ local function applyEquip()
         end
 
         if not armsDrawable and type(clothing.defaultArms) == 'table' then
-            armsDrawable = tonumber(clothing.defaultArms.drawable)
-            armsTexture  = tonumber(clothing.defaultArms.texture) or 0
+            -- Cinsiyete gore: component 3 indeksleri ped modeline gore degisir.
+            local def = clothing.defaultArms[isFemale and 'female' or 'male']
+            if type(def) == 'table' then
+                armsDrawable = tonumber(def.drawable)
+                armsTexture  = tonumber(def.texture) or 0
+            end
         end
 
         if armsDrawable and IsPedComponentVariationValid(ped, ARMS_COMPONENT, armsDrawable, armsTexture) then
