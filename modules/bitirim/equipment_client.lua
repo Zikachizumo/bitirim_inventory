@@ -35,6 +35,41 @@ local function underwearOf(slot)
     return u.drawable or 0, u.texture or 0
 end
 
+---------------------------------------------------------------------------
+-- UST GIYSI <-> KOL ESLESMESI  ("kiyafette ten gorunuyor")
+--
+-- GTA'da ust giysi (component 11) tek basina yetmez: her ustun birlikte
+-- calistigi bir kol degeri (component 3) vardir. Kol uyusmazsa omuzda/kolda
+-- ten gorunur, bazen omuz tamamen kaybolur. Bu bir doku hatasi degil, eksik
+-- eslestirme.
+--
+-- Oyunun kendi verisi bunu biliyor: "zorunlu bilesenler" (forced components)
+-- bir parcayla birlikte gelmesi gerekenleri soyler. Native yoksa hicbir sey
+-- yapilmaz — davranis eskisi gibi kalir.
+--
+-- Oyuncunun KOL slotu doluysa (kendi sectigi bir parca) dokunulmaz.
+---------------------------------------------------------------------------
+local ARMS_COMPONENT = 3
+local TOPS_COMPONENT = 11
+
+local function forcedArmsFor(model, topDrawable)
+    if clothing.autoMatchArms == false then return nil end
+    if not GetNumForcedComponents or not GetForcedComponent then return nil end
+
+    local ok, count = pcall(GetNumForcedComponents, model, TOPS_COMPONENT, topDrawable, 0)
+    if not ok or type(count) ~= 'number' or count <= 0 then return nil end
+
+    for i = 0, count - 1 do
+        -- Native uc deger dondurur: nameHash, enumValue (drawable), componentType
+        local ok2, _, enumValue, componentType = pcall(GetForcedComponent, model, TOPS_COMPONENT, topDrawable, i)
+        if ok2 and componentType == ARMS_COMPONENT and type(enumValue) == 'number' and enumValue >= 0 then
+            return enumValue
+        end
+    end
+
+    return nil
+end
+
 --- Bir `wear` gorunum tablosunu oyuncunun cinsiyetine gore coz.
 --- wear: { drawable, texture } veya { male = {...}, female = {...} }.
 --- Donus: drawable, texture (bulunamazsa nil).
@@ -89,6 +124,24 @@ local function applyEquip()
                 SetPedPropIndex(ped, def.id, ed, et or 0, true)
             elseif isFreemode then
                 ClearPedProp(ped, def.id)
+            end
+        end
+    end
+
+    -- Ust giysi giyili ve KOL slotu bossa: oyunun kendi eslesme verisinden
+    -- uygun kolu uygula. Yoksa kol underwear'da (ciplak) kalir ve ustun
+    -- omzunda ten gorunur. Oyuncu kendi kolunu taktiysa dokunulmaz.
+    if isFreemode and not currentEquip['gloves'] then
+        local jacket = currentEquip['jacket']
+        if jacket then
+            local wear = jacket.wear or (jacket.item and clothing.items[jacket.item])
+            local topDrawable = resolveWear(wear, isFemale)
+
+            if topDrawable then
+                local arms = forcedArmsFor(model, topDrawable)
+                if arms and IsPedComponentVariationValid(ped, ARMS_COMPONENT, arms, 0) then
+                    SetPedComponentVariation(ped, ARMS_COMPONENT, arms, 0, 0)
+                end
             end
         end
     end

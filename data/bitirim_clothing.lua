@@ -106,8 +106,18 @@ local items = {
     ['armour']       = { slot = 'armour',   drawable = 1,  texture = 0, armour = 100 },
 }
 
+--[[
+    UST GIYSI <-> KOL ESLESMESI.
+    GTA'da ust giysi (component 11) tek basina yetmez; uyumsuz bir kol
+    (component 3) omuzda ten gorunmesine yol acar. Acikken, KOL slotu bos olan
+    bir oyuncuda ust giyilince oyunun kendi "zorunlu bilesen" verisinden dogru
+    kol otomatik uygulanir. Sorun cikarirsa tek satir: false yap.
+]]
+local autoMatchArms = true
+
 return {
     slots = slots,
     underwear = underwear,
+    autoMatchArms = autoMatchArms,
     items = items,
 }
