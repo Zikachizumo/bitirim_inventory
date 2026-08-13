@@ -63,7 +63,12 @@ local slots = {
 local underwear = {
     gloves = { drawable = 15, texture = 0 },  -- component 3  — ciplak kol
     pants  = { drawable = 21, texture = 0 },  -- component 4  — boxer / kulot
-    shoes  = { drawable = 0,  texture = 0 },  -- component 6  — yalin ayak
+    -- component 6 — YALIN AYAK. drawable 0 DEGIL: 0 bu ped'de damali bir
+    -- ayakkabi (oyunda gorulup duzeltildi). 34 illenium'un
+    -- Config.InitialPlayerClothes'undaki degerdir (yeni karakterin ic camasiri
+    -- gorunumu). Yine de ayakkabili gorunuyorsa: illenium dukkaninda yalin
+    -- ayagi sec, /kiyafetbak yaz, F8'deki shoes drawable'ini buraya gecir.
+    shoes  = { drawable = 34, texture = 0 },
     tshirt = { drawable = 15, texture = 0 },  -- component 8  — yok
     jacket = { drawable = 15, texture = 0 },  -- component 11 — yok
 }
