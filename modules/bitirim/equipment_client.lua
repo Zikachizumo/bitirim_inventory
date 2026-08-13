@@ -129,33 +129,42 @@ local function applyEquip()
         end
     end
 
-    -- UST GIYSI -> KOL. Kol slotu bossa kol underwear'da (ciplak) kalir ve ustun
-    -- omzunda ten gorunur. Iki kaynak sirayla denenir:
+    -- UST GIYSI -> KOL. Kol slotu bossa kol underwear'da (CIPLAK) kalir; bu
+    -- ustsuzken dogru ama bir ust giyilince kiyafet kolsuz/eksik gorunur.
+    -- Ust varsa kol icin uc kaynak SIRAYLA denenir:
     --   1) Parcanin KENDI kaydettigi kol (wear.arms) — magazada denenirken
     --      secilen deger. GTA bu eslesmeyi vermedigi icin asil kaynak budur.
     --   2) Oyunun "zorunlu bilesen" verisi — freemode kiyafetlerinde cogunlukla
     --      bos, yine de bedava bir ihtimal.
+    --   3) data/bitirim_clothing.lua -> defaultArms (giyinik varsayilan).
     -- Oyuncu KOL slotuna kendi bir parca taktiysa hicbirine bakilmaz.
-    if isFreemode and not currentEquip['gloves'] then
+    local top = currentEquip['jacket'] or currentEquip['tshirt']
+
+    if isFreemode and top and not currentEquip['gloves'] then
         local jacket = currentEquip['jacket']
-        if jacket then
-            local wear = jacket.wear or (jacket.item and clothing.items[jacket.item])
-            local armsDrawable, armsTexture
+        local wear = jacket and (jacket.wear or (jacket.item and clothing.items[jacket.item]))
+        local armsDrawable, armsTexture
 
-            if type(wear) == 'table' and type(wear.arms) == 'table' then
-                armsDrawable = tonumber(wear.arms.drawable)
-                armsTexture  = tonumber(wear.arms.texture) or 0
-            else
-                local topDrawable = resolveWear(wear, isFemale)
-                if topDrawable then
-                    armsDrawable = forcedArmsFor(model, topDrawable)
-                    armsTexture  = 0
-                end
-            end
+        if type(wear) == 'table' and type(wear.arms) == 'table' then
+            armsDrawable = tonumber(wear.arms.drawable)
+            armsTexture  = tonumber(wear.arms.texture) or 0
+        end
 
-            if armsDrawable and IsPedComponentVariationValid(ped, ARMS_COMPONENT, armsDrawable, armsTexture) then
-                SetPedComponentVariation(ped, ARMS_COMPONENT, armsDrawable, armsTexture, 0)
+        if not armsDrawable and wear then
+            local topDrawable = resolveWear(wear, isFemale)
+            if topDrawable then
+                armsDrawable = forcedArmsFor(model, topDrawable)
+                armsTexture  = 0
             end
+        end
+
+        if not armsDrawable and type(clothing.defaultArms) == 'table' then
+            armsDrawable = tonumber(clothing.defaultArms.drawable)
+            armsTexture  = tonumber(clothing.defaultArms.texture) or 0
+        end
+
+        if armsDrawable and IsPedComponentVariationValid(ped, ARMS_COMPONENT, armsDrawable, armsTexture) then
+            SetPedComponentVariation(ped, ARMS_COMPONENT, armsDrawable, armsTexture, 0)
         end
     end
 

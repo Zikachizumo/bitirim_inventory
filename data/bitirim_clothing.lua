@@ -115,9 +115,19 @@ local items = {
 ]]
 local autoMatchArms = true
 
+--[[
+    UST GIYILINCE KOLUN ALACAGI VARSAYILAN DEGER.
+    underwear.gloves = 15, yani CIPLAK kol — ustsuzken dogru ama bir ust
+    giyildiginde kiyafet kolsuz/eksik gorunuyor. Ust giyili + KOL slotu bos +
+    parcanin kendi kol kaydi (wear.arms) yoksa kol buraya duser.
+    bitirim_clothing/config/config.lua -> Config.DefaultArms ile SENKRON.
+]]
+local defaultArms = { drawable = 0, texture = 0 }
+
 return {
     slots = slots,
     underwear = underwear,
     autoMatchArms = autoMatchArms,
+    defaultArms = defaultArms,
     items = items,
 }
