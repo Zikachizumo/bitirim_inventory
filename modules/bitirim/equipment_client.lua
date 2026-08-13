@@ -162,8 +162,12 @@ local function applyEquip()
             -- Cinsiyete gore: component 3 indeksleri ped modeline gore degisir.
             local def = clothing.defaultArms[isFemale and 'female' or 'male']
             if type(def) == 'table' then
-                armsDrawable = tonumber(def.drawable)
-                armsTexture  = tonumber(def.texture) or 0
+                local d = tonumber(def.drawable)
+                -- drawable < 0 = KAPALI: kola dokunma, ciplak kol kalsin.
+                if d and d >= 0 then
+                    armsDrawable = d
+                    armsTexture  = tonumber(def.texture) or 0
+                end
             end
         end
 

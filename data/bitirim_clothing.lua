@@ -126,9 +126,14 @@ local autoMatchArms = true
     deger sessizce atlanir (kol ciplak kalir, kirilmaz).
 
     bitirim_clothing/config/config.lua -> Config.DefaultArms ile SENKRON.
+
+    KAPATMAK ICIN drawable = -1 yaz: kola hic dokunulmaz, ciplak kol kalir.
+    Varsayilan kol SATIN ALINMAMIS bir parcadir (karakterde sahip olmadigin bir
+    kol/eldiven gorunur); sahiplik kuralina siki baglanmak istiyorsan -1 yap ve
+    kolu magazadaki "Arms / Gloves" kategorisinden satin aldir.
 ]]
 local defaultArms = {
-    -- 135: oyun icinde olculdu (/bc_kol).
+    -- 135: oyun icinde olculdu (/bc_kol). NOT: bu parca ELDIVENLIDIR.
     male   = { drawable = 135, texture = 0 },
     -- Kadin ped'inde HENUZ OLCULMEDI — kadin karakterle /bc_kol yazip gecir.
     female = { drawable = 0, texture = 0 },

@@ -48,7 +48,10 @@ const LEFT_SLOTS: SlotDef[] = [
   { key: 'mask', label: 'Maske', Icon: IconMask },
   { key: 'jacket', label: 'Ceket', Icon: IconJacket },
   { key: 'tshirt', label: 'Tişört', Icon: IconTshirt },
-  { key: 'gloves', label: 'Eldiven', Icon: IconGloves },
+  // GTA'da eldiven AYRI bir parca degil: component 3 kolu+elleri birlikte
+  // tanimlar (bazi kol parcalari eldivenli, bazilari degil). Magazadaki
+  // "Arms / Gloves" kategorisi bu slotu doldurur.
+  { key: 'gloves', label: 'Kol / Eldiven', Icon: IconGloves },
   { key: 'pants', label: 'Pantolon', Icon: IconPants },
   { key: 'shoes', label: 'Ayakkabı', Icon: IconShoes },
 ];
