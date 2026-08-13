@@ -159,35 +159,15 @@ Item('clothing', function(data, slot)
 
 	ox_inventory:useItem(data, function(data)
 		if data then
-			metadata = data.metadata
-
-			if metadata.prop then
-				local prop = GetPedPropIndex(cache.ped, metadata.prop)
-				local texture = GetPedPropTextureIndex(cache.ped, metadata.prop)
-
-				if metadata.drawable == prop and metadata.texture == texture then
-					return ClearPedProp(cache.ped, metadata.prop)
-				end
-
-				-- { prop = 0, drawable = 2, texture = 1 } = grey beanie
-				SetPedPropIndex(cache.ped, metadata.prop, metadata.drawable, metadata.texture, false);
-			elseif metadata.component then
-				local drawable = GetPedDrawableVariation(cache.ped, metadata.component)
-				local texture = GetPedTextureVariation(cache.ped, metadata.component)
-
-				if metadata.drawable == drawable and metadata.texture == texture then
-					-- BITIRIM: component'lerde None/-1 yok; tekrar kullanınca NUDE'a
-					-- değil, underwear taban katmanına düş. Kaynak: illenium-appearance
-					-- Config.InitialPlayerClothes (Male=Female aynı) — bitirim_clothing/
-					-- config/config.lua Config.Underwear ile SENKRON tutulmalı.
-					local floorDrawable = ({ [3] = 15, [4] = 21, [6] = 0, [8] = 15, [11] = 15 })[metadata.component]
-					if floorDrawable then SetPedComponentVariation(cache.ped, metadata.component, floorDrawable, 0, 0) end
-					return
-				end
-
-				-- { component = 4, drawable = 4, texture = 1 } = jeans w/ belt
-				SetPedComponentVariation(cache.ped, metadata.component, metadata.drawable, metadata.texture, 0);
-			end
+			-- BITIRIM: giyme/çıkarma tek merkezden yönetiliyor —
+			-- modules/bitirim/clothing.lua. Orası hem ped'i günceller hem de
+			-- karakter panelindeki equip slotunu doldurur; aynı slotta duran
+			-- eski parçanın yerini alır (üst üste binme yok) ve parça
+			-- envanterden çıkarsa üzerinden de çıkarır.
+			--
+			-- ox akışı korunuyor: kullanım yine ox_inventory:useItem üzerinden
+			-- geçer, burada yalnızca sonuç uygulanır.
+			exports[shared.resource]:bitirimToggleClothing(data)
 		end
 	end)
 end)

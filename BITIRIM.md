@@ -101,7 +101,9 @@ ardından txAdmin Live Console'da `restart ox_inventory`.
 - **Faz 0** — Fork + repo kurulumu ✅
 - **Faz 1** — Sunucuda çalışır hale getirme (isim/sürüm uyumu, `web/build` dağıtımı) ✅
 - **Faz 2** — Sağ panel reskin: grid + hotbar + ağırlık + context menü (Kullan/Ayır/At) + tooltip; koyu/neon tema, 5 seviyeli çanta renkleri
-- **Faz 3** — Sol panel: statlar (CAN/ZIRH/AÇLIK/SUSUZLUK) + işlevsel equip slotları (zırh+silah+çanta+maske) + sağ tık giy/çıkar + illenium köprüsü *(C yaklaşımı)*
+- **Faz 3** — Sol panel: statlar (CAN/ZIRH/AÇLIK/SUSUZLUK) + işlevsel equip slotları + kıyafet
+  giy/çıkar (`modules/bitirim/clothing.lua`: item = giyilen parça, slot çakışması yok,
+  envanterden çıkan parça üzerinden de çıkar) ✅ — zırh/silah slotları hâlâ görsel
 - **Faz 4** — "Ver" barı + `bitirim_stranger` yakın-oyuncu seçici (ID + isim / Stranger)
 - **Faz 5** — Kozmetik kıyafet-as-item (tam katalog) + çanta seviye/upgrade sistemi
 

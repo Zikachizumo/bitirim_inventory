@@ -2,7 +2,9 @@ import React from 'react';
 import CharacterStats from './CharacterStats';
 import { useAppSelector } from '../../store';
 import { selectBagLevel } from '../../store/backpack';
+import { selectWornClothing } from '../../store/clothing';
 import { getItemUrl } from '../../helpers';
+import { fetchNui } from '../../utils/fetchNui';
 import {
   IconAmmo,
   IconBackpack,
@@ -26,9 +28,17 @@ import {
  * Bitirim karakter paneli.
  *
  * Slotlar NUMARALI (sag ustte kucuk rozet) — karisiklik olmasin diye.
- * ÇANTA slotu (key='bag') GERCEK: takili canta seviyesine gore bag_lvN.png
- * gorselini gosterir; seviye degisince (use ile giyme/yukseltme) otomatik
- * guncellenir. Diger slotlar su an GORSEL (illenium-appearance koprusu ileride).
+ *
+ * ÇANTA slotu (key='bag') takili canta seviyesine gore bag_lvN.png gosterir.
+ *
+ * KIYAFET/AKSESUAR slotlari (jacket, tshirt, pants, shoes, gloves, armour,
+ * mask, necklace, glasses, ears, watch, bracelet, hat) karakterin uzerinde ne
+ * varsa onu gosterir. Veriyi client Lua uretir
+ * (modules/bitirim/clothing.lua -> setWornClothing); burasi yalnizca cizer.
+ * Anahtarlar o dosyadaki COMPONENT_SLOT / PROP_SLOT ile BIREBIR ayni olmali.
+ *
+ * Dolu bir kiyafet slotuna tiklamak parcayi cikarir (component'ler underwear
+ * tabanina duser, prop'lar tamamen kaldirilir).
  */
 
 const EQUIP_ROWS: { key: string; label: string; Icon: React.FC<{ size?: number }> }[][] = [
@@ -39,7 +49,8 @@ const EQUIP_ROWS: { key: string; label: string; Icon: React.FC<{ size?: number }
     { key: 'mask', label: 'Maske', Icon: IconMask },
   ],
   [
-    { key: 'ring', label: 'Yüzük', Icon: IconRing },
+    // GTA'da parmak takisi yok; bu slot magazadaki Bracelet (prop 7) icindir.
+    { key: 'bracelet', label: 'Bileklik', Icon: IconRing },
     { key: 'necklace', label: 'Kolye', Icon: IconNecklace },
     { key: 'watch', label: 'Saat', Icon: IconWatch },
   ],
@@ -62,6 +73,7 @@ const EQUIP_ROWS: { key: string; label: string; Icon: React.FC<{ size?: number }
 
 const CharacterPanel: React.FC = () => {
   const bagLevel = useAppSelector(selectBagLevel);
+  const worn = useAppSelector(selectWornClothing);
   let slotNo = 0; // tum slotlara sirali numara (1..N)
 
   return (
@@ -73,24 +85,37 @@ const CharacterPanel: React.FC = () => {
           <div className="bx-eq-row" key={`eqrow-${i}`}>
             {row.map(({ key, label, Icon }) => {
               slotNo += 1;
+
               // Canta slotu: takili seviyeye gore gercek gorsel (bag_lvN.png).
-              const bagUrl = key === 'bag' && bagLevel > 0 ? getItemUrl(`bag_lv${bagLevel}`) : undefined;
+              // Diger slotlar: karakterin uzerindeki parcanin item ikonu.
+              const piece = key !== 'bag' ? worn[key] : undefined;
+              const url =
+                key === 'bag'
+                  ? bagLevel > 0
+                    ? getItemUrl(`bag_lv${bagLevel}`)
+                    : undefined
+                  : piece?.image;
+
               const title =
                 key === 'bag'
                   ? bagLevel > 0
                     ? `Çanta — Seviye ${bagLevel}`
                     : 'Çanta — boş'
-                  : `${label} — boş`;
+                  : piece
+                    ? `${piece.label || label} — çıkarmak için tıkla`
+                    : `${label} — boş`;
 
               return (
                 <div
-                  className={bagUrl ? 'bx-eq-slot has-item' : 'bx-eq-slot'}
+                  className={url ? 'bx-eq-slot has-item' : 'bx-eq-slot'}
                   key={key}
                   title={title}
-                  style={bagUrl ? { backgroundImage: `url(${bagUrl})` } : undefined}
+                  role={piece ? 'button' : undefined}
+                  onClick={piece ? () => fetchNui('bitirimUnequipClothing', { key }) : undefined}
+                  style={url ? { backgroundImage: `url(${url})` } : undefined}
                 >
                   <span className="bx-eq-num">{slotNo}</span>
-                  {!bagUrl && <Icon size={32} />}
+                  {!url && <Icon size={32} />}
                 </div>
               );
             })}

@@ -5,6 +5,7 @@ import tooltipReducer from './tooltip';
 import contextMenuReducer from './contextMenu';
 import playerStatusReducer from './playerStatus';
 import equipmentReducer from './equipment';
+import clothingReducer from './clothing';
 import backpackReducer from './backpack';
 import splitReducer from './split';
 import cashReducer from './cash';
@@ -16,6 +17,7 @@ export const store = configureStore({
     contextMenu: contextMenuReducer,
     playerStatus: playerStatusReducer,
     equipment: equipmentReducer,
+    clothing: clothingReducer,
     backpack: backpackReducer,
     split: splitReducer,
     cash: cashReducer,

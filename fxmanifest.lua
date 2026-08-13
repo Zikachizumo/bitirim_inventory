@@ -53,6 +53,8 @@ client_scripts {
     'init.lua',
     -- Bitirim: karakter panelindeki durum barlarini besler (bagimsiz calisir)
     'modules/bitirim/client.lua',
+    -- Bitirim: kiyafet giyme/cikarma + karakter paneli equip slotlari
+    'modules/bitirim/clothing.lua',
 }
 
 ui_page 'web/build/index.html'

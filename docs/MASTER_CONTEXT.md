@@ -102,6 +102,9 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
 7. **Araç depolama ayarı** (`data/vehicles.lua`) — tüm araçlarda bagaj 6×6 / 999.999 KG,
    torpido 6 slot / 50 KG.
 8. **Use↔Unequip** — kuşanılı silahta context menü etiketi değişir.
+9. **Kıyafet giyme sistemi** (`modules/bitirim/clothing.lua`) — kıyafet item'ı giyilir,
+   karakter panelindeki ilgili equip slotunda görünür, envanterden çıkınca üzerinden de
+   çıkar. Bkz. bölüm 6.5.
 
 ---
 
@@ -158,7 +161,7 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
     Downgrade koruması use adımında. Kraft (L3-5) opsiyonel/ileride.
   - **Karakter panelinde takılı çanta görseli:** `CharacterPanel` **Çanta** slotu takılı
     seviyeye göre `bag_lvN.png` gösterir (seviye değişince güncellenir; Sv.0 boş). Equip
-    slotları numaralı. Diğer slotlar hâlâ görsel (illenium köprüsü ileride).
+    slotları numaralı. Kıyafet/aksesuar slotları bölüm 6.5'teki sistemle dolar.
   - Görseller: `web/images/bag_lv1.png..bag_lv5.png` (eklendi).
 - **Backend (kodlandı):** seviye `bitirim_backpack(citizenid, level)` MySQL tablosunda kalıcı;
   onbellekli. `modules/bitirim/server.lua`.
@@ -171,6 +174,38 @@ bitirim_inventory/               (repo adı; sunucuda "ox_inventory")
   Seviye değişince `<html data-lv="0..5">` yazılır → `:root[data-lv]` tema tokenları değişir.
   Client `modules/bitirim/client.lua` gerçek seviyeyi `bitirim:client:bagLevel` event'iyle alır.
 - **`/cantatest <0-5>`** sadece **görsel** test komutudur (sunucuyu/ağırlığı değiştirmez).
+
+---
+
+## 6.5. Kıyafet Giyme Sistemi (karakter paneli equip slotları)
+
+Kıyafet bu sunucuda bir **item**'dir (`clothing`, `bitirim_clothing` mağazasından alınır;
+metadata: `component|prop`, `drawable`, `texture`, `label`, `imageurl`). Item ile karakterin
+üzerindeki görünüm arasındaki tek bağlantı **`modules/bitirim/clothing.lua`**'dır.
+
+- **Giyme:** item kullanılınca giyilir. Akış değişmedi — `modules/items/client.lua`'daki
+  `Item('clothing', ...)` hâlâ `ox_inventory:useItem` üzerinden geçer, sonucu bu modüle
+  devreder (`exports.ox_inventory:bitirimToggleClothing(slotData)`).
+- **Üst üste binme yok:** durum `worn[slotKey]` tablosunda tutulur; bir slotta her zaman tek
+  parça durur, yeni parça eskisinin **yerini alır**. Aynı parça tekrar kullanılırsa çıkarılır.
+- **Panel:** giyili parçalar `setWornClothing` NUI mesajıyla gönderilir → `store/clothing.ts`
+  → `CharacterPanel`. Slot anahtarları Lua'daki `COMPONENT_SLOT` / `PROP_SLOT` ile React'teki
+  `EQUIP_ROWS` arasında **birebir** aynı olmalı. Görsel item'ın kendi `metadata.imageurl`'ü.
+  Dolu bir slota tıklamak parçayı çıkarır (`bitirimUnequipClothing`).
+- **Sahiplik:** `ox_inventory:updateInventory` her tetiklendiğinde giyili parçaların hâlâ
+  envanterde olduğu doğrulanır; olmayan (atılan/verilen/stash'e konan) parça üzerinden de
+  çıkar. **Envanterdeki kıyafetlerin hepsi giderse** karakter tamamen underwear'a döner
+  (`stripToUnderwear`). Bu yalnızca "vardı → yok" geçişinde çalışır; hiç kıyafeti olmayan bir
+  oyuncu girişte soyulmaz.
+- **Kalıcılık yok:** relog sonrası panel, ped'in mevcut görünümü ile envanterdeki item'lar
+  eşleştirilerek yeniden kurulur (`rebuildFromPed`). Yalnızca boş slotları doldurur,
+  underwear tabanındaki değerleri giyim saymaz.
+- **UNDERWEAR tablosu** (`[3]=15, [4]=21, [6]=0, [8]=15, [11]=15`) illenium'un
+  `Config.InitialPlayerClothes`'undan gelir ve `bitirim_clothing/config/config.lua`
+  `Config.Underwear` ile **senkron tutulmalıdır**.
+
+Kapsam dışı: prop 0 (şapka) mağazada satılmıyor → "Şapka" slotu boş kalır. "Yüzük" slotu
+"Bileklik" olarak yeniden adlandırıldı (GTA'da parmak takısı yok; mağazadaki Bracelet = prop 7).
 
 ---
 

@@ -956,6 +956,13 @@ body.inv-dragging {
     border-color: var(--accent-line);
     background-color: var(--slot);
   }
+  /* giyili kiyafet slotu tiklanabilir (cikarma) — canta slotunda role yok */
+  &[role='button'] {
+    cursor: pointer;
+    &:hover {
+      border-color: var(--accent);
+    }
+  }
 }
 
 /* equip slot sira numarasi — sag ust, kucuk ve soluk (karisiklik olmasin diye) */

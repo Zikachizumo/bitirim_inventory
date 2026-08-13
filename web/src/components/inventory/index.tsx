@@ -6,9 +6,11 @@ import { useAppDispatch, useAppSelector } from '../../store';
 import { refreshSlots, selectRightInventory, setAdditionalMetadata, setupInventory } from '../../store/inventory';
 import { setPlayerStatus, PlayerStatus } from '../../store/playerStatus';
 import { setEquippedSlot } from '../../store/equipment';
+import { setWornClothing, WornClothing } from '../../store/clothing';
 import { setBagLevel } from '../../store/backpack';
 import { setCash } from '../../store/cash';
 import { useExitListener } from '../../hooks/useExitListener';
+import { fetchNui } from '../../utils/fetchNui';
 import type { Inventory as InventoryProps } from '../../typings';
 import RightInventory from './RightInventory';
 import Tooltip from '../utils/Tooltip';
@@ -53,6 +55,12 @@ const Inventory: React.FC = () => {
     if (!inventoryVisible) dispatch(closeSplit());
   }, [inventoryVisible, dispatch]);
 
+  // Envanter acilinca giyili kiyafetleri Lua'dan tazele. Dogruluk kaynagi Lua
+  // tarafidir; NUI yeniden yuklendiginde (resource restart) panel bos kalmasin.
+  useEffect(() => {
+    if (inventoryVisible) fetchNui('bitirimRequestWornClothing');
+  }, [inventoryVisible]);
+
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
     setInventoryVisible(false);
@@ -80,6 +88,10 @@ const Inventory: React.FC = () => {
 
   // Bitirim: o an kusanili slot (sag tik menusunde Use/Unequip etiketi icin)
   useNuiEvent<number | null>('setEquippedSlot', (data) => dispatch(setEquippedSlot(data)));
+
+  // Bitirim: karakterin uzerindeki kiyafet/aksesuarlar -> sol paneldeki equip
+  // slotlari. Karari client Lua verir (modules/bitirim/clothing.lua).
+  useNuiEvent<WornClothing>('setWornClothing', (data) => dispatch(setWornClothing(data)));
 
   // Bitirim: canta seviyesi -> tema rengi (<html data-lv>) + acik/kilitli slotlar
   useNuiEvent<number>('setBagLevel', (level) => {
