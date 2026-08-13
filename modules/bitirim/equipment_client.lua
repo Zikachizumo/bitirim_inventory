@@ -4,45 +4,35 @@
     Server (equipment_server.lua) giyili ekipmani `bitirim:client:equipment`
     ile yollar: payload = { slot = { drawable, texture } }. Bu modul:
       1) Ped'e uygular (GTA native): component -> SetPedComponentVariation,
-         prop -> SetPedPropIndex. Giyili OLMAYAN slotlar temel (base) haline
-         dondurulur (component) / temizlenir (prop).
+         prop -> SetPedPropIndex. Giyili OLMAYAN slotlar underwear tabanina
+         indirilir (component) / temizlenir (prop).
       2) NUI'ye `setEquipment` yollar (karakter paneli gosterimi; ileride ayni
          veri 3D onizlemeyi besleyecek — TEK KAYNAK).
       3) Panelden cikarma (unequip) NUI callback'ini karsilar.
 
-    illenium ile uyum: illenium temel skini spawn'da yukler; biz onun USTUNE
-    uygulariz ve giyili olmayan slotlari, spawn aninda yakaladigimiz "base"e
-    (illenium'un temiz skini) geri dondururuz. Boylece cikarinca oyuncunun
-    kendi kiyafeti geri gelir (drawable 0 degil). NOT: oyuncu kiyafet dukkaninda
-    (illenium) skinini degistirirse base bayatlar; o durumda relog/spawn'da
-    yeniden yakalanir. Slot->GTA hedefi: data/bitirim_clothing.lua.
+    illenium ile uyum: illenium temel skini (yuz/sac/vucut) spawn'da yukler; biz
+    onun USTUNE yalnizca KIYAFET slotlarini uygulariz.
+
+    BOS SLOT = CIPLAK. Bu sunucuda giyilen her sey bir item'dir, o yuzden bos bir
+    slot illenium'un kaydettigi kiyafete DEGIL, underwear tabanina doner
+    (data/bitirim_clothing.lua -> underwear). Boylece oyuncu tum kiyafetlerini
+    cikardiginda karakterde yalnizca ic camasiri kalir; sahip olmadigi bir kiyafet
+    uzerinde asla gorunmez. Prop slotlari bosaldiginda tamamen temizlenir.
+    Slot->GTA hedefi ve underwear tablosu: data/bitirim_clothing.lua.
 ]]
 
 local clothing = lib.load('data.bitirim_clothing')
 
 local currentEquip = {}      -- slot -> { drawable, texture } (server'dan gelen guncel)
-local base = {}              -- slot -> { drawable, texture } (temiz skin — cikarinca donus)
-local baseCaptured = false
 local requestedOnce = false
 local lastArmour = nil       -- son uygulanan zirh degeri; SADECE armour slotu degisince yenilenir
 
---- Temiz ped'ten (illenium skin, ekipman uygulanmadan once) base'i yakala.
-local function captureBase(ped)
-    base = {}
-    for slot, def in pairs(clothing.slots) do
-        if def.kind == 'component' then
-            base[slot] = {
-                drawable = GetPedDrawableVariation(ped, def.id),
-                texture = GetPedTextureVariation(ped, def.id),
-            }
-        else -- prop
-            base[slot] = {
-                drawable = GetPedPropIndex(ped, def.id),
-                texture = GetPedPropTextureIndex(ped, def.id),
-            }
-        end
-    end
-    baseCaptured = true
+--- Bos bir component slotunun taban (ciplak) gorunumu. Tabloda yoksa 0 =
+--- "hicbir sey yok" (maske / zincir / yelek boyle davranir).
+local function underwearOf(slot)
+    local u = clothing.underwear and clothing.underwear[slot]
+    if type(u) ~= 'table' then return 0, 0 end
+    return u.drawable or 0, u.texture or 0
 end
 
 --- Bir `wear` gorunum tablosunu oyuncunun cinsiyetine gore coz.
@@ -61,17 +51,22 @@ local function resolveWear(wear, isFemale)
 end
 
 --- Giyili ekipmani ped'e uygula. Giyili slot -> parca gorunumu (cinsiyete gore);
---- bos slot -> spawn'da yakalanan temiz base. Gorunum server payload'inda
---- `e.wear`'da gelir; yoksa (eski satir) legacy clothing.items map'inden coz.
---- (drawable 0 gecerlidir; Lua'da 0 truthy oldugu icin `or` yalniz nil'de base'e duser.)
+--- BOS slot -> underwear tabani (component) / tamamen temiz (prop).
+--- Gorunum server payload'inda `e.wear`'da gelir; yoksa (eski satir) legacy
+--- clothing.items map'inden cozulur.
+--- (drawable 0 gecerlidir; Lua'da 0 truthy oldugu icin `or` yalniz nil'de tabana duser.)
 local function applyEquip()
     local ped = PlayerPedId()
-    if not baseCaptured then captureBase(ped) end
-    local isFemale = GetEntityModel(ped) == `mp_f_freemode_01`
+    local model = GetEntityModel(ped)
+    local isFemale = model == `mp_f_freemode_01`
+
+    -- Underwear tablosu YALNIZCA freemode ped'ler icin anlamlidir (kaynak da o:
+    -- illenium'un freemode varsayilanlari). Oyuncu bir is/hikaye skinindeyse bos
+    -- slotlara DOKUNULMAZ — yoksa uniformanin parcalarini silerdik.
+    local isFreemode = isFemale or model == `mp_m_freemode_01`
 
     for slot, def in pairs(clothing.slots) do
         local e = currentEquip[slot]
-        local b = base[slot]
         local ed, et
         if e then
             local wear = e.wear or (e.item and clothing.items[e.item])
@@ -79,17 +74,20 @@ local function applyEquip()
         end
 
         if def.kind == 'component' then
-            local d = ed or (b and b.drawable) or 0
-            local t = et or (b and b.texture) or 0
-            if IsPedComponentVariationValid(ped, def.id, d, t) then
-                SetPedComponentVariation(ped, def.id, d, t, 0)
+            if ed then
+                if IsPedComponentVariationValid(ped, def.id, ed, et or 0) then
+                    SetPedComponentVariation(ped, def.id, ed, et or 0, 0)
+                end
+            elseif isFreemode then
+                local ud, ut = underwearOf(slot)
+                if IsPedComponentVariationValid(ped, def.id, ud, ut) then
+                    SetPedComponentVariation(ped, def.id, ud, ut, 0)
+                end
             end
         else -- prop
             if ed then
                 SetPedPropIndex(ped, def.id, ed, et or 0, true)
-            elseif b and b.drawable and b.drawable >= 0 then
-                SetPedPropIndex(ped, def.id, b.drawable, b.texture, true)
-            else
+            elseif isFreemode then
                 ClearPedProp(ped, def.id)
             end
         end
@@ -175,12 +173,13 @@ CreateThread(function()
     end
 end)
 
---- Spawn/relog: temiz skin degisti -> base'i yeniden yakala ve ekipmani
---- illenium yuklemesinden SONRA tekrar uygula (override'i geri al).
+--- Spawn/relog: illenium temel skini kurduktan SONRA ekipmani tekrar uygula.
+--- Bu ayni zamanda "sahip olmadigin kiyafeti giyemezsin" kuralini girise de
+--- tasir: illenium'un kaydettigi kiyafetlerden ekipman slotunda karsiligi
+--- olmayanlar underwear'a duser.
 local function onFreshSpawn()
     CreateThread(function()
         Wait(2000) -- illenium temel skini kursun
-        baseCaptured = false
         applyEquip()
         pushToNui()
     end)

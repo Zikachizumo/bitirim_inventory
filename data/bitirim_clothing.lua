@@ -6,14 +6,15 @@
     slotu -> hangi GTA hedefi" ve "hangi item -> hangi slot + gorunum" bilgisini
     TEK yerde tutmak (dunya karakteri ve ileride 3D onizleme ayni veriyi kullanir).
 
-    Iki tablo:
-      slots : panel slot anahtari -> GTA hedefi
-              kind = 'component' -> SetPedComponentVariation(ped, id, drawable, texture, 0)
-              kind = 'prop'      -> SetPedPropIndex(ped, id, drawable, texture, true)
-                                    (cikarinca ClearPedProp(ped, id))
-      items : kiyafet item adi -> { slot, drawable, texture }
-              Bir item BURADA tanimli degilse "kiyafet" SAYILMAZ; equip sistemi
-              ona dokunmaz (normal item gibi davranir).
+    Uc tablo:
+      slots     : panel slot anahtari -> GTA hedefi
+                  kind = 'component' -> SetPedComponentVariation(ped, id, drawable, texture, 0)
+                  kind = 'prop'      -> SetPedPropIndex(ped, id, drawable, texture, true)
+                                        (cikarinca ClearPedProp(ped, id))
+      underwear : BOS component slotunun donecegi taban gorunum
+      items     : kiyafet item adi -> { slot, drawable, texture }
+                  Bir item BURADA tanimli degilse "kiyafet" SAYILMAZ; equip sistemi
+                  ona dokunmaz (normal item gibi davranir).
 
     NOT (cinsiyet): drawable/texture indeksleri PED MODELINE gore degisir
     (freemode erkek != kadin). Asagidaki ornek degerler test icindir; TAM
@@ -45,6 +46,26 @@ local slots = {
     tshirt   = { kind = 'component', id = 8 },  -- undershirt
     armour   = { kind = 'component', id = 9 },  -- gorsel yelek (deger ayri: SetPedArmour)
     jacket   = { kind = 'component', id = 11 }, -- ust/tops
+}
+
+--[[
+    UNDERWEAR — bos slotun taban gorunumu.
+    -------------------------------------------------------------------------
+    Bu sunucuda giyilen HER SEY bir item'dir: bir slotta parca yoksa oyuncunun
+    orasi CIPLAK olmalidir. Bu tablo o "hicbir sey giymiyor" halini tanimlar
+    (component'lerde -1/None yoktur, taban bir drawable secilmek zorundadir).
+
+    Kaynak: illenium-appearance `Config.InitialPlayerClothes` (erkek=kadin ayni).
+    bitirim_clothing/config/config.lua -> `Config.Underwear` ile SENKRON.
+    Burada YAZMAYAN component slotu 0'a duser (maske/zincir/yelek = "yok").
+    Prop slotlari bu tabloda yoktur: bos prop = ClearPedProp.
+]]
+local underwear = {
+    gloves = { drawable = 15, texture = 0 },  -- component 3  — ciplak kol
+    pants  = { drawable = 21, texture = 0 },  -- component 4  — boxer / kulot
+    shoes  = { drawable = 0,  texture = 0 },  -- component 6  — yalin ayak
+    tshirt = { drawable = 15, texture = 0 },  -- component 8  — yok
+    jacket = { drawable = 15, texture = 0 },  -- component 11 — yok
 }
 
 --[[
@@ -82,5 +103,6 @@ local items = {
 
 return {
     slots = slots,
+    underwear = underwear,
     items = items,
 }

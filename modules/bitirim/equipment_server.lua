@@ -94,6 +94,7 @@ local function pushToClient(source)
             item = entry.item,
             label = entry.label,
             image = entry.image,
+            imageurl = entry.imageurl,
             wear = entry.wear,
         }
     end
@@ -105,23 +106,45 @@ end
 --- ile birakilan slot -> siralama yok, istenilen yere). @return boolean success
 local function giveBackEntry(source, entry, toSlot)
     toSlot = tonumber(toSlot)
-    if entry.item == 'apparel' then
+    -- Metadata-guдумlu parca (apparel + eski magaza 'clothing' item'i): gorunum
+    -- item'in KENDI metadata'sindadir, metadatasiz iade edilirse parca olur.
+    -- (`item == 'apparel'` kontrolu, fromMetadata alani eklenmeden once DB'ye
+    -- yazilmis satirlar icin duruyor.)
+    if entry.fromMetadata or entry.item == 'apparel' then
         local meta = {
             label = entry.label,
             image = entry.image,
+            imageurl = entry.imageurl,
             rarity = entry.rarity,
             wear = entry.wear,
         }
-        local ok, addOk = pcall(function() return Inventory.AddItem(source, 'apparel', 1, meta, toSlot) end)
+        local ok, addOk = pcall(function() return Inventory.AddItem(source, entry.item, 1, meta, toSlot) end)
         return ok and addOk
     end
     local ok, addOk = pcall(function() return Inventory.AddItem(source, entry.item, 1, nil, toSlot) end)
     return ok and addOk
 end
 
+--- GTA hedefi (kind + id) -> panel slot anahtari. clothing.slots'un TERSI;
+--- bir kez kurulur. Eski magaza item'lerini (component/prop id tasiyan) dogru
+--- slota oturtmak icin.
+local slotByTarget = {}
+for slotKey, def in pairs(clothing.slots) do
+    slotByTarget[('%s:%d'):format(def.kind, def.id)] = slotKey
+end
+
+local function slotKeyOf(kind, id)
+    return slotByTarget[('%s:%d'):format(kind, id)]
+end
+
 --- Kullanilan item + metadata'dan normalize parca cikar. Metadata-guдумlu
 --- (apparel) veya legacy (named item + clothing.items map). Bulunamazsa nil.
---- Donus: entry = { item, label?, image?, rarity?, wear = { slot, ... } }
+--- Donus: entry = { item, label?, image?, imageurl?, rarity?, wear = { slot, ... } }
+---
+--- image vs imageurl: `image` ox'un kendi web/images klasorundeki BASE ADIdir
+--- (or. 'mask_ski'); `imageurl` ise tam bir URL'dir (or. bitirim_clothing'in
+--- urettigi nui://bitirim_clothing/web/images/....png). Ikisi de panele ayni
+--- yoldan gider, arayuz once imageurl'e bakar.
 local function resolvePiece(itemName, metadata)
     -- 1) Metadata-guдумlu (apparel): gorunum item metadata'sinda.
     if type(metadata) == 'table' and type(metadata.wear) == 'table' and metadata.wear.slot then
@@ -129,9 +152,39 @@ local function resolvePiece(itemName, metadata)
             item = itemName,
             label = metadata.label,
             image = metadata.image,
+            imageurl = metadata.imageurl,
             rarity = metadata.rarity,
             wear = metadata.wear,
+            fromMetadata = true,
         }
+    end
+
+    -- 1b) ESKI bitirim_clothing magaza item'i ('clothing'): gorunum metadata'nin
+    -- KOKUNDE durur (component|prop + drawable + texture), `wear` yoktur. Yeni
+    -- satislar 'apparel' + metadata.wear ile geliyor; bu dal yalnizca oyuncularin
+    -- cantasinda kalmis eski parcalar icin. GTA id'sinden panel slotu bulunur.
+    if type(metadata) == 'table' and tonumber(metadata.drawable) then
+        local kind, id
+        if metadata.prop ~= nil then
+            kind, id = 'prop', tonumber(metadata.prop)
+        elseif metadata.component ~= nil then
+            kind, id = 'component', tonumber(metadata.component)
+        end
+
+        local slotKey = id and slotKeyOf(kind, id)
+        if slotKey then
+            return {
+                item = itemName,
+                label = metadata.label,
+                imageurl = metadata.imageurl,
+                wear = {
+                    slot = slotKey,
+                    drawable = tonumber(metadata.drawable),
+                    texture = tonumber(metadata.texture) or 0,
+                },
+                fromMetadata = true,
+            }
+        end
     end
 
     -- 2) Legacy: clothing.items map'inden.

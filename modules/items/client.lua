@@ -139,57 +139,32 @@ Item('phone', function(data, slot)
 	end
 end)
 
+--[[
+	BITIRIM: ox'un jenerik 'clothing' item'i ped'i DOGRUDAN degistiriyordu
+	(SetPedComponentVariation / SetPedPropIndex). Artik kiyafet, ekipman
+	slotlarindan yonetiliyor (modules/bitirim/equipment_server.lua): parca
+	envanterden cikip slota girer, panelde gorunur, cikarinca envantere doner
+	ve bos slot underwear'a duser.
+
+	Iki sistem ayni ped'e yazarsa carpisirlar — bu yuzden buradaki eski yol
+	kaldirildi ve item, sunucudaki equip akisina yonlendirildi. Sunucu, o
+	envanter slotundaki item'i OTORITER okur (client'tan gorunum bilgisi
+	gelmez), metadata'sindan (component|prop + drawable + texture) hangi panel
+	slotuna ait oldugunu cozer.
+
+	NOT: yeni satislar 'apparel' + metadata.wear ile geliyor; 'clothing' yalnizca
+	oyuncularin cantasinda kalmis ESKI parcalar icin duruyor.
+]]
 Item('clothing', function(data, slot)
-	local metadata = slot.metadata
-
-	if not metadata.drawable then return print('Clothing is missing drawable in metadata') end
-	if not metadata.texture then return print('Clothing is missing texture in metadata') end
-
-	if metadata.prop then
-		if not SetPedPreloadPropData(cache.ped, metadata.prop, metadata.drawable, metadata.texture) then
-			return print('Clothing has invalid prop for this ped')
-		end
-	elseif metadata.component then
-		if not IsPedComponentVariationValid(cache.ped, metadata.component, metadata.drawable, metadata.texture) then
-			return print('Clothing has invalid component for this ped')
-		end
-	else
-		return print('Clothing is missing prop/component id in metadata')
+	-- Görünüm burada ÇÖZÜLMEZ: sunucu o envanter slotundaki item'ı kendisi
+	-- okuyup metadata'sından parçayı çıkarır (hem eski kök alanları hem yeni
+	-- `wear` biçimi desteklenir). Böylece bir kez çıkarılıp envantere dönen
+	-- eski parça da çalışmaya devam eder.
+	if type(slot.metadata) ~= 'table' then
+		return print('Clothing is missing metadata')
 	end
 
-	ox_inventory:useItem(data, function(data)
-		if data then
-			metadata = data.metadata
-
-			if metadata.prop then
-				local prop = GetPedPropIndex(cache.ped, metadata.prop)
-				local texture = GetPedPropTextureIndex(cache.ped, metadata.prop)
-
-				if metadata.drawable == prop and metadata.texture == texture then
-					return ClearPedProp(cache.ped, metadata.prop)
-				end
-
-				-- { prop = 0, drawable = 2, texture = 1 } = grey beanie
-				SetPedPropIndex(cache.ped, metadata.prop, metadata.drawable, metadata.texture, false);
-			elseif metadata.component then
-				local drawable = GetPedDrawableVariation(cache.ped, metadata.component)
-				local texture = GetPedTextureVariation(cache.ped, metadata.component)
-
-				if metadata.drawable == drawable and metadata.texture == texture then
-					-- BITIRIM: component'lerde None/-1 yok; tekrar kullanınca NUDE'a
-					-- değil, underwear taban katmanına düş. Kaynak: illenium-appearance
-					-- Config.InitialPlayerClothes (Male=Female aynı) — bitirim_clothing/
-					-- config/config.lua Config.Underwear ile SENKRON tutulmalı.
-					local floorDrawable = ({ [3] = 15, [4] = 21, [6] = 0, [8] = 15, [11] = 15 })[metadata.component]
-					if floorDrawable then SetPedComponentVariation(cache.ped, metadata.component, floorDrawable, 0, 0) end
-					return
-				end
-
-				-- { component = 4, drawable = 4, texture = 1 } = jeans w/ belt
-				SetPedComponentVariation(cache.ped, metadata.component, metadata.drawable, metadata.texture, 0);
-			end
-		end
-	end)
+	TriggerServerEvent('bitirim:server:equipSlot', slot.slot)
 end)
 
 -----------------------------------------------------------------------------------------------
