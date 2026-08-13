@@ -26,6 +26,7 @@ local clothing = lib.load('data.bitirim_clothing')
 local currentEquip = {}      -- slot -> { drawable, texture } (server'dan gelen guncel)
 local requestedOnce = false
 local lastArmour = nil       -- son uygulanan zirh degeri; SADECE armour slotu degisince yenilenir
+local equipmentReceived = false -- sunucudan ilk ekipman payload'i geldi mi (spawn akisi)
 
 --- Bos bir component slotunun taban (ciplak) gorunumu. Tabloda yoksa 0 =
 --- "hicbir sey yok" (maske / zincir / yelek boyle davranir).
@@ -128,20 +129,32 @@ local function applyEquip()
         end
     end
 
-    -- Ust giysi giyili ve KOL slotu bossa: oyunun kendi eslesme verisinden
-    -- uygun kolu uygula. Yoksa kol underwear'da (ciplak) kalir ve ustun
-    -- omzunda ten gorunur. Oyuncu kendi kolunu taktiysa dokunulmaz.
+    -- UST GIYSI -> KOL. Kol slotu bossa kol underwear'da (ciplak) kalir ve ustun
+    -- omzunda ten gorunur. Iki kaynak sirayla denenir:
+    --   1) Parcanin KENDI kaydettigi kol (wear.arms) — magazada denenirken
+    --      secilen deger. GTA bu eslesmeyi vermedigi icin asil kaynak budur.
+    --   2) Oyunun "zorunlu bilesen" verisi — freemode kiyafetlerinde cogunlukla
+    --      bos, yine de bedava bir ihtimal.
+    -- Oyuncu KOL slotuna kendi bir parca taktiysa hicbirine bakilmaz.
     if isFreemode and not currentEquip['gloves'] then
         local jacket = currentEquip['jacket']
         if jacket then
             local wear = jacket.wear or (jacket.item and clothing.items[jacket.item])
-            local topDrawable = resolveWear(wear, isFemale)
+            local armsDrawable, armsTexture
 
-            if topDrawable then
-                local arms = forcedArmsFor(model, topDrawable)
-                if arms and IsPedComponentVariationValid(ped, ARMS_COMPONENT, arms, 0) then
-                    SetPedComponentVariation(ped, ARMS_COMPONENT, arms, 0, 0)
+            if type(wear) == 'table' and type(wear.arms) == 'table' then
+                armsDrawable = tonumber(wear.arms.drawable)
+                armsTexture  = tonumber(wear.arms.texture) or 0
+            else
+                local topDrawable = resolveWear(wear, isFemale)
+                if topDrawable then
+                    armsDrawable = forcedArmsFor(model, topDrawable)
+                    armsTexture  = 0
                 end
+            end
+
+            if armsDrawable and IsPedComponentVariationValid(ped, ARMS_COMPONENT, armsDrawable, armsTexture) then
+                SetPedComponentVariation(ped, ARMS_COMPONENT, armsDrawable, armsTexture, 0)
             end
         end
     end
@@ -178,6 +191,7 @@ end
 -- Server giyili ekipmani gonderdi -> uygula + panele yolla.
 RegisterNetEvent('bitirim:client:equipment', function(payload)
     currentEquip = type(payload) == 'table' and payload or {}
+    equipmentReceived = true
     applyEquip()
     pushToNui()
 end)
@@ -226,14 +240,42 @@ CreateThread(function()
     end
 end)
 
---- Spawn/relog: illenium temel skini kurduktan SONRA ekipmani tekrar uygula.
---- Bu ayni zamanda "sahip olmadigin kiyafeti giyemezsin" kuralini girise de
---- tasir: illenium'un kaydettigi kiyafetlerden ekipman slotunda karsiligi
---- olmayanlar underwear'a duser.
+--[[
+    Spawn/relog: illenium temel skini kurduktan SONRA ekipmani uygula.
+
+    ESKI HALI TEK SEFERDE 2 SN BEKLIYORDU ve oyuncu o sure boyunca illenium'un
+    kaydettigi kiyafetle (pantolon + tisort) goruluyordu; ekipman ancak ondan
+    sonra biniyordu. Iki degisiklik:
+
+      1) Ekipman SUNUCUDAN HEMEN istenir (server'in kendi gecikmeli push'unu
+         beklemeden) — veri erken gelir.
+      2) Uygulama kisa araliklarla ~4 sn TEKRARLANIR. illenium skini hangi
+         karede kurarsa kursun bir sonraki tekrarda uzerine yaziyoruz, yani
+         yanlis gorunum en fazla bir-iki kare kaliyor.
+
+    Veri gelmeden UYGULAMIYORUZ: aksi halde bu sefer de ciplak bir flash olurdu.
+]]
 local function onFreshSpawn()
     CreateThread(function()
-        Wait(2000) -- illenium temel skini kursun
-        applyEquip()
+        -- Ekipmani sunucudan hemen iste (server'in 1.5 sn'lik push'unu bekleme).
+        CreateThread(function()
+            pcall(function() lib.callback.await('bitirim:server:getEquipment', false) end)
+        end)
+
+        -- Veri gelene kadar bekle (en fazla 5 sn), sonra ~4 sn boyunca tekrarla.
+        local waited = 0
+        while not equipmentReceived and waited < 5000 do
+            Wait(100)
+            waited = waited + 100
+        end
+
+        local elapsed = 0
+        while elapsed <= 4000 do
+            applyEquip()
+            Wait(250)
+            elapsed = elapsed + 250
+        end
+
         pushToNui()
     end)
 end
