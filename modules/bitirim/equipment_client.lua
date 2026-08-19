@@ -28,6 +28,13 @@ local requestedOnce = false
 local lastArmour = nil       -- son uygulanan zirh degeri; SADECE armour slotu degisince yenilenir
 local equipmentReceived = false -- sunucudan ilk ekipman payload'i geldi mi (spawn akisi)
 
+-- Basit log yardimcisi (Utils namespace'i yok, lib.print/print kullan)
+local Utils = {
+    log = function(...)
+        print('[bitirim_equipment]', ...)
+    end
+}
+
 --- Bos bir component slotunun taban (ciplak) gorunumu. Tabloda yoksa 0 =
 --- "hicbir sey yok" (maske / zincir / yelek boyle davranir).
 local function underwearOf(slot)
