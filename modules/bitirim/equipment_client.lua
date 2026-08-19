@@ -205,6 +205,12 @@ local function applyEquip()
         local top = currentEquip['jacket'] or currentEquip['tshirt']
         if not top then return end
 
+        -- Debug: current torso drawable
+        local currentTorso = GetPedDrawableVariation(ped, 11)
+        local currentTorsoTexture = GetPedTextureVariation(ped, 11)
+        Utils.log(('applyGlovesSlot: top=%s currentTorso=%d:%d'):format(
+            currentEquip['jacket'] and 'jacket' or 'tshirt', currentTorso, currentTorsoTexture))
+
         local jacket = currentEquip['jacket']
         local wear = jacket and (jacket.wear or (jacket.item and clothing.items[jacket.item]))
         local armsDrawable, armsTexture
@@ -212,6 +218,7 @@ local function applyEquip()
         if type(wear) == 'table' and type(wear.arms) == 'table' then
             armsDrawable = tonumber(wear.arms.drawable)
             armsTexture  = tonumber(wear.arms.texture) or 0
+            Utils.log(('applyGlovesSlot: from wear.arms -> %d:%d'):format(armsDrawable, armsTexture))
         end
 
         if not armsDrawable and wear then
@@ -219,6 +226,7 @@ local function applyEquip()
             if topDrawable then
                 armsDrawable = forcedArmsFor(model, topDrawable)
                 armsTexture  = 0
+                Utils.log(('applyGlovesSlot: forcedArmsFor(%d) -> %d'):format(topDrawable, armsDrawable or -1))
             end
         end
 
@@ -229,12 +237,14 @@ local function applyEquip()
                 if d and d >= 0 then
                     armsDrawable = d
                     armsTexture  = tonumber(def.texture) or 0
+                    Utils.log(('applyGlovesSlot: defaultArms -> %d:%d'):format(armsDrawable, armsTexture))
                 end
             end
         end
 
         -- sleevesOnly kontrolu: govde icermeyen kol uygulanmasin
         if armsDrawable and isSleevesOnly(ped, armsDrawable, isFemale) then
+            Utils.log(('applyGlovesSlot: %d is sleevesOnly, skipping'):format(armsDrawable))
             armsDrawable = nil
         end
 
@@ -246,6 +256,7 @@ local function applyEquip()
                 if d and d >= 0 and not isSleevesOnly(ped, d, isFemale) then
                     armsDrawable = d
                     armsTexture  = tonumber(def.texture) or 0
+                    Utils.log(('applyGlovesSlot: defaultArms fallback -> %d:%d'):format(armsDrawable, armsTexture))
                 end
             end
         end
@@ -255,11 +266,13 @@ local function applyEquip()
             local ud, ut = underwearOf('gloves')
             if IsPedComponentVariationValid(ped, ARMS_COMPONENT, ud, ut) then
                 armsDrawable, armsTexture = ud, ut
+                Utils.log(('applyGlovesSlot: underwear fallback -> %d:%d'):format(armsDrawable, armsTexture))
             end
         end
 
         if armsDrawable and IsPedComponentVariationValid(ped, ARMS_COMPONENT, armsDrawable, armsTexture) then
             SetPedComponentVariation(ped, ARMS_COMPONENT, armsDrawable, armsTexture, 0)
+            Utils.log(('applyGlovesSlot: APPLIED %d:%d'):format(armsDrawable, armsTexture))
         end
     end
 
