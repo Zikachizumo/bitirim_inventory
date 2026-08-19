@@ -111,6 +111,11 @@ local function applyEquip()
 
         if def.kind == 'component' then
             if ed then
+                -- sleevesOnly kontrolu: gloves (component 3) icin govde icermeyen kol parcasini engelle
+                if def.id == ARMS_COMPONENT and isSleevesOnly(ped, ed, isFemale) then
+                    -- Bu kol govde icermiyor, underwear'a don
+                    ed, et = underwearOf('gloves')
+                end
                 if IsPedComponentVariationValid(ped, def.id, ed, et or 0) then
                     SetPedComponentVariation(ped, def.id, ed, et or 0, 0)
                 end
