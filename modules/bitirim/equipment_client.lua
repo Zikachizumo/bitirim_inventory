@@ -165,11 +165,35 @@ local function applyEquip()
         return ('%s_c%d_%s_%d'):format(gender, ARMS_COMPONENT, collection, tonumber(localIndex) or 0)
     end
 
+    --- Global drawable index -> sleevesOnly (fallback for when collection natives unavailable)
+    --- Olusturmak icin: /bc_arms_debug yaz, global index ogren, bitirim_clothing/data/bitirim_clothing.lua'ya ekle
+    local globalSleevesOnly = {
+        -- Male global drawable indices (mp_m_freemode_01) - ORNEK, oyun icinde /bc_arms_debug ile bulun
+        -- [29] = false,  -- gloves 29 = govde var (calisiyor)
+        -- [15] = true,   -- gloves 15 = sleevesOnly (orn)
+    }
+
     --- Bu kol parcasi govde icermiyor mu? (sleevesOnly)
     local function isSleevesOnly(ped, drawable, isFemale)
+        -- 1. Collection-based key dene (tercihli)
         local key = getArmsImageKey(ped, drawable, isFemale)
-        if not key then return false end
-        return clothing.sleevesOnly and clothing.sleevesOnly[key] == true
+        if key then
+            local result = clothing.sleevesOnly and clothing.sleevesOnly[key] == true
+            -- Debug log
+            if result then
+                Utils.log(('isSleevesOnly: %s -> TRUE (collection key)'):format(key))
+            end
+            return result
+        end
+
+        -- 2. Fallback: global drawable index lookup
+        if globalSleevesOnly[drawable] ~= nil then
+            Utils.log(('isSleevesOnly: global index %d -> %s'):format(drawable, tostring(globalSleevesOnly[drawable])))
+            return globalSleevesOnly[drawable]
+        end
+
+        -- 3. Bulunamadi: false don (engelleme, guvenli tarafta kal)
+        return false
     end
 
     local top = currentEquip['jacket'] or currentEquip['tshirt']
@@ -388,4 +412,45 @@ RegisterCommand('kiyafetbak', function()
     print('^3[bitirim] Bu degerleri data/bitirim_clothing.lua > items tablosuna gecir.^7')
 
     lib.notify({ type = 'inform', description = 'Kiyafet degerleri F8 konsoluna yazildi.' })
+end, false)
+
+-- DEBUG: Su anki kol drawable icin sleevesOnly kontrol sonucunu goster
+RegisterCommand('bc_arms_debug', function()
+    local ped = PlayerPedId()
+    local isFemale = GetEntityModel(ped) == `mp_f_freemode_01`
+    local gender = isFemale and 'f' or 'm'
+    local armsDrawable = GetPedDrawableVariation(ped, ARMS_COMPONENT)
+    local armsTexture = GetPedTextureVariation(ped, ARMS_COMPONENT)
+
+    print(('^3[bc_arms_debug] cinsiyet=%s kol(3) drawable=%d texture=%d^7'):format(gender, armsDrawable, armsTexture))
+
+    -- Collection native var mi?
+    local hasColl = GetPedCollectionNameFromDrawable and GetPedCollectionLocalIndexFromDrawable
+    print(('^3[bc_arms_debug] Collection natives: %s^7'):format(hasColl and 'VAR' or 'YOK'))
+
+    if hasColl then
+        local collection = GetPedCollectionNameFromDrawable(ped, ARMS_COMPONENT, armsDrawable)
+        local localIndex = GetPedCollectionLocalIndexFromDrawable(ped, ARMS_COMPONENT, armsDrawable)
+        print(('^3[bc_arms_debug] collection="%s" localIndex=%s^7'):format(tostring(collection), tostring(localIndex)))
+
+        local key = nil
+        if collection and localIndex then
+            if collection == '' then collection = 'base' end
+            key = ('%s_c%d_%s_%d'):format(gender, ARMS_COMPONENT, collection, tonumber(localIndex) or 0)
+            print(('^3[bc_arms_debug] KEY: %s^7'):format(key))
+
+            if clothing.sleevesOnly and clothing.sleevesOnly[key] then
+                print('^3[bc_arms_debug] sleevesOnly: TRUE (bu kol govde ICERMIYOR)^7')
+            else
+                print('^3[bc_arms_debug] sleevesOnly: FALSE (bu kol govde ICERIYOR)^7')
+            end
+        end
+    end
+
+    -- Global fallback
+    if globalSleevesOnly[armsDrawable] ~= nil then
+        print(('^3[bc_arms_debug] Global fallback: %s^7'):format(tostring(globalSleevesOnly[armsDrawable])))
+    end
+
+    lib.notify({ type = 'inform', description = ('bc_arms_debug: kol drawable=%d'):format(armsDrawable) })
 end, false)
