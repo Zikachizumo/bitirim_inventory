@@ -111,11 +111,6 @@ local function applyEquip()
 
         if def.kind == 'component' then
             if ed then
-                -- sleevesOnly kontrolu: gloves (component 3) icin govde icermeyen kol parcasini engelle
-                if def.id == ARMS_COMPONENT and isSleevesOnly(ped, ed, isFemale) then
-                    -- Bu kol govde icermiyor, underwear'a don
-                    ed, et = underwearOf('gloves')
-                end
                 if IsPedComponentVariationValid(ped, def.id, ed, et or 0) then
                     SetPedComponentVariation(ped, def.id, ed, et or 0, 0)
                 end
@@ -196,9 +191,13 @@ local function applyEquip()
         return false
     end
 
-    local top = currentEquip['jacket'] or currentEquip['tshirt']
+    local function applyGlovesSlot()
+        if not isFreemode then return end
+        if currentEquip['gloves'] then return end -- Oyuncu kendi eldiven takmis, dokunma
 
-    if isFreemode and top and not currentEquip['gloves'] then
+        local top = currentEquip['jacket'] or currentEquip['tshirt']
+        if not top then return end
+
         local jacket = currentEquip['jacket']
         local wear = jacket and (jacket.wear or (jacket.item and clothing.items[jacket.item]))
         local armsDrawable, armsTexture
@@ -217,11 +216,9 @@ local function applyEquip()
         end
 
         if not armsDrawable and type(clothing.defaultArms) == 'table' then
-            -- Cinsiyete gore: component 3 indeksleri ped modeline gore degisir.
             local def = clothing.defaultArms[isFemale and 'female' or 'male']
             if type(def) == 'table' then
                 local d = tonumber(def.drawable)
-                -- drawable < 0 = KAPALI: kola dokunma, ciplak kol kalsin.
                 if d and d >= 0 then
                     armsDrawable = d
                     armsTexture  = tonumber(def.texture) or 0
@@ -231,7 +228,6 @@ local function applyEquip()
 
         -- sleevesOnly kontrolu: govde icermeyen kol uygulanmasin
         if armsDrawable and isSleevesOnly(ped, armsDrawable, isFemale) then
-            -- Bu kol govde icermiyor, fallback'e don (underwear/defaultArms tekrar denenir)
             armsDrawable = nil
         end
 
@@ -273,6 +269,9 @@ local function applyEquip()
         lastArmour = armourVal
         SetPedArmour(ped, armourVal or 0)
     end
+
+    -- Gloves slot icin ust giyisi varsa kol eslestir (sleevesOnly kontrol dahil)
+    applyGlovesSlot()
 end
 
 --- NUI'ye giyili ekipmani gonder (panel gosterimi).
@@ -291,6 +290,7 @@ end
 
 -- Server giyili ekipmani gonderdi -> uygula + panele yolla.
 RegisterNetEvent('bitirim:client:equipment', function(payload)
+    Utils.log(('bitirim:client:equipment alindi: %s slot'):format(payload and 'dolu' or 'bos'))
     currentEquip = type(payload) == 'table' and payload or {}
     equipmentReceived = true
     applyEquip()
@@ -453,4 +453,29 @@ RegisterCommand('bc_arms_debug', function()
     end
 
     lib.notify({ type = 'inform', description = ('bc_arms_debug: kol drawable=%d'):format(armsDrawable) })
+end, false)
+
+-- DEBUG: currentEquip icerigini F8'e yaz
+RegisterCommand('bc_equip_debug', function()
+    print('^3[bc_equip_debug] currentEquip:^7')
+    if not currentEquip or next(currentEquip) == nil then
+        print('  (bos)')
+        return
+    end
+    for slot, data in pairs(currentEquip) do
+        local item = data.item or '?'
+        local label = data.label or '?'
+        local wear = data.wear
+        local wearStr = 'yok'
+        if wear then
+            if wear.slot then
+                wearStr = string.format('slot=%s drawable=%s texture=%s', wear.slot, tostring(wear.drawable), tostring(wear.texture))
+            elseif wear.male or wear.female then
+                wearStr = 'cinsiyete gore'
+            else
+                wearStr = string.format('drawable=%s texture=%s', tostring(wear.drawable), tostring(wear.texture))
+            end
+        end
+        print(string.format('  %s: item=%s label=%s wear=%s', slot, item, label, wearStr))
+    end
 end, false)
