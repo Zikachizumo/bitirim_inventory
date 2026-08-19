@@ -138,6 +138,35 @@ local function applyEquip()
     --      bos, yine de bedava bir ihtimal.
     --   3) data/bitirim_clothing.lua -> defaultArms (giyinik varsayilan).
     -- Oyuncu KOL slotuna kendi bir parca taktiysa hicbirine bakilmaz.
+    -- EK: sleevesOnly (govde icermeyen kol) kontrolu — bu tipleri uygulama.
+
+    --- Kol drawable'in image key'ini uretir (collection native'lere dayali).
+    --- Ayni mantik bitirim_clothing/client/appearance.lua -> Appearance.getImageKey
+    local function getArmsImageKey(ped, drawable, isFemale)
+        if not GetPedCollectionNameFromDrawable or not GetPedCollectionLocalIndexFromDrawable then
+            return nil
+        end
+        if not drawable or drawable < 0 then return nil end
+
+        local gender = isFemale and 'f' or 'm'
+        local collection = GetPedCollectionNameFromDrawable(ped, ARMS_COMPONENT, drawable)
+        local localIndex = GetPedCollectionLocalIndexFromDrawable(ped, ARMS_COMPONENT, drawable)
+
+        if not collection or not localIndex then return nil end
+
+        -- Base collection icin bos string doner; dosya adinda 'base' kullanilir.
+        if collection == '' then collection = 'base' end
+
+        return ('%s_c%d_%s_%d'):format(gender, ARMS_COMPONENT, collection, tonumber(localIndex) or 0)
+    end
+
+    --- Bu kol parcasi govde icermiyor mu? (sleevesOnly)
+    local function isSleevesOnly(ped, drawable, isFemale)
+        local key = getArmsImageKey(ped, drawable, isFemale)
+        if not key then return false end
+        return clothing.sleevesOnly and clothing.sleevesOnly[key] == true
+    end
+
     local top = currentEquip['jacket'] or currentEquip['tshirt']
 
     if isFreemode and top and not currentEquip['gloves'] then
@@ -168,6 +197,32 @@ local function applyEquip()
                     armsDrawable = d
                     armsTexture  = tonumber(def.texture) or 0
                 end
+            end
+        end
+
+        -- sleevesOnly kontrolu: govde icermeyen kol uygulanmasin
+        if armsDrawable and isSleevesOnly(ped, armsDrawable, isFemale) then
+            -- Bu kol govde icermiyor, fallback'e don (underwear/defaultArms tekrar denenir)
+            armsDrawable = nil
+        end
+
+        -- Eger ilk secim sleevesOnly ise, defaultArms'i dene (eger sleevesOnly degilse)
+        if not armsDrawable and type(clothing.defaultArms) == 'table' then
+            local def = clothing.defaultArms[isFemale and 'female' or 'male']
+            if type(def) == 'table' then
+                local d = tonumber(def.drawable)
+                if d and d >= 0 and not isSleevesOnly(ped, d, isFemale) then
+                    armsDrawable = d
+                    armsTexture  = tonumber(def.texture) or 0
+                end
+            end
+        end
+
+        -- Son fallback: underwear (ciplak kol)
+        if not armsDrawable then
+            local ud, ut = underwearOf('gloves')
+            if IsPedComponentVariationValid(ped, ARMS_COMPONENT, ud, ut) then
+                armsDrawable, armsTexture = ud, ut
             end
         end
 
