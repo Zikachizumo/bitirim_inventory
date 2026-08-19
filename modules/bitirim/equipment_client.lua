@@ -35,6 +35,14 @@ local Utils = {
     end
 }
 
+-- Global drawable index -> sleevesOnly (fallback when collection natives unavailable)
+-- Fill via /bc_arms_debug: [global_drawable] = true/false
+local globalSleevesOnly = {
+    -- Male global drawable indices (mp_m_freemode_01) - fill via /bc_arms_debug
+    -- [14] = false,  -- gloves 14 = govde var
+    -- [15] = true,   -- gloves 15 = sleevesOnly
+}
+
 --- Bos bir component slotunun taban (ciplak) gorunumu. Tabloda yoksa 0 =
 --- "hicbir sey yok" (maske / zincir / yelek boyle davranir).
 local function underwearOf(slot)
@@ -166,14 +174,6 @@ local function applyEquip()
 
         return ('%s_c%d_%s_%d'):format(gender, ARMS_COMPONENT, collection, tonumber(localIndex) or 0)
     end
-
-    --- Global drawable index -> sleevesOnly (fallback for when collection natives unavailable)
-    --- Olusturmak icin: /bc_arms_debug yaz, global index ogren, bitirim_clothing/data/bitirim_clothing.lua'ya ekle
-    local globalSleevesOnly = {
-        -- Male global drawable indices (mp_m_freemode_01) - ORNEK, oyun icinde /bc_arms_debug ile bulun
-        -- [29] = false,  -- gloves 29 = govde var (calisiyor)
-        -- [15] = true,   -- gloves 15 = sleevesOnly (orn)
-    }
 
     --- Bu kol parcasi govde icermiyor mu? (sleevesOnly)
     local function isSleevesOnly(ped, drawable, isFemale)
