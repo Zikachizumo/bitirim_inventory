@@ -291,6 +291,11 @@ end
 -- Server giyili ekipmani gonderdi -> uygula + panele yolla.
 RegisterNetEvent('bitirim:client:equipment', function(payload)
     Utils.log(('bitirim:client:equipment alindi: %s slot'):format(payload and 'dolu' or 'bos'))
+    if payload then
+        for slot, data in pairs(payload) do
+            Utils.log(('  slot=%s item=%s wear=%s'):format(slot, data.item or '?', data.wear and 'var' or 'yok'))
+        end
+    end
     currentEquip = type(payload) == 'table' and payload or {}
     equipmentReceived = true
     applyEquip()

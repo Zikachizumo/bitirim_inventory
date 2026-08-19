@@ -82,24 +82,25 @@ local function saveEquipment(cid)
 end
 
 --- Client'e giyili ekipmani gonder (ped uygulamasi + panel gosterimi). Payload
---- slot -> { item, label, image, wear }. `wear` gorunum tablosudur
---- ({ slot, drawable, texture } veya { slot, male, female }); client bunu
---- oyuncunun CINSIYETINE gore uygular. `wear` yoksa (eski satir) client
---- data/bitirim_clothing.items map'inden coz. label/image panel gosterimi icin.
-local function pushToClient(source)
-    local tbl = loadEquipment(source)
-    local payload = {}
-    for slot, entry in pairs(tbl) do
-        payload[slot] = {
-            item = entry.item,
-            label = entry.label,
-            image = entry.image,
-            imageurl = entry.imageurl,
-            wear = entry.wear,
-        }
+    --- slot -> { item, label, image, wear }. `wear` gorunum tablosudur
+    --- ({ slot, drawable, texture } veya { slot, male, female }); client bunu
+    --- oyuncunun CINSIYETINE gore uygular. `wear` yoksa (eski satir) client
+    --- data/bitirim_clothing.items map'inden coz. label/image panel gosterimi icin.
+    local function pushToClient(source)
+        local tbl = loadEquipment(source)
+        local payload = {}
+        for slot, entry in pairs(tbl) do
+            payload[slot] = {
+                item = entry.item,
+                label = entry.label,
+                image = entry.image,
+                imageurl = entry.imageurl,
+                wear = entry.wear,
+            }
+        end
+        print(('[bitirim_equipment] pushToClient -> source=%s slots=%s'):format(source, json.encode(payload)))
+        TriggerClientEvent('bitirim:client:equipment', source, payload)
     end
-    TriggerClientEvent('bitirim:client:equipment', source, payload)
-end
 
 --- Bir DB entry'sini (giyili parca) ENVANTERE iade et. apparel ise metadata ile,
 --- legacy named item ise duz. `toSlot` verilirse item O SLOTA konur (surukle-cikar
