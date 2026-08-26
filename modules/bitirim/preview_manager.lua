@@ -118,6 +118,7 @@ local backdrop2    = nil    -- ikinci panel (backface guvencesi)
 local anchorPos    = nil    -- klonun durdugu konum (oyuncu XY + heightOffset Z) — HER ACILISTA yeniden hesaplanir
 local anchorHead   = 0.0    -- klonun heading'i (acilis anindaki oyuncu heading'i) — SABIT (kamera bunu kullanir)
 local anchorBasePos = nil   -- son ankor hesaplamasindaki GERCEK oyuncu konumu (heightOffset'siz); interior-fallback'ta nil (takip edilmez, bkz trackThreshold)
+local anchorOverride = nil  -- {pos=vector3, head=number} | nil -- verilirse updateAnchor() oyuncu konumu/interior-fallback yerine BUNU kullanir (bkz SetAnchorOverride)
 local dragYaw      = 0.0    -- kullanici surukleme/donme ofseti (klonu dondurur)
 local compCache    = {}     -- aynalama diff onbellegi
 local curWeapon    = nil
@@ -241,6 +242,18 @@ end
 --- YARATMAZ; eski "titreme" kaygisi FARKLI bir mimarideki gameplay-kamera-
 --- rotasyonu gurultusundendi, buradaki SADECE konum icin gecerli degil).
 local function updateAnchor()
+    -- Sabit ankor override (bkz SetAnchorOverride): oyuncu konumu/interior-fallback
+    -- TAMAMEN atlanir -- caller (ornegin bitirim_clothing) KENDI bilerek sectigi
+    -- interior noktasini garanti eder. Interior-fallback (asagida) BASKA ozellikler
+    -- (apartman/motel gibi) icin genel-amacli bir SIGINAK, sabit bir hedef noktasi
+    -- BILEN caller icin YANLIS/alakasiz bir konuma dusuruyordu.
+    if anchorOverride then
+        anchorPos  = anchorOverride.pos
+        anchorHead = anchorOverride.head
+        anchorBasePos = nil
+        return
+    end
+
     if not realPed or not DoesEntityExist(realPed) then return end
     if GetInteriorFromEntity(realPed) ~= 0 then
         anchorPos  = cfg.interiorFallbackPos
@@ -477,11 +490,31 @@ local function DestroyPreview()
     anchorPos = nil
     anchorHead = 0.0
     anchorBasePos = nil
+    anchorOverride = nil -- bir sonraki (alakasiz) preview'a SIZMASIN
     camF = nil
     camR = nil
     compCache = {}
     curWeapon = nil
     dragYaw = 0.0
+end
+
+--- Sabit ankor override AYARLAR (bkz updateAnchor). CreatePreview()'DAN ONCE
+--- cagrilmali (CreatePreview zaten ilk updateAnchor()'u senkron yapar). Bu
+--- ozelligi kullanmayan caller'lar (motel/torpido/vs.) HIC etkilenmez -- override
+--- nil oldugu surece davranis eskisiyle birebir ayni.
+--- @param pos vector3
+--- @param head number
+local function SetAnchorOverride(pos, head)
+    if type(pos) ~= 'vector3' or type(head) ~= 'number' then
+        anchorOverride = nil
+        return
+    end
+    anchorOverride = { pos = pos, head = head }
+end
+
+--- Override'i kaldirir (bir sonraki CreatePreview varsayilan davranisa doner).
+local function ClearAnchorOverride()
+    anchorOverride = nil
 end
 
 ------------------------------------------------------------------------------
@@ -619,6 +652,8 @@ exports('SyncFromPlayer',  SyncFromPlayer)
 exports('RotatePreview',   RotatePreview)
 exports('TuneScene',       TuneScene)
 exports('SetCamera',       SetCamera)
+exports('SetAnchorOverride',   SetAnchorOverride)
+exports('ClearAnchorOverride', ClearAnchorOverride)
 
 -- Emniyet: kaynak durursa temizle.
 AddEventHandler('onResourceStop', function(res)
