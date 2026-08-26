@@ -148,9 +148,6 @@ local LEFT_TERRAIN_SAFE_DIST = 1.5   -- previewPed'in SOLUNDA bu mesafeye kadar 
 local LEFT_TERRAIN_MAX_PUSH  = 0.30  -- previewPed en fazla bu kadar SAGA (camR yonunde) itilebilir -- kadraj/kompozisyon asiri bozulmasin
 local MAX_TERRAIN_Z_LIFT     = 0.60  -- previewPed en fazla bu kadar YUKARI kaldirilabilir -- GetGroundZFor_3dCoord yanlis/asiri deger donerse buyuk Z sicramasina karsi guvenlik ustsiniri (bilinen gercek fark ~0.47m'nin biraz uzerinde)
 
--- Idle (klon temiz durus). Cinsiyete gore.
-local IDLE_M = { dict = 'anim@heists@heist_corona@team_idles@male_a',   anim = 'idle' }
-local IDLE_F = { dict = 'anim@heists@heist_corona@team_idles@female_a', anim = 'idle' }
 
 -- Aynalanan ped bilesenleri / proplari (illenium + GTA standart).
 local COMPONENTS = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }
@@ -430,15 +427,18 @@ end
 ------------------------------------------------------------------------------
 -- IDLE + CANLI AYNALAMA (SADECE APPEARANCE; MOVEMENT DEGIL)
 ------------------------------------------------------------------------------
+--- Notr/simetrik durus: previewPed'e ozel bir "sahne" animasyonu (orn. soygun
+--- ekibi bekleme animi) OYNATMIYORUZ artik -- boyle animasyonlar genelde rahat/
+--- yan-donuk duruslar icin tasarlanir (kameraya degil, digerlerine bakar), zoom
+--- out'ta govde daha cok gorununce bu asimetri "yamuk" gibi algilaniyordu
+--- (2026-08-27, kullanici bildirdi + ekran goruntusuyle dogrulandi). TaskStandStill
+--- ped'in KENDI varsayilan "oldugu yerde durma" duruşunu kullanir -- normal oyun
+--- ici bekleme pozu, SetEntityHeading ile ayarlanan yone tam kare/simetrik durur,
+--- ayrica anim dict yuklemesi gerektirmez (RequestAnimDict/HasAnimDictLoaded
+--- bekleme dongusune gerek kalmadi).
 local function playIdle()
     if not previewPed or not DoesEntityExist(previewPed) then return end
-    local a = (GetEntityModel(previewPed) == `mp_f_freemode_01`) and IDLE_F or IDLE_M
-    RequestAnimDict(a.dict)
-    local t = 0
-    while not HasAnimDictLoaded(a.dict) and t < 50 do Wait(10); t = t + 1 end
-    if HasAnimDictLoaded(a.dict) then
-        TaskPlayAnim(previewPed, a.dict, a.anim, 8.0, -8.0, -1, 1, 0.0, false, false, false)
-    end
+    TaskStandStill(previewPed, -1)
 end
 
 --- Bilesen + prop diff: gercek ped -> klon. Sadece DEGISEN slot yazilir (perf).
