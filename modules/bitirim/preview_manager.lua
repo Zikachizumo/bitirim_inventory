@@ -106,6 +106,48 @@ local CAM_SAFETY_MARGIN = 0.08  -- carpisma noktasindan bu kadar geride dur (duv
 local CAM_TEST_RADIUS   = 0.15  -- kapsul yaricapi (ince kenarlardan "sizmasin" diye)
 local CAM_TEST_FLAGS    = 1     -- SADECE dunya/statik geometri (bina/duvar) — ped'leri (realPed/previewPed) otomatik yok sayar
 
+------------------------------------------------------------------------------
+-- ROUND 10 (2026-08-26) TERRAIN-SAFE YERLESIM (previewPed'in SOLUNDAKI kaya/
+-- yamaca gomulmesini onleme)
+------------------------------------------------------------------------------
+-- Round 7-9 collision diagnostic'i (previewCollisionDebug/dbgShapeTest, asagida)
+-- SOL tarafta previewPed'in TUM bone'larinin (pelvis..head) ayni dunya/statik
+-- geometriye (ent=8229640) HIT verdigini, previewSide=LEFT icin cameraLOS'un
+-- CLEAR kaldigini VE probe matematiginin (camR bazli, RIGHT ile birebir ayna)
+-- zaten dogru oldugunu kanitladi -> previewPed'in kendisi camSide=-0.22
+-- nedeniyle o kayaya SAGdan daha yakin duruyor, gercek terrain de o yonde
+-- yukseliyor (LEFT groundZ ~0.47m daha yuksek). Bu YUZDEN placeKlon()'un
+-- SONUNA (mevcut satirlar DEGISMEDEN) BAGIMSIZ bir govde-terrain guvenlik
+-- kontrolu eklendi -- diagnostic kodunu (dbgShapeTest) CAGIRMAZ, kendi
+-- StartShapeTestCapsule/GetShapeTestResult cagrisini yapar (resolveSafeCamDist
+-- ile AYNI CAM_TEST_FLAGS=1/CAM_TEST_RADIUS deseni). SADECE previewPed'in SOLUNDA
+-- (camR'nin TERSI) LEFT_TERRAIN_SAFE_DIST icinde dunya/statik geometri varsa
+-- previewPed'i SAGA (camR yonunde), sadece eksigi kadar (en fazla
+-- LEFT_TERRAIN_MAX_PUSH) kaydirir. HIT yoksa (duz zemin/RIGHT taraf) pushAmount
+-- 0 kalir -> previewPed'in konumu HICBIR SEKILDE etkilenmez.
+--
+-- ROUND 11 (2026-08-26) REVIZYON — Round 10 CANLIDA ETKISIZ KALDI: incelemede
+-- LEFT_TERRAIN_SAFE_DIST=0.55m'nin, ayni engeli 1.5m'de (DBG_PROBE_DISTANCE)
+-- bulan Round 7-9 diagnostic'ine kiyasla COK KISA oldugu (probe hicbir zaman
+-- HIT bulamamis olabilir) VE duzeltmenin SADECE X/Y yaptigi, previewPed Z'sinin
+-- HER ZAMAN anchorPos.z+camHeight'ta sabit kaldigi (SOL zemin ~0.47m daha
+-- yuksekken previewPed'in ayaklarinin zemine GOMULMUS olabilecegi) tespit
+-- edildi. Bu yuzden: (1) LEFT_TERRAIN_SAFE_DIST asagida 1.5'e cikarildi (artik
+-- diagnostic'in FIILEN buldugu mesafeyle uyumlu), (2) placeKlon()'un sonuna
+-- AYRICA previewPed'in (yatay duzeltmeden SONRAKI nihai) X/Y'sindeki GERCEK
+-- zemin yuksekligini (GetGroundZFor_3dCoord, Round 5 diagnostic'teki AYNI
+-- guvenli desen: z+50'den asagi arama + pcall + found kontrolu) previewPed'in
+-- mevcut Z'siyle karsilastiran, previewPed'i SADECE zemin daha YUKSEKSE VE
+-- SADECE o gercek fark kadar (MAX_TERRAIN_Z_LIFT ile sinirli) YUKARI kaldiran
+-- bagimsiz bir dikey kontrol eklendi. Her iki kontrol de HER CAGRIDA (her
+-- frame) `pos`'tan (yani taze anchorPos'tan) SIFIRDAN hesaplanir -> ONCEKI
+-- karenin duzeltilmis konumu asla girdi olarak kullanilmaz (kumulatif SURUKLENME
+-- YOK). Duz zeminde/RIGHT tarafta iki kontrol de "duzeltme gerekmiyor" sonucuna
+-- varir -> previewPed'e HICBIR ek SetEntityCoordsNoOffset cagrisi yapilmaz.
+local LEFT_TERRAIN_SAFE_DIST = 1.5   -- previewPed'in SOLUNDA bu mesafeye kadar dunya/statik geometri OLMAMALI -- Round 7-9 diagnostic'in AYNI engeli 1.5m'de bulmus olmasiyla UYUMLU (bkz Round 11 notu)
+local LEFT_TERRAIN_MAX_PUSH  = 0.30  -- previewPed en fazla bu kadar SAGA (camR yonunde) itilebilir -- kadraj/kompozisyon asiri bozulmasin
+local MAX_TERRAIN_Z_LIFT     = 0.60  -- previewPed en fazla bu kadar YUKARI kaldirilabilir -- GetGroundZFor_3dCoord yanlis/asiri deger donerse buyuk Z sicramasina karsi guvenlik ustsiniri (bilinen gercek fark ~0.47m'nin biraz uzerinde)
+
 -- Idle (klon temiz durus). Cinsiyete gore.
 local IDLE_M = { dict = 'anim@heists@heist_corona@team_idles@male_a',   anim = 'idle' }
 local IDLE_F = { dict = 'anim@heists@heist_corona@team_idles@female_a', anim = 'idle' }
@@ -266,6 +308,56 @@ local function placeKlon()
     SetEntityHeading(previewPed, (anchorHead + 180.0 + dragYaw) % 360.0)
     local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
     positionBackdrop(camF, pos.x, pos.y, chest.z)
+
+    -- ROUND 10/11 TERRAIN-SAFE DUZELTME (bkz ustteki modul basi aciklamasi):
+    -- previewPed'in SOLUNDA (camR'nin TERSI) dunya/statik geometri varsa SAGA
+    -- it (X/Y) VE previewPed'in (yatay duzeltmeden SONRAKI) nihai X/Y'sindeki
+    -- zemin previewPed'in Z'sinden yuksekse YUKARI kaldir (Z). Ikisi de HER
+    -- CAGRIDA `pos`'tan (taze anchorPos'tan) SIFIRDAN hesaplanir -> ONCEKI
+    -- karenin sonucu asla girdi olarak kullanilmaz (kumulatif surukleme YOK).
+    -- Diagnostic kodundan (dbgShapeTest) BAGIMSIZ; hicbir HIT/fark yoksa
+    -- previewPed'e EK bir SetEntityCoordsNoOffset cagrisi YAPILMAZ.
+    local safeX, safeY, safeZ = pos.x, pos.y, pos.z
+    local moved = false
+
+    -- 1) YATAY: SOLDA LEFT_TERRAIN_SAFE_DIST icinde dunya/statik geometri varsa
+    --    SAGA, sadece eksigi kadar (en fazla LEFT_TERRAIN_MAX_PUSH) it.
+    local leftTestX = pos.x - camR.x * LEFT_TERRAIN_SAFE_DIST
+    local leftTestY = pos.y - camR.y * LEFT_TERRAIN_SAFE_DIST
+    local leftRay = StartShapeTestCapsule(pos.x, pos.y, chest.z, leftTestX, leftTestY, chest.z, CAM_TEST_RADIUS, CAM_TEST_FLAGS, 0, 7)
+    local _, leftHit, leftEndCoords = GetShapeTestResult(leftRay)
+
+    if leftHit == 1 or leftHit == true then
+        local leftHitDist = #(vector3(leftEndCoords.x - pos.x, leftEndCoords.y - pos.y, leftEndCoords.z - chest.z))
+        local deficit = LEFT_TERRAIN_SAFE_DIST - leftHitDist
+        if deficit > 0.0 then
+            local pushAmount = math.min(deficit, LEFT_TERRAIN_MAX_PUSH)
+            safeX = pos.x + camR.x * pushAmount
+            safeY = pos.y + camR.y * pushAmount
+            moved = true
+        end
+    end
+
+    -- 2) DIKEY: previewPed'in nihai (yukaridaki duzeltmeden SONRAKI) X/Y'sindeki
+    --    GERCEK zemin previewPed'in Z'sinden yuksekse (ayaklar gomulur), SADECE
+    --    o gercek fark kadar (en fazla MAX_TERRAIN_Z_LIFT) YUKARI kaldir. Zemin
+    --    daha ALCAKSA (duz zemin/RIGHT taraf) HICBIR SEY degismez (asla asagi
+    --    indirmez). Ayni guvenli GetGroundZFor_3dCoord deseni (z+50'den asagi
+    --    arama + pcall + found kontrolu) Round 5 diagnostic thread'inde zaten
+    --    kullaniliyor -- burada BAGIMSIZ bir kopyasi.
+    local okGround, foundGround, groundZ = pcall(GetGroundZFor_3dCoord, safeX, safeY, pos.z + 50.0, false)
+    if okGround and foundGround and groundZ then
+        local zDeficit = groundZ - pos.z
+        if zDeficit > 0.0 then
+            safeZ = pos.z + math.min(zDeficit, MAX_TERRAIN_Z_LIFT)
+            moved = true
+        end
+    end
+
+    if moved then
+        SetEntityCoordsNoOffset(previewPed, safeX, safeY, safeZ, false, false, false)
+        positionBackdrop(camF, safeX, safeY, chest.z)
+    end
 end
 
 --- Tam yerlesim: kamera tabani + klon. /cam (chat) ve ilk yerlesim (settle) icin.
@@ -863,18 +955,103 @@ local DBG_BONE_R_HAND = 57031  -- SKEL_R_Hand
 --- previewPed/realPed dahil HICBIR ped sonuca dahil olmaz (mevcut resolveSafeCamDist'teki
 --- AYNI desen) -> previewPed'in kendi govdesini "yanlislikla" hit olarak raporlama
 --- riski yapisal olarak yok.
-local function dbgShapeTest(x1, y1, z1, x2, y2, z2)
-    local handle = StartShapeTestCapsule(x1, y1, z1, x2, y2, z2, 0.05, DBG_TEST_FLAGS, 0, 7)
-    local _, hit, endCoords, surfaceNormal, entityHit = GetShapeTestResult(handle)
+-- ROUND 8 (2026-08-26): pelvis probe'unda "SCRIPT ERROR: Error executing native"
+-- gorulduyu icin StartShapeTestCapsule/GetShapeTestResult/GetEntityModel artik
+-- pcall ile sarili ve HER asamadan HEMEN ONCE bir START marker basiliyor.
+-- Boylece native cagrisi pcall'un bile yakalayamadigi sert bir hata ile thread'i
+-- oldurse dahi, en son basilan marker hangi native'in patladigini tam olarak
+-- gosterir. Radius (0.05) ve DBG_TEST_FLAGS (1) DEGISMEDI.
+-- Donus imzasi degisti: hit, isError, dist, ent, model, coords, normal.
+local function dbgShapeTest(tag, x1, y1, z1, x2, y2, z2)
+    print(('[bitirim-collision-debug] %s SHAPE from=(%.2f,%.2f,%.2f) to=(%.2f,%.2f,%.2f)'):format(tag, x1, y1, z1, x2, y2, z2))
+    print(('[bitirim-collision-debug] %s SHAPE START'):format(tag))
+
+    local okHandle, handle = pcall(StartShapeTestCapsule, x1, y1, z1, x2, y2, z2, 0.05, DBG_TEST_FLAGS, 0, 7)
+    if not okHandle then
+        print(('[bitirim-collision-debug] %s SHAPE ERROR stage=StartShapeTestCapsule error=%s'):format(tag, tostring(handle)))
+        return false, true, nil, 0, 0, nil, nil
+    end
+    print(('[bitirim-collision-debug] %s SHAPE HANDLE OK handle=%s'):format(tag, tostring(handle)))
+
+    print(('[bitirim-collision-debug] %s SHAPE RESULT START'):format(tag))
+    local okResult, retval, hit, endCoords, surfaceNormal, entityHit = pcall(GetShapeTestResult, handle)
+    if not okResult then
+        print(('[bitirim-collision-debug] %s SHAPE ERROR stage=GetShapeTestResult error=%s'):format(tag, tostring(retval)))
+        return false, true, nil, 0, 0, nil, nil
+    end
+    print(('[bitirim-collision-debug] %s SHAPE RESULT OK hit=%s'):format(tag, tostring(hit)))
+
     if hit == 1 or hit == true then
         local dist = #(vector3(endCoords.x - x1, endCoords.y - y1, endCoords.z - z1))
-        local model = (entityHit and entityHit ~= 0) and GetEntityModel(entityHit) or 0
-        return true, dist, (entityHit or 0), model, endCoords, surfaceNormal
+        local model = 0
+        if entityHit and entityHit ~= 0 then
+            -- ROUND 9 (2026-08-26): GetEntityModel() tek basina "dag solda" testinde
+            -- native error verebildigi icin, HIT olan entity hakkinda 6 ek salt-okunur
+            -- native de (hepsi ayri pcall) eklendi. Biri patlasa bile digerleri calismaya
+            -- devam eder -> entityHit'in ped/vehicle/object oldugu (ve var olup olmadigi,
+            -- konumu) kesin olarak tespit edilebilir.
+            print(('[bitirim-collision-debug] %s ENTITY INFO START ent=%s'):format(tag, tostring(entityHit)))
+
+            local okExists, existsResult = pcall(DoesEntityExist, entityHit)
+            if okExists then
+                print(('[bitirim-collision-debug] %s ENTITY EXISTS=%s'):format(tag, tostring(existsResult)))
+            else
+                print(('[bitirim-collision-debug] %s ENTITY EXISTS ERROR=%s'):format(tag, tostring(existsResult)))
+            end
+
+            local okType, typeResult = pcall(GetEntityType, entityHit)
+            if okType then
+                print(('[bitirim-collision-debug] %s ENTITY TYPE=%s'):format(tag, tostring(typeResult)))
+            else
+                print(('[bitirim-collision-debug] %s ENTITY TYPE ERROR=%s'):format(tag, tostring(typeResult)))
+            end
+
+            local okPed, pedResult = pcall(IsEntityAPed, entityHit)
+            if okPed then
+                print(('[bitirim-collision-debug] %s ENTITY PED=%s'):format(tag, tostring(pedResult)))
+            else
+                print(('[bitirim-collision-debug] %s ENTITY PED ERROR=%s'):format(tag, tostring(pedResult)))
+            end
+
+            local okVeh, vehResult = pcall(IsEntityAVehicle, entityHit)
+            if okVeh then
+                print(('[bitirim-collision-debug] %s ENTITY VEHICLE=%s'):format(tag, tostring(vehResult)))
+            else
+                print(('[bitirim-collision-debug] %s ENTITY VEHICLE ERROR=%s'):format(tag, tostring(vehResult)))
+            end
+
+            local okObj, objResult = pcall(IsEntityAnObject, entityHit)
+            if okObj then
+                print(('[bitirim-collision-debug] %s ENTITY OBJECT=%s'):format(tag, tostring(objResult)))
+            else
+                print(('[bitirim-collision-debug] %s ENTITY OBJECT ERROR=%s'):format(tag, tostring(objResult)))
+            end
+
+            local okCoords, coordsResult = pcall(GetEntityCoords, entityHit)
+            if okCoords then
+                print(('[bitirim-collision-debug] %s ENTITY COORDS=(%.2f,%.2f,%.2f)'):format(tag, coordsResult.x, coordsResult.y, coordsResult.z))
+            else
+                print(('[bitirim-collision-debug] %s ENTITY COORDS ERROR=%s'):format(tag, tostring(coordsResult)))
+            end
+
+            local okModel, modelResult = pcall(GetEntityModel, entityHit)
+            if okModel then
+                model = modelResult
+                print(('[bitirim-collision-debug] %s ENTITY MODEL OK model=%s'):format(tag, tostring(model)))
+            else
+                print(('[bitirim-collision-debug] %s ENTITY MODEL ERROR=%s'):format(tag, tostring(modelResult)))
+            end
+
+            print(('[bitirim-collision-debug] %s ENTITY INFO END ent=%s'):format(tag, tostring(entityHit)))
+        end
+        return true, false, dist, (entityHit or 0), model, endCoords, surfaceNormal
     end
-    return false, nil, 0, 0, nil, nil
+
+    return false, false, nil, 0, 0, nil, nil
 end
 
-local function dbgFormatHit(hit, dist, ent, model, coords, normal)
+local function dbgFormatHit(hit, isError, dist, ent, model, coords, normal)
+    if isError then return 'ERROR' end
     if not hit then return 'CLEAR' end
     local coordsStr = coords and ('(%.2f,%.2f,%.2f)'):format(coords.x, coords.y, coords.z) or 'nil'
     local normalStr = normal and ('(%.2f,%.2f,%.2f)'):format(normal.x, normal.y, normal.z) or 'nil'
@@ -889,7 +1066,17 @@ end, false)
 CreateThread(function()
     while true do
         Wait(250)
+        if previewCollisionDebug then
+            print(('[bitirim-collision-debug] THREAD tick active=%s previewPed=%s exists=%s camR=%s anchorPos=%s'):format(
+                tostring(active),
+                tostring(previewPed ~= nil),
+                tostring(previewPed and DoesEntityExist(previewPed) or false),
+                tostring(camR ~= nil),
+                tostring(anchorPos ~= nil)
+            ))
+        end
         if previewCollisionDebug and active and previewPed and DoesEntityExist(previewPed) and camR and anchorPos then
+            print('[bitirim-collision-debug] ENTER MAIN BLOCK')
             -- previewSide: SADECE camSide'in isaretinden (dosyanin kendi rightOf()
             -- konvansiyonuna gore previewPed'in karakterin LOCAL sag ekseninde
             -- NEGATIF/POZITIF yonde kaydigini belirtir).
@@ -897,6 +1084,7 @@ CreateThread(function()
             local camPos = (studioCam and DoesCamExist(studioCam)) and GetCamCoord(studioCam) or nil
             local previewPos = GetEntityCoords(previewPed)
             local camPreviewDist = camPos and #(vector3(previewPos.x - camPos.x, previewPos.y - camPos.y, previewPos.z - camPos.z)) or nil
+            print('[bitirim-collision-debug] STEP camera/preview coords OK')
 
             local bones = {
                 { name = 'pelvis', id = DBG_BONE_PELVIS },
@@ -908,8 +1096,10 @@ CreateThread(function()
                 { name = 'lhand',  id = DBG_BONE_L_HAND },
                 { name = 'rhand',  id = DBG_BONE_R_HAND },
             }
+            print('[bitirim-collision-debug] STEP bones table OK')
 
             local lines = {}
+            print('[bitirim-collision-debug] STEP lines OK')
             lines[#lines + 1] = ('[bitirim-collision-debug] head=%.1f previewSide=%s camDist=%.2f safeDist=%s')
                 :format(anchorHead, previewSide, cfg.camDist, tostring(curSafeDist))
             lines[#lines + 1] = ('  anchor=(%.2f,%.2f,%.2f) preview=(%.2f,%.2f,%.2f) camera=%s cameraPreviewDist=%s')
@@ -917,33 +1107,41 @@ CreateThread(function()
                     camPos and ('(%.2f,%.2f,%.2f)'):format(camPos.x, camPos.y, camPos.z) or 'nil', tostring(camPreviewDist))
 
             -- GENEL kamera -> previewPed LOS (bone-bazli detaydan AYRI, tek ozet satir).
+            print('[bitirim-collision-debug] STEP cameraLOS START')
             if camPos then
-                local ovHit, ovDist, ovEnt, ovModel, ovCoords, ovNormal = dbgShapeTest(camPos.x, camPos.y, camPos.z, previewPos.x, previewPos.y, previewPos.z)
-                lines[#lines + 1] = ('  cameraLOS(preview)=%s'):format(dbgFormatHit(ovHit, ovDist, ovEnt, ovModel, ovCoords, ovNormal))
+                local ovHit, ovIsError, ovDist, ovEnt, ovModel, ovCoords, ovNormal = dbgShapeTest('OVERVIEW', camPos.x, camPos.y, camPos.z, previewPos.x, previewPos.y, previewPos.z)
+                lines[#lines + 1] = ('  cameraLOS(preview)=%s'):format(dbgFormatHit(ovHit, ovIsError, ovDist, ovEnt, ovModel, ovCoords, ovNormal))
             else
                 lines[#lines + 1] = '  cameraLOS(preview)=camera yok'
             end
+            print('[bitirim-collision-debug] STEP cameraLOS END')
 
             for i = 1, #bones do
                 local b = bones[i]
+                print(('[bitirim-collision-debug] BONE START name=%s id=%s'):format(b.name, tostring(b.id)))
                 local origin = GetPedBoneCoords(previewPed, b.id, 0.0, 0.0, 0.0)
+                print(('[bitirim-collision-debug] BONE COORD OK name=%s pos=(%.2f,%.2f,%.2f)'):format(
+                    b.name, origin.x, origin.y, origin.z
+                ))
                 local leftEnd = vector3(origin.x - camR.x * DBG_PROBE_DISTANCE, origin.y - camR.y * DBG_PROBE_DISTANCE, origin.z)
                 local rightEnd = vector3(origin.x + camR.x * DBG_PROBE_DISTANCE, origin.y + camR.y * DBG_PROBE_DISTANCE, origin.z)
 
-                local lHit, lDist, lEnt, lModel, lCoords, lNormal = dbgShapeTest(origin.x, origin.y, origin.z, leftEnd.x, leftEnd.y, leftEnd.z)
-                local rHit, rDist, rEnt, rModel, rCoords, rNormal = dbgShapeTest(origin.x, origin.y, origin.z, rightEnd.x, rightEnd.y, rightEnd.z)
+                local lHit, lIsError, lDist, lEnt, lModel, lCoords, lNormal = dbgShapeTest('L', origin.x, origin.y, origin.z, leftEnd.x, leftEnd.y, leftEnd.z)
+                local rHit, rIsError, rDist, rEnt, rModel, rCoords, rNormal = dbgShapeTest('R', origin.x, origin.y, origin.z, rightEnd.x, rightEnd.y, rightEnd.z)
 
-                local cHit, cDist, cEnt, cModel, cCoords, cNormal = false, nil, 0, 0, nil, nil
+                local cHit, cIsError, cDist, cEnt, cModel, cCoords, cNormal = false, false, nil, 0, 0, nil, nil
                 if camPos then
-                    cHit, cDist, cEnt, cModel, cCoords, cNormal = dbgShapeTest(camPos.x, camPos.y, camPos.z, origin.x, origin.y, origin.z)
+                    cHit, cIsError, cDist, cEnt, cModel, cCoords, cNormal = dbgShapeTest('C', camPos.x, camPos.y, camPos.z, origin.x, origin.y, origin.z)
                 end
 
                 lines[#lines + 1] = ('  %-6s pos=(%.2f,%.2f,%.2f)'):format(b.name, origin.x, origin.y, origin.z)
-                lines[#lines + 1] = ('    L=%s'):format(dbgFormatHit(lHit, lDist, lEnt, lModel, lCoords, lNormal))
-                lines[#lines + 1] = ('    R=%s'):format(dbgFormatHit(rHit, rDist, rEnt, rModel, rCoords, rNormal))
-                lines[#lines + 1] = ('    camLOS=%s'):format(dbgFormatHit(cHit, cDist, cEnt, cModel, cCoords, cNormal))
+                lines[#lines + 1] = ('    L=%s'):format(dbgFormatHit(lHit, lIsError, lDist, lEnt, lModel, lCoords, lNormal))
+                lines[#lines + 1] = ('    R=%s'):format(dbgFormatHit(rHit, rIsError, rDist, rEnt, rModel, rCoords, rNormal))
+                lines[#lines + 1] = ('    camLOS=%s'):format(dbgFormatHit(cHit, cIsError, cDist, cEnt, cModel, cCoords, cNormal))
+                print(('[bitirim-collision-debug] BONE END name=%s'):format(b.name))
             end
 
+            print('[bitirim-collision-debug] PRINT FINAL')
             print(table.concat(lines, '\n'))
         end
     end
