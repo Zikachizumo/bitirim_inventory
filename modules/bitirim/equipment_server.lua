@@ -98,6 +98,7 @@ local function pushToClient(source)
             wear = entry.wear,
         }
     end
+    print(('[bitirim_equipment] pushToClient -> source=%s slots=%s'):format(source, json.encode(payload)))
     TriggerClientEvent('bitirim:client:equipment', source, payload)
 end
 
