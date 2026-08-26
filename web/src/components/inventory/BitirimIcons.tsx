@@ -204,14 +204,3 @@ export const IconLock = svg(
   </>
 );
 
-/* --- kiyafet magazasi --- */
-export const IconCart = svg(
-  <>
-    <path d="M3 4h2l2.4 12.2a2 2 0 002 1.8h7.6a2 2 0 002-1.6L20 8H6" />
-    <circle cx="9.5" cy="20" r="1.4" />
-    <circle cx="17" cy="20" r="1.4" />
-  </>
-);
-
-export const IconBack = svg(<path d="M14.5 5L7.5 12l7 7" />, { width: 2 });
-

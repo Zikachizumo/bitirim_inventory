@@ -49,8 +49,6 @@ server_scripts {
     'modules/bitirim/server.lua',
     -- Bitirim: ekipman/kiyafet backend (kalici giyili itemler + ped uygulama)
     'modules/bitirim/equipment_server.lua',
-    -- Bitirim: kiyafet magazasi backend (server-authoritative satin alma)
-    'modules/bitirim/clothing_shop_server.lua',
 }
 
 client_scripts {
@@ -64,8 +62,6 @@ client_scripts {
     'modules/bitirim/preview_manager.lua',
     -- Bitirim: envanter <-> PreviewManager koprusu (NUI olaylari + /cam)
     'modules/bitirim/character_client.lua',
-    -- Bitirim: kiyafet magazasi client koprusu (NUI olaylari + on-izleme, /magaza)
-    'modules/bitirim/clothing_shop_client.lua',
 }
 
 ui_page 'web/build/index.html'

@@ -11,7 +11,6 @@ import DragPreview from './components/utils/DragPreview';
 import { fetchNui } from './utils/fetchNui';
 import { useDragDropManager } from 'react-dnd';
 import KeyPress from './components/utils/KeyPress';
-import ClothingShop from './components/inventory/ClothingShop';
 
 debugData([
   {
@@ -88,37 +87,6 @@ debugData([
   },
 ]);
 
-// Bitirim: kiyafet magazasi tarayici-gelistirme onizlemesi (SADECE DEV+browser'da
-// tetiklenir, ayni debugData deseni). /magaza komutu ile Lua'dan gelen gercek
-// setShopVisible olayini taklit eder.
-debugData([
-  {
-    action: 'setShopVisible',
-    data: {
-      visible: true,
-      catalog: {
-        categories: [
-          { id: 'headwear', label: 'Headwear', icon: 'IconCap' },
-          { id: 'outerwear', label: 'Outerwear', icon: 'IconJacket' },
-          { id: 'tshirts', label: 'T-Shirts', icon: 'IconTshirt' },
-          { id: 'pants', label: 'Pants', icon: 'IconPants' },
-          { id: 'shoes', label: 'Shoes', icon: 'IconShoes' },
-          { id: 'glasses', label: 'Glasses', icon: 'IconGlasses' },
-        ],
-        items: [
-          { id: 'hw_beanie_01', category: 'headwear', label: 'Muška kapa', price: 900, slot: 'hat' },
-          { id: 'hw_cap_01', category: 'headwear', label: 'Muška kapa (Šapka)', price: 750, slot: 'hat' },
-          { id: 'ow_bomber_01', category: 'outerwear', label: 'Muška vanjska odeća', price: 2025, slot: 'jacket' },
-          { id: 'ts_basic_01', category: 'tshirts', label: 'Muška majica', price: 1500, slot: 'tshirt' },
-          { id: 'pt_jeans_01', category: 'pants', label: 'Muške pantalone', price: 900, slot: 'pants' },
-          { id: 'sh_sneaker_01', category: 'shoes', label: 'Muške cipele', price: 1275, slot: 'shoes' },
-          { id: 'gl_dark_01', category: 'glasses', label: 'Muške naočare', price: 1500, slot: 'glasses' },
-        ],
-      },
-    },
-  },
-]);
-
 const App: React.FC = () => {
   const dispatch = useAppDispatch();
   const manager = useDragDropManager();
@@ -145,7 +113,6 @@ const App: React.FC = () => {
   return (
     <div className="app-wrapper">
       <InventoryComponent />
-      <ClothingShop />
       <DragPreview />
       <KeyPress />
     </div>
