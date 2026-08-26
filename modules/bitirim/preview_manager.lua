@@ -79,7 +79,7 @@ local cfg = {
     -- kisar (bkz MIN_CAM_DIST/CAM_SAFETY_MARGIN asagida) — bu deger sadece
     -- "engel yokken" kullanilacak HEDEF mesafedir.
     camDist   = 1.70,  -- kamera klonun ONUNDE kac metre (SABIT HEDEF; /cam ile degisir, shape-test ile kisilabilir) — A/B TEST (2026-08-26): 1.15 tam-boy kadraj icin yetersizdi (FOV=64 ile ~1.44m dikey kapsama alani, ~1.8m boy sigmiyordu); 1.70 ~1.8m boyu %20 payla sigdirir.
-    camSide   = -0.22, -- KLONUN yatay konumu (kamera-sag ekseni) — A/B TEST (2026-08-26): -0.60 karakteri optik eksenden ~27.5 derece kaydirip ekranin kenarina yasliyordu; -0.22 bunu ~7-8 dereceye indirir (merkeze yakin, hafif kompozisyon offseti)
+    camSide   = 0.0,   -- KLONUN yatay konumu (kamera-sag ekseni) — 0 = TAM KARSIDAN/SIMETRIK (2026-08-27, kullanici istegi). ONEMLI: kamera PointCamAtCoord ile HAM anchorPos'a bakar (bkz computeCameraBasis), klonun camSide'a gore KAYDIRILMIS konumuna DEGIL (bilerek — kamera sabit kalsin, ok tuslariyla klon kadraj icinde DOGRUDAN kaysin diye). Bu yuzden camSide != 0 iken klon kameranin optik ekseninden disari dusuyor -> genis FOV'da (zoom out) belirgin bir "yamuk/carpik" gorunume yol aciyor (genis acida merkez-disi nesneler gerilir). Merkezden kaydirmak istersen ok tuslari (sol/sag) canli dial icin hala kullanilabilir, sadece KALICI varsayilan artik 0.
     camHeight = 0.05,  -- KLONUN dikey konumu (dunya-yukari ekseni) — KALICI (kullanici dial etti)
     lookDown  = 0.30,  -- bakis hedefi: ust gogusun kac metre ALTI (govde ortasi)
     fov       = 64.0,  -- gorus acisi (dar=yakin/buyuk gorunur) — KALICI (kullanici dial etti)
