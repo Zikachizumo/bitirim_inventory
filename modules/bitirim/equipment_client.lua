@@ -28,6 +28,21 @@ local requestedOnce = false
 local lastArmour = nil       -- son uygulanan zirh degeri; SADECE armour slotu degisince yenilenir
 local equipmentReceived = false -- sunucudan ilk ekipman payload'i geldi mi (spawn akisi)
 
+-- Basit log yardimcisi (Utils namespace'i yok, lib.print/print kullan)
+local Utils = {
+    log = function(...)
+        print('[bitirim_equipment]', ...)
+    end
+}
+
+-- Global drawable index -> sleevesOnly (fallback when collection natives unavailable)
+-- Fill via /bc_arms_debug: [global_drawable] = true/false
+local globalSleevesOnly = {
+    -- Male global drawable indices (mp_m_freemode_01) - fill via /bc_arms_debug
+    -- [14] = false,  -- gloves 14 = govde var
+    -- [15] = true,   -- gloves 15 = sleevesOnly
+}
+
 --- Bos bir component slotunun taban (ciplak) gorunumu. Tabloda yoksa 0 =
 --- "hicbir sey yok" (maske / zincir / yelek boyle davranir).
 local function underwearOf(slot)
@@ -138,9 +153,64 @@ local function applyEquip()
     --      bos, yine de bedava bir ihtimal.
     --   3) data/bitirim_clothing.lua -> defaultArms (giyinik varsayilan).
     -- Oyuncu KOL slotuna kendi bir parca taktiysa hicbirine bakilmaz.
-    local top = currentEquip['jacket'] or currentEquip['tshirt']
+    -- EK: sleevesOnly (govde icermeyen kol) kontrolu — bu tipleri uygulama.
 
-    if isFreemode and top and not currentEquip['gloves'] then
+    --- Kol drawable'in image key'ini uretir (collection native'lere dayali).
+    --- Ayni mantik bitirim_clothing/client/appearance.lua -> Appearance.getImageKey
+    local function getArmsImageKey(ped, drawable, isFemale)
+        if not GetPedCollectionNameFromDrawable or not GetPedCollectionLocalIndexFromDrawable then
+            return nil
+        end
+        if not drawable or drawable < 0 then return nil end
+
+        local gender = isFemale and 'f' or 'm'
+        local collection = GetPedCollectionNameFromDrawable(ped, ARMS_COMPONENT, drawable)
+        local localIndex = GetPedCollectionLocalIndexFromDrawable(ped, ARMS_COMPONENT, drawable)
+
+        if not collection or not localIndex then return nil end
+
+        -- Base collection icin bos string doner; dosya adinda 'base' kullanilir.
+        if collection == '' then collection = 'base' end
+
+        return ('%s_c%d_%s_%d'):format(gender, ARMS_COMPONENT, collection, tonumber(localIndex) or 0)
+    end
+
+    --- Bu kol parcasi govde icermiyor mu? (sleevesOnly)
+    local function isSleevesOnly(ped, drawable, isFemale)
+        -- 1. Collection-based key dene (tercihli)
+        local key = getArmsImageKey(ped, drawable, isFemale)
+        if key then
+            local result = clothing.sleevesOnly and clothing.sleevesOnly[key] == true
+            -- Debug log
+            if result then
+                Utils.log(('isSleevesOnly: %s -> TRUE (collection key)'):format(key))
+            end
+            return result
+        end
+
+        -- 2. Fallback: global drawable index lookup
+        if globalSleevesOnly[drawable] ~= nil then
+            Utils.log(('isSleevesOnly: global index %d -> %s'):format(drawable, tostring(globalSleevesOnly[drawable])))
+            return globalSleevesOnly[drawable]
+        end
+
+        -- 3. Bulunamadi: false don (engelleme, guvenli tarafta kal)
+        return false
+    end
+
+    local function applyGlovesSlot()
+        if not isFreemode then return end
+        if currentEquip['gloves'] then return end -- Oyuncu kendi eldiven takmis, dokunma
+
+        local top = currentEquip['jacket'] or currentEquip['tshirt']
+        if not top then return end
+
+        -- Debug: current torso drawable
+        local currentTorso = GetPedDrawableVariation(ped, 11)
+        local currentTorsoTexture = GetPedTextureVariation(ped, 11)
+        Utils.log(('applyGlovesSlot: top=%s currentTorso=%d:%d'):format(
+            currentEquip['jacket'] and 'jacket' or 'tshirt', currentTorso, currentTorsoTexture))
+
         local jacket = currentEquip['jacket']
         local wear = jacket and (jacket.wear or (jacket.item and clothing.items[jacket.item]))
         local armsDrawable, armsTexture
@@ -148,6 +218,7 @@ local function applyEquip()
         if type(wear) == 'table' and type(wear.arms) == 'table' then
             armsDrawable = tonumber(wear.arms.drawable)
             armsTexture  = tonumber(wear.arms.texture) or 0
+            Utils.log(('applyGlovesSlot: from wear.arms -> %d:%d'):format(armsDrawable, armsTexture))
         end
 
         if not armsDrawable and wear then
@@ -155,20 +226,53 @@ local function applyEquip()
             if topDrawable then
                 armsDrawable = forcedArmsFor(model, topDrawable)
                 armsTexture  = 0
+                Utils.log(('applyGlovesSlot: forcedArmsFor(%d) -> %d'):format(topDrawable, armsDrawable or -1))
             end
         end
 
         if not armsDrawable and type(clothing.defaultArms) == 'table' then
-            -- Cinsiyete gore: component 3 indeksleri ped modeline gore degisir.
             local def = clothing.defaultArms[isFemale and 'female' or 'male']
             if type(def) == 'table' then
-                armsDrawable = tonumber(def.drawable)
-                armsTexture  = tonumber(def.texture) or 0
+                local d = tonumber(def.drawable)
+                if d and d >= 0 then
+                    armsDrawable = d
+                    armsTexture  = tonumber(def.texture) or 0
+                    Utils.log(('applyGlovesSlot: defaultArms -> %d:%d'):format(armsDrawable, armsTexture))
+                end
+            end
+        end
+
+        -- sleevesOnly kontrolu: govde icermeyen kol uygulanmasin
+        if armsDrawable and isSleevesOnly(ped, armsDrawable, isFemale) then
+            Utils.log(('applyGlovesSlot: %d is sleevesOnly, skipping'):format(armsDrawable))
+            armsDrawable = nil
+        end
+
+        -- Eger ilk secim sleevesOnly ise, defaultArms'i dene (eger sleevesOnly degilse)
+        if not armsDrawable and type(clothing.defaultArms) == 'table' then
+            local def = clothing.defaultArms[isFemale and 'female' or 'male']
+            if type(def) == 'table' then
+                local d = tonumber(def.drawable)
+                if d and d >= 0 and not isSleevesOnly(ped, d, isFemale) then
+                    armsDrawable = d
+                    armsTexture  = tonumber(def.texture) or 0
+                    Utils.log(('applyGlovesSlot: defaultArms fallback -> %d:%d'):format(armsDrawable, armsTexture))
+                end
+            end
+        end
+
+        -- Son fallback: underwear (ciplak kol)
+        if not armsDrawable then
+            local ud, ut = underwearOf('gloves')
+            if IsPedComponentVariationValid(ped, ARMS_COMPONENT, ud, ut) then
+                armsDrawable, armsTexture = ud, ut
+                Utils.log(('applyGlovesSlot: underwear fallback -> %d:%d'):format(armsDrawable, armsTexture))
             end
         end
 
         if armsDrawable and IsPedComponentVariationValid(ped, ARMS_COMPONENT, armsDrawable, armsTexture) then
             SetPedComponentVariation(ped, ARMS_COMPONENT, armsDrawable, armsTexture, 0)
+            Utils.log(('applyGlovesSlot: APPLIED %d:%d'):format(armsDrawable, armsTexture))
         end
     end
 
@@ -185,6 +289,9 @@ local function applyEquip()
         lastArmour = armourVal
         SetPedArmour(ped, armourVal or 0)
     end
+
+    -- Gloves slot icin ust giyisi varsa kol eslestir (sleevesOnly kontrol dahil)
+    applyGlovesSlot()
 end
 
 --- NUI'ye giyili ekipmani gonder (panel gosterimi).
@@ -203,6 +310,12 @@ end
 
 -- Server giyili ekipmani gonderdi -> uygula + panele yolla.
 RegisterNetEvent('bitirim:client:equipment', function(payload)
+    Utils.log(('bitirim:client:equipment alindi: %s slot'):format(payload and 'dolu' or 'bos'))
+    if payload then
+        for slot, data in pairs(payload) do
+            Utils.log(('  slot=%s item=%s wear=%s'):format(slot, data.item or '?', data.wear and 'var' or 'yok'))
+        end
+    end
     currentEquip = type(payload) == 'table' and payload or {}
     equipmentReceived = true
     applyEquip()
@@ -324,4 +437,70 @@ RegisterCommand('kiyafetbak', function()
     print('^3[bitirim] Bu degerleri data/bitirim_clothing.lua > items tablosuna gecir.^7')
 
     lib.notify({ type = 'inform', description = 'Kiyafet degerleri F8 konsoluna yazildi.' })
+end, false)
+
+-- DEBUG: Su anki kol drawable icin sleevesOnly kontrol sonucunu goster
+RegisterCommand('bc_arms_debug', function()
+    local ped = PlayerPedId()
+    local isFemale = GetEntityModel(ped) == `mp_f_freemode_01`
+    local gender = isFemale and 'f' or 'm'
+    local armsDrawable = GetPedDrawableVariation(ped, ARMS_COMPONENT)
+    local armsTexture = GetPedTextureVariation(ped, ARMS_COMPONENT)
+
+    print(('^3[bc_arms_debug] cinsiyet=%s kol(3) drawable=%d texture=%d^7'):format(gender, armsDrawable, armsTexture))
+
+    -- Collection native var mi?
+    local hasColl = GetPedCollectionNameFromDrawable and GetPedCollectionLocalIndexFromDrawable
+    print(('^3[bc_arms_debug] Collection natives: %s^7'):format(hasColl and 'VAR' or 'YOK'))
+
+    if hasColl then
+        local collection = GetPedCollectionNameFromDrawable(ped, ARMS_COMPONENT, armsDrawable)
+        local localIndex = GetPedCollectionLocalIndexFromDrawable(ped, ARMS_COMPONENT, armsDrawable)
+        print(('^3[bc_arms_debug] collection="%s" localIndex=%s^7'):format(tostring(collection), tostring(localIndex)))
+
+        local key = nil
+        if collection and localIndex then
+            if collection == '' then collection = 'base' end
+            key = ('%s_c%d_%s_%d'):format(gender, ARMS_COMPONENT, collection, tonumber(localIndex) or 0)
+            print(('^3[bc_arms_debug] KEY: %s^7'):format(key))
+
+            if clothing.sleevesOnly and clothing.sleevesOnly[key] then
+                print('^3[bc_arms_debug] sleevesOnly: TRUE (bu kol govde ICERMIYOR)^7')
+            else
+                print('^3[bc_arms_debug] sleevesOnly: FALSE (bu kol govde ICERIYOR)^7')
+            end
+        end
+    end
+
+    -- Global fallback
+    if globalSleevesOnly[armsDrawable] ~= nil then
+        print(('^3[bc_arms_debug] Global fallback: %s^7'):format(tostring(globalSleevesOnly[armsDrawable])))
+    end
+
+    lib.notify({ type = 'inform', description = ('bc_arms_debug: kol drawable=%d'):format(armsDrawable) })
+end, false)
+
+-- DEBUG: currentEquip icerigini F8'e yaz
+RegisterCommand('bc_equip_debug', function()
+    print('^3[bc_equip_debug] currentEquip:^7')
+    if not currentEquip or next(currentEquip) == nil then
+        print('  (bos)')
+        return
+    end
+    for slot, data in pairs(currentEquip) do
+        local item = data.item or '?'
+        local label = data.label or '?'
+        local wear = data.wear
+        local wearStr = 'yok'
+        if wear then
+            if wear.slot then
+                wearStr = string.format('slot=%s drawable=%s texture=%s', wear.slot, tostring(wear.drawable), tostring(wear.texture))
+            elseif wear.male or wear.female then
+                wearStr = 'cinsiyete gore'
+            else
+                wearStr = string.format('drawable=%s texture=%s', tostring(wear.drawable), tostring(wear.texture))
+            end
+        end
+        print(string.format('  %s: item=%s label=%s wear=%s', slot, item, label, wearStr))
+    end
 end, false)
