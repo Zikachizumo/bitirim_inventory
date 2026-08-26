@@ -8,6 +8,7 @@ import equipmentReducer from './equipment';
 import backpackReducer from './backpack';
 import splitReducer from './split';
 import cashReducer from './cash';
+import clothingShopReducer from './clothingShop';
 
 export const store = configureStore({
   reducer: {
@@ -19,6 +20,7 @@ export const store = configureStore({
     backpack: backpackReducer,
     split: splitReducer,
     cash: cashReducer,
+    clothingShop: clothingShopReducer,
   },
 });
 
