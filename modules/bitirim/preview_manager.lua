@@ -1,40 +1,44 @@
 --[[
     Bitirim — PREVIEW MANAGER (STUDIO / "Studio Camera" KARAKTER ONIZLEMESI)
     ============================================================================
-    STUDIO MIMARISI: Envanter acilinca, oyuncunun YEREL (local-only) bir klonu
-    oyuncunun O ANKI konumunun `cfg.heightOffset` metre TAM USTUNDE (havada, void'e
-    yakin) durur; ona bakan SCRIPTED bir kamera devreye girer; klonun arkasina
-    TAM KAPLAYAN siyah panel konur.
+    STUDIO MIMARISI (2026-08-26 GUNCELLEMESI — "OYUNCUNUN OLDUGU YERDE" MODELI):
+    Envanter acilinca, oyuncunun YEREL (local-only) bir klonu oyuncunun O ANKI
+    konumuyla AYNI X/Y/Z'de (yukari/uzaga TASINMADAN), hemen yaninda kucuk bir
+    yatay offsetle durur; ona bakan SCRIPTED bir kamera devreye girer.
         GERCEK OYUNCU ──► Gercek Player Ped  (yerel GIZLI; agda normal gorunur)
-                      └──► Mirror Klon Ped    (YEREL; oyuncunun USTUNDE; studio
-                                                kamerasi buna bakar)
+                      └──► Mirror Klon Ped    (YEREL; oyuncunun TAM YANIBASINDA,
+                                                AYNI Z'de; studio kamerasi buna bakar)
 
-    NEDEN "OYUNCUNUN AYNI X/Y'SI, FARKLI Z'SI" (SABIT UZAK VOID KOORDINATI DEGIL):
-    - Once tek bir SABIT uzak dunya koordinati (kullanicinin verdigi vec4) denendi.
-      Sorun: kamera + klon + backdrop o UZAK noktaya tasininca, motor o bolgeyi
-      stream etmeye baslar ve oyuncunun GERCEK bulundugu yerin cevresi "soguyabilir"
-      (stream disi kalabilir). Envanter kapaninca kamera ANINDA (0ms) gameplay'e
-      donunce, oyuncunun etrafi henuz tam stream olmamis olabilir -> "oyuna donunce
-      render sorunu" (pop-in/LOD/kara ekran hissi). Kullanici bunu bildirdi.
-    - COZUM: klon HER ACILISTA oyuncunun O ANKI X/Y konumunun AYNISINDA, farkli bir
-      Z'de konur (`cfg.heightOffset`). X/Y oyuncuyla AYNI oldugu icin cevresindeki
-      stream hep "sicak" kalir (kamera uzaklasmaz, sadece dikeyde kayar) -> ani
-      kapanista render sorunu olmaz.
-    - ASAGI (NEGATIF/haritanin alti) DENENDI, TERK EDILDI: klon gercek zemin/kayaya
-      gomuluyordu -> "haritanin altı" guvenilir bos void degil. YUKARI (acik gokyuzu)
-      guvenilir bos alan -> heightOffset pozitif kalir (su an +5, KUCUK -> asagidaki
-      GERCEK gizlilik cozumu sayesinde artik BUYUK olmasina GEREK YOK).
+    ONCEKI MIMARI (ARTIK KULLANILMIYOR, TARIHSEL NOT): Klon oyuncunun +2m
+    USTUNDE (acik gokyuzu, "guvenli void") tutuluyordu; oyuncu bir interior
+    icindeyse bu varsayim gecersiz oldugu icin SABIT bir sehir-disi koordinata
+    (`interiorFallbackPos`) dusuluyordu. Bu, kullanicinin bina icinde envanter
+    acinca gokyuzu/sehir manzarasi gormesine VE kameranin duvar/tavan icine
+    girmesine (raycast/collision kontrolu olmadigi icin) yol aciyordu. KULLANICI
+    ISTEGI UZERINE bu mimari TAMAMEN TERK EDILDI — artik "+Z offset" ve
+    "interior fallback" YOK; previewPed HER ZAMAN oyuncunun GERCEKTEN bulundugu
+    yerde (sokak/ev/ofis/garaj/arac farketmez) kalir.
+
+    YENI COZUM: previewPed, oyuncunun kendi konumunun (Z DAHIL) aynisinda,
+    sadece kamera-sag ekseninde kucuk bir yatay offsetle (`cfg.camSide`,
+    ~0.5-0.8m) durur. Boylece previewPed HER ZAMAN oyuncunun bulundugu ODADA/
+    SOKAKTA kalir -> "farkli dunyaya isinlanma" veya "stream sogumasi" riski
+    ortadan kalkar (X/Y/Z hep gercek, hep "sicak" bolge).
+    - Kamera mesafesi (`cfg.camDist`) de KISALTILDI (eskiden 2.55m) ve ARTIK
+      HER KAREDE bir SHAPE TEST (`computeCameraBasis`) ile previewPed ile
+      kamera arasinda engel (duvar/nesne) olup olmadigi kontrol edilir; engel
+      varsa kamera mesafesi otomatik, guvenli bir degere (min. `MIN_CAM_DIST`)
+      kisilir -> kamera ARTIK duvarin/binanin icine giremez.
     - Gameplay kamerasi (TP/FP/egim) hala ONEMSIZ: kendi scripted kameramiz klona
-      SABIT bir acidan bakar -> arka plan HER ZAMAN %100 kapli.
+      SABIT bir acidan bakar -> arka plan HER ZAMAN previewPed'i cerceveler.
     - GECIS ANIMASYONU YOK: envanter acilir acilmaz (bir sonraki frame) direkt studio
       kadrajina gecilir (RenderScriptCams ease=false); kapaninca da aninda gameplay'e
       doner (yaris durumu/entity sizintisi riskine karsi da aninda kesim tercih edildi).
-    - Insurance icin 2 backdrop paneli (ters heading; hangisi "on yuz" olursa olsun
-      biri HER ZAMAN kameraya doner). NOT: backdrop artik varsayilan olarak KAPALI
-      (cfg.balpha=0, kullanici istegi, bkz asagisi) — arka plan artik GERCEK oyun
-      dunyasi (seffaf). Kamera KLONUN ARKASINDA durur ve klonla AYNI yone bakar
-      (computeCameraBasis'teki YON DUZELTMESI notuna bak) -> gorunen manzara artik
-      karakterin GERCEKTEN baktigi yonle eslesir.
+    - Backdrop panel sistemi (2 siyah panel) KODDA HALA VAR ama varsayilan olarak
+      KAPALI (cfg.balpha=0) — arka plan GERCEK oyun dunyasi (seffaf). Kamera
+      KLONUN ARKASINDA durur ve klonla AYNI yone bakar (computeCameraBasis'teki
+      YON DUZELTMESI notuna bak) -> gorunen manzara artik karakterin GERCEKTEN
+      baktigi yonle eslesir.
 
     **AG-GORUNURLUGU — GERCEK KOK NEDEN BULUNDU VE COZULDU (2026-08-12):**
     `ClonePed(...,isNetwork=false,...)` bu sunucuda previewPed'i GERCEKTEN yerel
@@ -65,23 +69,17 @@
 -- YAPILANDIRMA (studio kamerasi + backdrop; /cam VEYA ok tuslari+Numpad1/2 ile dial edilir)
 ------------------------------------------------------------------------------
 local cfg = {
-    -- klon, oyuncunun O ANKI konumunun (ayni X/Y) kac metre USTUNDE durur.
-    -- NEGATIF (ASAGI/haritanin alti) DENENDI, TERK EDILDI: -1000'de klon GERCEK
-    -- ZEMIN/KAYAYA gomuluyordu -> "haritanin altı" guvenilir void degil, SADECE
-    -- YUKARI (acik gokyuzu) guvenilir bos alan. Baskalarina gorunmezlik ARTIK bu
-    -- degerden BAGIMSIZ (SetEntityVisible+SetEntityLocallyVisible deseni, bkz
-    -- CreatePreview) -> KUCUK/rahat bir deger yeterli, sadece render/streaming
-    -- kalitesi icin ayarlanir.
-    heightOffset = 2.0,
+    -- ARTIK BIR YUKSEKLIK OFSETI YOK: previewPed oyuncunun Z'siyle AYNI kalir
+    -- (bkz updateAnchor). Eski `heightOffset` (+2m gokyuzu) VE interior fallback
+    -- koordinati KALDIRILDI — previewPed HER ZAMAN oyuncunun gercekte bulundugu
+    -- yerde (ayni oda/sokak/arac) kalir, baska bir dunya noktasina TASINMAZ.
 
-    -- Oyuncu bir BINA/INTERIOR icindeyse (GetInteriorFromEntity ~= 0), "ustu" mantikli
-    -- degil (interior'lar dunyada farkli/istiflenmis konumlarda olabilir) -> bunun
-    -- yerine kullanicinin daha once test ettigi SABIT sehir-yolu konumuna dusulur.
-    interiorFallbackPos  = vector3(-301.72, -71.13, 316.92),
-    interiorFallbackHead = 149.61,
-
-    camDist   = 2.55,  -- kamera klonun ONUNDE kac metre (SABIT; sadece /cam ile degisir)
-    camSide   = -1.10, -- KLONUN yatay konumu (kamera-sag ekseni) — KALICI (kullanici dial etti)
+    -- ISTENEN (kamera duvara/binaya carpmadigi surece kullanilan) kamera mesafesi.
+    -- Her karede computeCameraBasis() bunu shape-test ile kontrol edip gerekirse
+    -- kisar (bkz MIN_CAM_DIST/CAM_SAFETY_MARGIN asagida) — bu deger sadece
+    -- "engel yokken" kullanilacak HEDEF mesafedir.
+    camDist   = 1.70,  -- kamera klonun ONUNDE kac metre (SABIT HEDEF; /cam ile degisir, shape-test ile kisilabilir) — A/B TEST (2026-08-26): 1.15 tam-boy kadraj icin yetersizdi (FOV=64 ile ~1.44m dikey kapsama alani, ~1.8m boy sigmiyordu); 1.70 ~1.8m boyu %20 payla sigdirir.
+    camSide   = -0.22, -- KLONUN yatay konumu (kamera-sag ekseni) — A/B TEST (2026-08-26): -0.60 karakteri optik eksenden ~27.5 derece kaydirip ekranin kenarina yasliyordu; -0.22 bunu ~7-8 dereceye indirir (merkeze yakin, hafif kompozisyon offseti)
     camHeight = 0.05,  -- KLONUN dikey konumu (dunya-yukari ekseni) — KALICI (kullanici dial etti)
     lookDown  = 0.30,  -- bakis hedefi: ust gogusun kac metre ALTI (govde ortasi)
     fov       = 64.0,  -- gorus acisi (dar=yakin/buyuk gorunur) — KALICI (kullanici dial etti)
@@ -95,6 +93,18 @@ local cfg = {
     balpha    = 0,
     bmodel    = 'bitirim_backdrop01',  -- stream'deki 50m SIYAH panel (SABIT - canta seviyesine gore degismez)
 }
+
+------------------------------------------------------------------------------
+-- KAMERA COLLISION (DUVAR/BINA ICINE GIRMEYI ONLEME)
+------------------------------------------------------------------------------
+-- computeCameraBasis() her karede previewPed (chest) ile "istenen" kamera
+-- noktasi arasinda bir shape test (kapsul) atar. Engel varsa kamera mesafesi
+-- carpismaya kadar olan mesafe - guvenlik payi kadar kisilir, ASLA MIN_CAM_DIST
+-- altina inmez (previewPed'in icine girmesin diye).
+local MIN_CAM_DIST      = 0.45  -- ped govdesi + kamera FOV'una gore belirlenmis en yakin guvenli mesafe
+local CAM_SAFETY_MARGIN = 0.08  -- carpisma noktasindan bu kadar geride dur (duvara gomulmesin)
+local CAM_TEST_RADIUS   = 0.15  -- kapsul yaricapi (ince kenarlardan "sizmasin" diye)
+local CAM_TEST_FLAGS    = 1     -- SADECE dunya/statik geometri (bina/duvar) — ped'leri (realPed/previewPed) otomatik yok sayar
 
 -- Idle (klon temiz durus). Cinsiyete gore.
 local IDLE_M = { dict = 'anim@heists@heist_corona@team_idles@male_a',   anim = 'idle' }
@@ -115,14 +125,14 @@ local realPed      = nil    -- referans (aynalama) + YEREL gizlenir
 local studioCam    = nil    -- scripted kamera
 local backdrop     = nil    -- siyah panel (on yuz kameraya bakar)
 local backdrop2    = nil    -- ikinci panel (backface guvencesi)
-local anchorPos    = nil    -- klonun durdugu konum (oyuncu XY + heightOffset Z) — HER ACILISTA yeniden hesaplanir
+local anchorPos    = nil    -- klonun durdugu konum (= GERCEK oyuncu konumu, birebir) — HER ACILISTA/KAREDE yeniden hesaplanir
 local anchorHead   = 0.0    -- klonun heading'i (acilis anindaki oyuncu heading'i) — SABIT (kamera bunu kullanir)
-local anchorBasePos = nil   -- son ankor hesaplamasindaki GERCEK oyuncu konumu (heightOffset'siz); interior-fallback'ta nil (takip edilmez, bkz trackThreshold)
 local dragYaw      = 0.0    -- kullanici surukleme/donme ofseti (klonu dondurur)
 local compCache    = {}     -- aynalama diff onbellegi
 local curWeapon    = nil
 local camF         = nil    -- kamera SABIT ileri vektoru (session boyunca degismez)
 local camR         = nil    -- kamera SABIT sag vektoru (session boyunca degismez)
+local curSafeDist  = nil    -- collision-aware kamera mesafesi (smoothing icin kareler arasi tasinir; bkz computeCameraBasis)
 
 ------------------------------------------------------------------------------
 -- YERLESIM
@@ -189,6 +199,35 @@ end
 --- Boylece kamera hala DOGRU yone bakarken (arka plan hala oyuncunun gercekte
 --- baktigi yon), klon da artik kameraya DONUK (yuzu/kiyafetleri gorunur) —
 --- onceki "ya yuz ya dogru yon" ikilemi boylece COZULDU (ikisi ayni anda mumkunmus).
+--- Kamera ile previewPed (chest) arasinda shape test atar; aralarinda duvar/nesne
+--- varsa "istenen" camDist yerine carpismaya kadar olan guvenli mesafeyi doner.
+--- Sadece DUNYA/statik geometriyle (CAM_TEST_FLAGS=1) test eder -> realPed/
+--- previewPed (ped'ler) otomatik yok sayilir, ayrica entity ignore etmeye gerek yok.
+--- SMOOTHING: kuculme (yeni engel/daha yakin duvar) ANINDA uygulanir (guvenlik —
+--- bir kare bile duvarin icine girmesin), buyume (engel kalkinca eski mesafeye
+--- donus) YUMUSAK (lerp) yapilir -> shape test'in kare-kare ufak sapmalarindan
+--- kaynaklanan "0.90/0.65/0.90..." titremesi engellenir.
+local function resolveSafeCamDist(chestX, chestY, chestZ, fwd, desired)
+    local endX = chestX - fwd.x * desired
+    local endY = chestY - fwd.y * desired
+    local rayHandle = StartShapeTestCapsule(chestX, chestY, chestZ, endX, endY, chestZ, CAM_TEST_RADIUS, CAM_TEST_FLAGS, 0, 7)
+    local _, hit, endCoords = GetShapeTestResult(rayHandle)
+
+    local raw = desired
+    if hit == 1 or hit == true then
+        local hitDist = #(vector3(endCoords.x - chestX, endCoords.y - chestY, endCoords.z - chestZ))
+        raw = math.max(MIN_CAM_DIST, hitDist - CAM_SAFETY_MARGIN)
+    end
+
+    if curSafeDist == nil or raw < curSafeDist then
+        curSafeDist = raw
+    else
+        curSafeDist = curSafeDist + (raw - curSafeDist) * 0.25
+    end
+
+    return curSafeDist
+end
+
 local function computeCameraBasis()
     if not previewPed or not DoesEntityExist(previewPed) or not studioCam or not anchorPos then return end
     local fwd = forwardOf(anchorHead)
@@ -201,9 +240,12 @@ local function computeCameraBasis()
     local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
     camF = fwd
     camR = right
+
+    local dist = resolveSafeCamDist(anchorPos.x, anchorPos.y, chest.z, fwd, cfg.camDist)
+
     SetCamCoord(studioCam,
-        anchorPos.x - fwd.x * cfg.camDist,
-        anchorPos.y - fwd.y * cfg.camDist,
+        anchorPos.x - fwd.x * dist,
+        anchorPos.y - fwd.y * dist,
         chest.z)
     SetCamFov(studioCam, cfg.fov)
     -- Kamera ARKADA (-fwd), buraya (anchorPos, klonun konumu) bakar -> bakis yonu
@@ -232,26 +274,18 @@ local function setupStudio()
     placeKlon()
 end
 
---- Ankoru (anchorPos/anchorHead/anchorBasePos) GUNCEL oyuncu konumundan yeniden
---- hesaplar (klona/kameraya DOKUNMAZ — bu setupStudio'nun isi, ayri cagrilir).
+--- Ankoru (anchorPos/anchorHead) GUNCEL oyuncu konumundan yeniden hesaplar
+--- (klona/kameraya DOKUNMAZ — bu setupStudio'nun isi, ayri cagrilir).
 --- Hem ilk kurulumda (CreatePreview) HEM HER KAREDE (render thread) cagrilir ->
---- araç/uçak/helikopterle hareket ederken sahne SUREKLI/AKICI takip eder (esik-
---- bazli "sicramali" yontem SIKAYET UZERINE terk edildi — konum girdisi motor
---- tarafindan zaten yumusak/interpolasyonlu oldugu icin HER KARE okumak sicrama
---- YARATMAZ; eski "titreme" kaygisi FARKLI bir mimarideki gameplay-kamera-
---- rotasyonu gurultusundendi, buradaki SADECE konum icin gecerli degil).
+--- araç/uçak/helikopterle hareket ederken, yürürken, asansör/interior gecislerinde
+--- previewPed HER ZAMAN oyuncunun GERCEKTEN bulundugu konumu (Z DAHIL, offsetsiz)
+--- takip eder — ARTIK ne +Z offseti ne de interior icin ayri bir fallback VAR
+--- (bkz dosya basi mimari notu): previewPed asla oyuncunun bulundugu yerin
+--- disina (baska interior/routing/gokyuzu/sehir ustu) TASINMAZ.
 local function updateAnchor()
     if not realPed or not DoesEntityExist(realPed) then return end
-    if GetInteriorFromEntity(realPed) ~= 0 then
-        anchorPos  = cfg.interiorFallbackPos
-        anchorHead = cfg.interiorFallbackHead
-        anchorBasePos = nil
-    else
-        local basePos = GetEntityCoords(realPed)
-        anchorPos  = basePos + vector3(0.0, 0.0, cfg.heightOffset)
-        anchorHead = GetEntityHeading(realPed)
-        anchorBasePos = basePos
-    end
+    anchorPos  = GetEntityCoords(realPed)
+    anchorHead = GetEntityHeading(realPed)
 end
 
 --- Iki siyah paneli spawn et. balpha<=0 -> arka plan KOMPLE KALDIRILDI (kullanici
@@ -363,10 +397,18 @@ local function CreatePreview(showCharacter)
         return
     end
     pcall(ClonePedToTarget, ped, previewPed)
-    SetEntityAsMissionEntity(previewPed, false, true)
-    FreezeEntityPosition(previewPed, true)  -- KLON statik
+    -- FIX (2026-08-26): "false" previewPed'i GTA'nin otomatik ambient ped/entity
+    -- temizliginden KORUMUYORDU (mission-entity DEGIL) — networked=true oldugu
+    -- icin (yukaridaki AG-GORUNURLUGU notu) VE interior'larin acik dunyaya gore
+    -- COK DAHA SIKI ped/entity butcesi oldugu icin previewPed acilistan ~1sn
+    -- sonra motor tarafindan SESSIZCE SILINIYORDU (debug log ile KANITLANDI:
+    -- previewPed exists=true iken ansizin exists=false oluyor, render thread
+    -- bunun uzerine sona eriyor, realPed'in yerel-gizli override'i bir daha
+    -- tazelenmiyor -> gercek karakter tekrar gorunur oluyor). `true` previewPed'i
+    -- script-korumali mission entity yapar -> otomatik temizlikten MUAF olur,
+    -- sadece bizim DestroyPreview()'imiz onu silebilir.
+    SetEntityAsMissionEntity(previewPed, true, true)
     SetEntityInvincible(previewPed, true)
-    SetEntityCollision(previewPed, false, false)
     SetBlockingOfNonTemporaryEvents(previewPed, true)
     -- GERCEK COZUM: madem klon HER HALUKARDA agda (yukaridaki not), sizinti
     -- SORUNU YOK ETMEK yerine EKRANDA GIZLEME'YE gecildi. SetEntityVisible(false)
@@ -376,18 +418,20 @@ local function CreatePreview(showCharacter)
     -- ONEMSIZ, garanti) klonu goremez, sadece biz goruruz. `showCharacter=false`
     -- (kap gorunumlerinde karakter gizli kalsin istegi) icin render loop bu
     -- override'i hic cagirmaz -> klon bize de gorunmez kalir (eskisiyle ayni sonuc).
+    -- NOT: bu asamada FreezeEntityPosition/SetEntityCollision HENUZ cagrilmiyor —
+    -- bkz asagidaki "INTERIOR ODA/PORTAL KAYDI" notu (previewPed once NIHAI
+    -- konumuna tasinip collision'i ACIKKEN bir-iki kare beklemesi gerekiyor).
     SetEntityVisible(previewPed, false, false)
     ResetEntityAlpha(previewPed)
 
-    -- 2) Klon konumu: oyuncunun O ANKI X/Y'sinde, Z + heightOffset (yukarida, acik
-    -- gokyuzu). X/Y oyuncuyla AYNI oldugu icin o bolgenin streami "sicak" kalir ->
-    -- kapaniste render sorunu olmaz (uzak sabit koordinat denendi, bu soruna yol
-    -- acti — kaldirildi). ISTISNA: oyuncu bir BINA/INTERIOR icindeyse "ustu" guvenilir
-    -- degil (interior'lar dunyada farkli/istiflenmis konumlarda olabilir, +Z acik
-    -- gokyuzune cikmayabilir) -> bu durumda SABIT, onceden test edilmis sehir-yolu
-    -- konumuna dusulur. (updateAnchor() HER KAREDE de cagrilir, bkz render thread.)
+    -- 2) Klon konumu: oyuncunun O ANKI X/Y/Z'sinin BIREBIR AYNISI (offsetsiz) —
+    -- oyuncu sokakta/evde/ofiste/garajda/arac icinde farketmez, previewPed HER
+    -- ZAMAN ayni yerde kalir (updateAnchor() HER KAREDE de cagrilir, bkz render
+    -- thread). curSafeDist da her acilista sifirlanir ki eski oturumdan kalan
+    -- collision-mesafesi yeni sahneye "sizmasin".
     updateAnchor()
     dragYaw = 0.0
+    curSafeDist = cfg.camDist
 
     -- 3) Scripted kamera (dogrudan studio konumunda olusturulur; GECIS ANIMASYONU YOK)
     studioCam = CreateCamWithParams('DEFAULT_SCRIPTED_CAMERA', anchorPos.x, anchorPos.y, anchorPos.z, 0.0, 0.0, 0.0, cfg.fov, false, 2)
@@ -397,17 +441,82 @@ local function CreatePreview(showCharacter)
     active = true
     compCache = {}
     curWeapon = nil
-    setupStudio()               -- klon+kamera+backdrop studio konumuna
+    setupStudio()               -- klon+kamera+backdrop studio konumuna (previewPed HALA collision'li/frozen degil)
+
+    -- INTERIOR ODA/PORTAL KAYDI (previewPed interior icinde GORUNMEZ OLMA sorununun
+    -- gercek kok nedeni): GTA'nin oda/portal (MLO interior) sistemi bir entity'nin
+    -- "hangi odada" oldugunu, o entity fizik/collision guncellemesi ALDIGI ANDA
+    -- kaydeder (CPortalTracker). previewPed daha ONCEDEN previewPed'i ayni karede
+    -- HEM olusturup HEM konumlandirip HEM DE ANINDA freeze+collision-disable
+    -- yapiyorduk -> entity hicbir zaman bir fizik/collision guncellemesi ALMADAN
+    -- "donduruluyordu", dolayisiyla oda kaydi hic OLUSMUYORDU. Disarida (rooms
+    -- yok, portal culling yok) bu fark etmiyordu -> previewPed hep gorunuyordu.
+    -- Interior'da (oda/portal culling VAR) ise previewPed "tanimsiz/yanlis oda"da
+    -- kaliyor, entity var/gorunur-bayragi acik olmasina RAGMEN render asamasindaki
+    -- PORTAL TESTI onu eliyordu (`SetEntityLocallyVisible` HER KARE dogru
+    -- calisiyordu — bu, TAMAMEN AYRI bir filtre; visible-bayragi ile oda/portal
+    -- gorunurlugu birbirinden BAGIMSIZ iki kontrol).
+    -- COZUM: previewPed'i NIHAI (ofsetli) konumuna tasidiktan SONRA, collision
+    -- HALA acikken (ClonePed varsayilani) birkac kare bekleyip oda kaydinin
+    -- olusmasina izin veriyoruz, ANCAK BUNDAN SONRA freeze+collision-disable
+    -- uyguluyoruz. previewPed bu pencerede AG'de zaten gorunmez (SetEntityVisible
+    -- false, henuz LocallyVisible cagrilmadi) -> hicbir gorsel sizinti/flicker
+    -- olmaz. NOT: interior fallback (eski -301.72,-71.13,316.92 koordinati) GERI
+    -- GETIRILMEDI — previewPed hep GERCEK oyuncu konumunda kalir, sadece oda
+    -- KAYDI duzeltiliyor.
+    RequestCollisionAtCoord(anchorPos.x, anchorPos.y, anchorPos.z)
+    Wait(0)
+    Wait(0)
+
+    -- GUVENLIK: yukaridaki Wait(0)'lar CreatePreview'i ARTIK kesilebilir (preemptible)
+    -- yapiyor — bu pencerede kullanici envanteri ANINDA kapatirsa (ayri bir coroutine'de
+    -- DestroyPreview() calisirsa) previewPed COKTAN silinmis olabilir. Boyle bir durumda
+    -- silinmis/gecersiz entity uzerinde native cagirmamak icin burada durup cikariz
+    -- (DestroyPreview zaten her seyi temizledi, tekrar dokunmuyoruz).
+    if not active or not previewPed or not DoesEntityExist(previewPed) then return end
+
+    FreezeEntityPosition(previewPed, true)  -- KLON statik (ARTIK oda kaydi olustuktan SONRA)
+    SetEntityCollision(previewPed, false, false)
+
     SetCamActive(studioCam, true)
     -- ANINDA GECIS: bir sonraki frame direkt studio kadrajinda goruntulenir (ease=false,
-    -- sure=0). Smooth blend YOK — kullanici istegi.
+    -- sure=0). Smooth blend YOK — kullanici istegi. (Yukaridaki 2 karelik oda-kaydi
+    -- bekleme suresi ~32ms, goz ile fark edilmez -> "aninda" his korunur.)
     RenderScriptCams(true, false, 0, true, true)
     playIdle()
     mirrorWeapon(true)
 
+    -- GECICI DEBUG (2026-08-26 — "kim/ne siliyor" arastirmasinin 2. turu): previewPed'in
+    -- KİMLİK bilgilerini (handle, network ID, model, dogum zamani) BIR KEZ kaydediyoruz.
+    -- Amac: previewPed daha sonra "yok oldugunda" ayni kimlik mi (gercek silinme) yoksa
+    -- handle-reuse gibi baska bir anomalimi oldugunu ayirt edebilmek + tam yasam suresini
+    -- (ms) olcebilmek.
+    local dbgPreviewHandle = previewPed
+    local dbgOkNetId, dbgPreviewNetId = pcall(NetworkGetNetworkIdFromEntity, previewPed)
+    local dbgPreviewModel = GetEntityModel(previewPed)
+    local dbgCreatedAt = GetGameTimer()
+    local dbgOkOwner, dbgOwnerPlayerIdx = pcall(NetworkGetEntityOwner, previewPed)
+    local dbgOwnerServerId = (dbgOkOwner and dbgOwnerPlayerIdx and dbgOwnerPlayerIdx ~= -1) and GetPlayerServerId(dbgOwnerPlayerIdx) or -1
+    local dbgOkBucket, dbgClientBucket = pcall(GetEntityRoutingBucket, previewPed)
+    print(('^2[bitirim-debug] previewPed DOGDU: handle=%s netId=%s model=%s t=%d owner(playerIdx)=%s owner(serverId)=%s clientBucket=%s^7')
+        :format(tostring(dbgPreviewHandle), tostring(dbgOkNetId and dbgPreviewNetId), tostring(dbgPreviewModel), dbgCreatedAt,
+            tostring(dbgOkOwner and dbgOwnerPlayerIdx), tostring(dbgOwnerServerId), tostring(dbgOkBucket and dbgClientBucket)))
+
+    -- GECICI DEBUG: SUNUCU tarafinda bu netId'nin routing bucket'ini VE oyuncunun
+    -- KENDI routing bucket'ini gormek icin — client'ta bucket native'i yoksa/guvenilmezse
+    -- bu, kesin cevabi sunucudan alir (bkz modules/bitirim/server.lua 'bitirim:debugPreviewNetInfo').
+    if dbgOkNetId and dbgPreviewNetId then
+        TriggerServerEvent('bitirim:debugPreviewNetInfo', dbgPreviewNetId, dbgCreatedAt)
+    end
+
     -- RENDER thread (Wait 0): gercek bedeni yerel gizle + HER KAREDE ankoru guncelle
     -- (araç/uçak/helikopterle hareket ederken sahne akici sekilde takip eder) + kadraji
     -- oturt + odak klona + ox screenblur kapat.
+    -- GECICI DEBUG (2026-08-26 — interior'da previewPed ~1sn sonra kaybolma arastirmasi
+    -- icin eklendi, root cause kesinlesince KALDIRILACAK): 500ms'de bir previewPed/
+    -- realPed durumunu yazdirir + thread NEDEN sona erdi (hangi kosul false oldu) onu
+    -- yakalar. Production davranisini DEGISTIRMEZ (sadece print).
+    local dbgLastPrint = 0
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
             if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
@@ -423,8 +532,43 @@ local function CreatePreview(showCharacter)
             SetFocusPosAndVel(chest.x, chest.y, chest.z, 0.0, 0.0, 0.0)
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
             TriggerScreenblurFadeOut(0.0)
+
+            -- GECICI DEBUG: ILK 300ms'de HER KAREDE (dogum ~olum penceresi 87-110ms
+            -- oldugu icin 500ms'lik eski aralik bunu tamamen KACIRIYORDU), ondan sonra
+            -- 500ms'de bir durum snapshot'i.
+            local dbgNow = GetGameTimer()
+            local dbgInBurst = (dbgNow - dbgCreatedAt) < 300
+            if dbgInBurst or (dbgNow - dbgLastPrint >= 500) then
+                dbgLastPrint = dbgNow
+                local pc = GetEntityCoords(previewPed)
+                local netOk, netVal = pcall(NetworkGetEntityIsNetworked, previewPed)
+                local ownOk, ownIdx = pcall(NetworkGetEntityOwner, previewPed)
+                local realVisible = realPed and DoesEntityExist(realPed) and IsEntityVisible(realPed)
+                local realInterior = realPed and DoesEntityExist(realPed) and GetInteriorFromEntity(realPed)
+                print(('^5[bitirim-debug] t+%dms previewPed exists=%s pos=%.2f,%.2f,%.2f interior=%s visible=%s networked=%s owner=%s || realPed interior=%s visible=%s^7')
+                    :format(dbgNow - dbgCreatedAt, tostring(DoesEntityExist(previewPed)), pc.x, pc.y, pc.z,
+                        tostring(GetInteriorFromEntity(previewPed)), tostring(IsEntityVisible(previewPed)),
+                        tostring(netOk and netVal), tostring(ownOk and ownIdx), tostring(realInterior), tostring(realVisible)))
+            end
+
             Wait(0)
         end
+        -- GECICI DEBUG: while dongusu NEDEN sona erdi (hangi kosul false oldu)? + previewPed'in
+        -- YASAM SURESI (ms) + network ID hala "var" mi (handle-reuse/ownership-migration
+        -- ihtimalini ayirt etmek icin NetworkDoesEntityExistWithNetworkId ile CAPRAZ kontrol —
+        -- eger local handle "yok" derken network ID hala "var" derse, entity SILINMEDI,
+        -- sadece bizim local handle'imiz bozuldu/devredildi demektir; ikisi de "yok" derse
+        -- entity GERCEKTEN silindi demektir).
+        local dbgDiedAt = GetGameTimer()
+        local dbgNetStillExists = nil
+        if dbgOkNetId and dbgPreviewNetId and dbgPreviewNetId ~= 0 then
+            local okCheck, stillExists = pcall(NetworkDoesEntityExistWithNetworkId, dbgPreviewNetId)
+            dbgNetStillExists = okCheck and stillExists
+        end
+        print(('^1[bitirim-debug] RENDER THREAD SONA ERDI: active=%s previewPed~=nil=%s previewPedExists=%s | handle=%s netId=%s netIdStillExists=%s | yasamSuresi=%dms^7')
+            :format(tostring(active), tostring(previewPed ~= nil), tostring(previewPed ~= nil and DoesEntityExist(previewPed)),
+                tostring(dbgPreviewHandle), tostring(dbgOkNetId and dbgPreviewNetId), tostring(dbgNetStillExists),
+                dbgDiedAt - dbgCreatedAt))
     end)
 
     -- MIRROR thread (~150ms): gercek ped -> klon appearance aynalama (movement DEGIL).
@@ -434,11 +578,96 @@ local function CreatePreview(showCharacter)
             mirrorWeapon(false)
             Wait(150)
         end
+        -- GECICI DEBUG
+        print('^1[bitirim-debug] MIRROR THREAD SONA ERDI^7')
+    end)
+
+    --[[
+        GECICI DEBUG (ROUND 5, 2026-08-26) — "dag karakterin SOLUNDAYKEN" teshisi.
+        SADECE OKUMA/print yapar; previewPed'in Z'sini, kamera geometrisini,
+        cfg degerlerini, forwardOf/rightOf'u, computeCameraBasis/placeKlon/
+        resolveSafeCamDist algoritmalarini HICBIR SEKILDE degistirmez/etkilemez.
+        Amac: previewPed'in camSide (-0.22, yani anchor'in right ekseninde NEGATIF
+        -> anchor'in SOLUNA) offsetlendigi noktadaki GERCEK zemin (ground) Z'sini,
+        anchor'in kendi zemin Z'si VE simetrik +0.22 (sag) noktasindaki zemin Z'siyle
+        karsilastirip egimli/dagli arazide asimetri olup olmadigini SAYISAL olarak
+        kanitlamak. Ilk yerlesimde 1 log, sonra ~500ms'de bir log (spam yok).
+    ]]
+    CreateThread(function()
+        local dbgTerrainLast = 0
+        local dbgTerrainFirst = true
+
+        --- GetGroundZFor_3dCoord'u guvenli sarmalar: basarisizsa nil doner (ASLA
+        --- gecersiz/0 gibi bir degeri "gecerli Z" olarak KULLANMAZ). Arama baslangic
+        --- noktasi olarak z+50.0 kullanilir (egimli/dagli arazide dahi anchor'in
+        --- 0.22m yanindaki zemin, 50m'den fazla farkli olamayacagi icin GUVENLI bir
+        --- ust sinir — cok daha yuksek/dusuk bir sonuc cikarsa asagida ayrica
+        --- loglanacak "supheli deger" olarak degerlendirilebilir).
+        local function groundAt(x, y, z)
+            local ok, found, gz = pcall(GetGroundZFor_3dCoord, x, y, z + 50.0, false)
+            if ok and found and gz then return gz end
+            return nil
+        end
+
+        while active and previewPed and DoesEntityExist(previewPed) do
+            local now = GetGameTimer()
+            if dbgTerrainFirst or (now - dbgTerrainLast >= 500) then
+                dbgTerrainFirst = false
+                dbgTerrainLast = now
+
+                if anchorPos and camR then
+                    local ax, ay, az = anchorPos.x, anchorPos.y, anchorPos.z
+
+                    -- SOL nokta: MEVCUT cfg.camSide (-0.22) ile previewPed'in GERCEKTEN
+                    -- offsetlendigi nokta (placeKlon() ile AYNI formul, SADECE OKUMA).
+                    local leftX = ax + camR.x * cfg.camSide
+                    local leftY = ay + camR.y * cfg.camSide
+                    -- SAG nokta: simetrik karsilastirma icin +0.22 (camSide'in mutlak
+                    -- degeriyle AYNI buyuklukte, ters yonde).
+                    local rightX = ax + camR.x * 0.22
+                    local rightY = ay + camR.y * 0.22
+
+                    local anchorGroundZ = groundAt(ax, ay, az)
+                    local leftGroundZ   = groundAt(leftX, leftY, az)
+                    local rightGroundZ  = groundAt(rightX, rightY, az)
+
+                    local pp = DoesEntityExist(previewPed) and GetEntityCoords(previewPed) or nil
+                    local previewGroundZ = pp and groundAt(pp.x, pp.y, pp.z) or nil
+
+                    local leftDelta        = (leftGroundZ and anchorGroundZ) and (leftGroundZ - anchorGroundZ) or nil
+                    local rightDelta       = (rightGroundZ and anchorGroundZ) and (rightGroundZ - anchorGroundZ) or nil
+                    local previewGroundDelta = (previewGroundZ and anchorGroundZ) and (previewGroundZ - anchorGroundZ) or nil
+                    local previewZMinusGround = (pp and previewGroundZ) and (pp.z - previewGroundZ) or nil
+
+                    local camPos = (studioCam and DoesCamExist(studioCam)) and GetCamCoord(studioCam) or nil
+                    local camPreviewDist = (camPos and pp) and #(pp - camPos) or nil
+
+                    print(('^3[bitirim-terrain-debug] head=%.1f anchor=(%.2f,%.2f,%.2f) anchorGroundZ=%s || LEFT camSide=%.2f pt=(%.2f,%.2f) leftGroundZ=%s leftDelta=%s || RIGHT +0.22 pt=(%.2f,%.2f) rightGroundZ=%s rightDelta=%s || preview=(%.2f,%.2f,%.2f) previewGroundZ=%s previewGroundDelta=%s previewZMinusGround=%s || camDist=%.2f safeDist=%s cam=(%s) camPreviewDist=%s^7')
+                        :format(
+                            anchorHead, ax, ay, az, tostring(anchorGroundZ),
+                            cfg.camSide, leftX, leftY, tostring(leftGroundZ), tostring(leftDelta),
+                            rightX, rightY, tostring(rightGroundZ), tostring(rightDelta),
+                            pp and pp.x or -1, pp and pp.y or -1, pp and pp.z or -1,
+                            tostring(previewGroundZ), tostring(previewGroundDelta), tostring(previewZMinusGround),
+                            cfg.camDist, tostring(curSafeDist),
+                            camPos and ('%.2f,%.2f,%.2f'):format(camPos.x, camPos.y, camPos.z) or 'nil',
+                            tostring(camPreviewDist)))
+                end
+            end
+            Wait(0)
+        end
     end)
 end
 
 local function DestroyPreview()
     if not active then return end
+    -- GECICI DEBUG (bkz CreatePreview render thread notu): DestroyPreview'in
+    -- BEKLENMEDIK sekilde tetiklenip tetiklenmedigini ayirt etmek icin. GetInvokingResource()
+    -- bu export'u BASKA bir resource cagirdiysa o resource'un adini doner (ayni resource
+    -- icinden -export uzerinden bile olsa- cagrilirsa genelde nil/kendi adimiz donebilir).
+    local okInv, invoker = pcall(GetInvokingResource)
+    print(('^1[bitirim-debug] DestroyPreview() CAGRILDI (invoker=%s previewPedExists=%s)^7')
+        :format(tostring(okInv and invoker), tostring(previewPed ~= nil and DoesEntityExist(previewPed))))
     active = false -- thread'ler cikar
 
     -- Kamerayi gameplay'e ANINDA geri ver (sure=0). Smooth (400ms) donus + hemen
@@ -476,12 +705,12 @@ local function DestroyPreview()
     ClearFocus()
     anchorPos = nil
     anchorHead = 0.0
-    anchorBasePos = nil
     camF = nil
     camR = nil
     compCache = {}
     curWeapon = nil
     dragYaw = 0.0
+    curSafeDist = nil
 end
 
 ------------------------------------------------------------------------------
@@ -604,6 +833,121 @@ local function TuneScene(action)
 end
 
 local function IsPreviewActive() return active end
+
+------------------------------------------------------------------------------
+-- ROUND 7 GECICI DIAGNOSTIC (2026-08-26) — "dag karakterin SOLUNDAYKEN" previewPed
+-- govde/kol/omuz TERRAIN/KAYA ile clipping/occlusion yasiyor mu? SADECE OKUMA.
+-- Hicbir entity'nin position/heading/visibility/collision/alpha/routing bucket
+-- degerini DEGISTIRMEZ -- sadece bone/kamera koordinati okur, shape-test atar,
+-- print eder. /previewdebug ile ac/kapa (varsayilan KAPALI). Root cause
+-- kesinlesince KALDIRILACAK.
+------------------------------------------------------------------------------
+local previewCollisionDebug = false
+local DBG_PROBE_DISTANCE = 1.5
+local DBG_TEST_FLAGS = 1 -- SADECE dunya/statik geometri (mevcut CAM_TEST_FLAGS ile AYNI desen) -> ped'ler (previewPed dahil) otomatik disarida kalir
+
+-- Klasik PedBoneId tablosu (BONE_CHEST=24818/SKEL_Spine3 ile AYNI aile — bu
+-- deger zaten yillardir bu dosyada canli/dogrulanmis calisiyor). Diger ID'ler
+-- ayni yaygin/standart tablodan; herhangi biri yanlis cikarsa (silik/pelvis'e
+-- esdeger bir koordinat donerse) ilgili satirdaki bone ismini degistirmek yeterli.
+local DBG_BONE_PELVIS = 11816  -- SKEL_Pelvis
+local DBG_BONE_SPINE0 = 57597  -- SKEL_Spine0
+local DBG_BONE_SPINE2 = 24817  -- SKEL_Spine2
+local DBG_BONE_NECK   = 39317  -- SKEL_Neck_1
+local DBG_BONE_HEAD   = 31086  -- SKEL_Head
+local DBG_BONE_L_HAND = 18905  -- SKEL_L_Hand
+local DBG_BONE_R_HAND = 57031  -- SKEL_R_Hand
+
+--- SADECE OKUMA: iki nokta arasinda kapsul shape-test atar, hit/mesafe/entity/model/
+--- hit-koordinati/hit-normali doner. DBG_TEST_FLAGS=1 (dunya/statik) oldugu icin
+--- previewPed/realPed dahil HICBIR ped sonuca dahil olmaz (mevcut resolveSafeCamDist'teki
+--- AYNI desen) -> previewPed'in kendi govdesini "yanlislikla" hit olarak raporlama
+--- riski yapisal olarak yok.
+local function dbgShapeTest(x1, y1, z1, x2, y2, z2)
+    local handle = StartShapeTestCapsule(x1, y1, z1, x2, y2, z2, 0.05, DBG_TEST_FLAGS, 0, 7)
+    local _, hit, endCoords, surfaceNormal, entityHit = GetShapeTestResult(handle)
+    if hit == 1 or hit == true then
+        local dist = #(vector3(endCoords.x - x1, endCoords.y - y1, endCoords.z - z1))
+        local model = (entityHit and entityHit ~= 0) and GetEntityModel(entityHit) or 0
+        return true, dist, (entityHit or 0), model, endCoords, surfaceNormal
+    end
+    return false, nil, 0, 0, nil, nil
+end
+
+local function dbgFormatHit(hit, dist, ent, model, coords, normal)
+    if not hit then return 'CLEAR' end
+    local coordsStr = coords and ('(%.2f,%.2f,%.2f)'):format(coords.x, coords.y, coords.z) or 'nil'
+    local normalStr = normal and ('(%.2f,%.2f,%.2f)'):format(normal.x, normal.y, normal.z) or 'nil'
+    return ('HIT dist=%.2f ent=%s model=%s coords=%s normal=%s'):format(dist, tostring(ent), tostring(model), coordsStr, normalStr)
+end
+
+RegisterCommand('previewdebug', function()
+    previewCollisionDebug = not previewCollisionDebug
+    print(('^3[bitirim-collision-debug]^0 %s'):format(previewCollisionDebug and 'ENABLED' or 'DISABLED'))
+end, false)
+
+CreateThread(function()
+    while true do
+        Wait(250)
+        if previewCollisionDebug and active and previewPed and DoesEntityExist(previewPed) and camR and anchorPos then
+            -- previewSide: SADECE camSide'in isaretinden (dosyanin kendi rightOf()
+            -- konvansiyonuna gore previewPed'in karakterin LOCAL sag ekseninde
+            -- NEGATIF/POZITIF yonde kaydigini belirtir).
+            local previewSide = (cfg.camSide < 0 and 'LEFT') or (cfg.camSide > 0 and 'RIGHT') or 'CENTER'
+            local camPos = (studioCam and DoesCamExist(studioCam)) and GetCamCoord(studioCam) or nil
+            local previewPos = GetEntityCoords(previewPed)
+            local camPreviewDist = camPos and #(vector3(previewPos.x - camPos.x, previewPos.y - camPos.y, previewPos.z - camPos.z)) or nil
+
+            local bones = {
+                { name = 'pelvis', id = DBG_BONE_PELVIS },
+                { name = 'spine0', id = DBG_BONE_SPINE0 },
+                { name = 'chest',  id = BONE_CHEST },
+                { name = 'spine2', id = DBG_BONE_SPINE2 },
+                { name = 'neck',   id = DBG_BONE_NECK },
+                { name = 'head',   id = DBG_BONE_HEAD },
+                { name = 'lhand',  id = DBG_BONE_L_HAND },
+                { name = 'rhand',  id = DBG_BONE_R_HAND },
+            }
+
+            local lines = {}
+            lines[#lines + 1] = ('[bitirim-collision-debug] head=%.1f previewSide=%s camDist=%.2f safeDist=%s')
+                :format(anchorHead, previewSide, cfg.camDist, tostring(curSafeDist))
+            lines[#lines + 1] = ('  anchor=(%.2f,%.2f,%.2f) preview=(%.2f,%.2f,%.2f) camera=%s cameraPreviewDist=%s')
+                :format(anchorPos.x, anchorPos.y, anchorPos.z, previewPos.x, previewPos.y, previewPos.z,
+                    camPos and ('(%.2f,%.2f,%.2f)'):format(camPos.x, camPos.y, camPos.z) or 'nil', tostring(camPreviewDist))
+
+            -- GENEL kamera -> previewPed LOS (bone-bazli detaydan AYRI, tek ozet satir).
+            if camPos then
+                local ovHit, ovDist, ovEnt, ovModel, ovCoords, ovNormal = dbgShapeTest(camPos.x, camPos.y, camPos.z, previewPos.x, previewPos.y, previewPos.z)
+                lines[#lines + 1] = ('  cameraLOS(preview)=%s'):format(dbgFormatHit(ovHit, ovDist, ovEnt, ovModel, ovCoords, ovNormal))
+            else
+                lines[#lines + 1] = '  cameraLOS(preview)=camera yok'
+            end
+
+            for i = 1, #bones do
+                local b = bones[i]
+                local origin = GetPedBoneCoords(previewPed, b.id, 0.0, 0.0, 0.0)
+                local leftEnd = vector3(origin.x - camR.x * DBG_PROBE_DISTANCE, origin.y - camR.y * DBG_PROBE_DISTANCE, origin.z)
+                local rightEnd = vector3(origin.x + camR.x * DBG_PROBE_DISTANCE, origin.y + camR.y * DBG_PROBE_DISTANCE, origin.z)
+
+                local lHit, lDist, lEnt, lModel, lCoords, lNormal = dbgShapeTest(origin.x, origin.y, origin.z, leftEnd.x, leftEnd.y, leftEnd.z)
+                local rHit, rDist, rEnt, rModel, rCoords, rNormal = dbgShapeTest(origin.x, origin.y, origin.z, rightEnd.x, rightEnd.y, rightEnd.z)
+
+                local cHit, cDist, cEnt, cModel, cCoords, cNormal = false, nil, 0, 0, nil, nil
+                if camPos then
+                    cHit, cDist, cEnt, cModel, cCoords, cNormal = dbgShapeTest(camPos.x, camPos.y, camPos.z, origin.x, origin.y, origin.z)
+                end
+
+                lines[#lines + 1] = ('  %-6s pos=(%.2f,%.2f,%.2f)'):format(b.name, origin.x, origin.y, origin.z)
+                lines[#lines + 1] = ('    L=%s'):format(dbgFormatHit(lHit, lDist, lEnt, lModel, lCoords, lNormal))
+                lines[#lines + 1] = ('    R=%s'):format(dbgFormatHit(rHit, rDist, rEnt, rModel, rCoords, rNormal))
+                lines[#lines + 1] = ('    camLOS=%s'):format(dbgFormatHit(cHit, cDist, cEnt, cModel, cCoords, cNormal))
+            end
+
+            print(table.concat(lines, '\n'))
+        end
+    end
+end)
 
 ------------------------------------------------------------------------------
 -- EXPORT'LAR (tek iletisim yolu)
