@@ -296,6 +296,10 @@ local function computeCameraBasis()
     PointCamAtCoord(studioCam, anchorPos.x, anchorPos.y, chest.z - cfg.lookDown)
 end
 
+-- ROUND 12 (2026-08-26) GECICI OLCUM ICIN: son print zamani (throttle). Root
+-- cause netlesince bu degisken + asagidaki print blogu KALDIRILACAK.
+local round12DebugLast = 0
+
 --- Klonu (ve arkasindaki backdrop'u) camSide/camHeight/dragYaw'a gore yerlestirir.
 --- KAMERA BURADA DEGISMEZ -> ok tuslari basinca klon basilan yone DOGRUDAN kayar.
 local function placeKlon()
@@ -327,11 +331,12 @@ local function placeKlon()
     local leftRay = StartShapeTestCapsule(pos.x, pos.y, chest.z, leftTestX, leftTestY, chest.z, CAM_TEST_RADIUS, CAM_TEST_FLAGS, 0, 7)
     local _, leftHit, leftEndCoords = GetShapeTestResult(leftRay)
 
+    local leftHitDist, deficit, pushAmount = nil, nil, nil
     if leftHit == 1 or leftHit == true then
-        local leftHitDist = #(vector3(leftEndCoords.x - pos.x, leftEndCoords.y - pos.y, leftEndCoords.z - chest.z))
-        local deficit = LEFT_TERRAIN_SAFE_DIST - leftHitDist
+        leftHitDist = #(vector3(leftEndCoords.x - pos.x, leftEndCoords.y - pos.y, leftEndCoords.z - chest.z))
+        deficit = LEFT_TERRAIN_SAFE_DIST - leftHitDist
         if deficit > 0.0 then
-            local pushAmount = math.min(deficit, LEFT_TERRAIN_MAX_PUSH)
+            pushAmount = math.min(deficit, LEFT_TERRAIN_MAX_PUSH)
             safeX = pos.x + camR.x * pushAmount
             safeY = pos.y + camR.y * pushAmount
             moved = true
@@ -346,8 +351,9 @@ local function placeKlon()
     --    arama + pcall + found kontrolu) Round 5 diagnostic thread'inde zaten
     --    kullaniliyor -- burada BAGIMSIZ bir kopyasi.
     local okGround, foundGround, groundZ = pcall(GetGroundZFor_3dCoord, safeX, safeY, pos.z + 50.0, false)
+    local zDeficit = nil
     if okGround and foundGround and groundZ then
-        local zDeficit = groundZ - pos.z
+        zDeficit = groundZ - pos.z
         if zDeficit > 0.0 then
             safeZ = pos.z + math.min(zDeficit, MAX_TERRAIN_Z_LIFT)
             moved = true
@@ -357,6 +363,19 @@ local function placeKlon()
     if moved then
         SetEntityCoordsNoOffset(previewPed, safeX, safeY, safeZ, false, false, false)
         positionBackdrop(camF, safeX, safeY, chest.z)
+    end
+
+    -- ROUND 12 GECICI OLCUM: SADECE print, hicbir davranisi/pozisyonu etkilemez.
+    -- Root cause netlesince bu blok KALDIRILACAK.
+    local round12Now = GetGameTimer()
+    if round12Now - round12DebugLast >= 1000 then
+        round12DebugLast = round12Now
+        local finalPos = GetEntityCoords(previewPed)
+        print(('[round12-probe] pos=(%.2f,%.2f,%.2f) camR=(%.3f,%.3f) leftHit=%s leftHitDist=%s deficit=%s pushAmount=%s okGround=%s foundGround=%s groundZ=%s zDeficit=%s moved=%s finalPos=(%.2f,%.2f,%.2f)')
+            :format(pos.x, pos.y, pos.z, camR.x, camR.y,
+                tostring(leftHit), tostring(leftHitDist), tostring(deficit), tostring(pushAmount),
+                tostring(okGround), tostring(foundGround), tostring(groundZ), tostring(zDeficit),
+                tostring(moved), finalPos.x, finalPos.y, finalPos.z))
     end
 end
 
