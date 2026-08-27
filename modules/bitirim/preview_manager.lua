@@ -78,11 +78,26 @@ local cfg = {
     -- Her karede computeCameraBasis() bunu shape-test ile kontrol edip gerekirse
     -- kisar (bkz MIN_CAM_DIST/CAM_SAFETY_MARGIN asagida) — bu deger sadece
     -- "engel yokken" kullanilacak HEDEF mesafedir.
-    camDist   = 1.70,  -- kamera klonun ONUNDE kac metre (SABIT HEDEF; /cam ile degisir, shape-test ile kisilabilir) — A/B TEST (2026-08-26): 1.15 tam-boy kadraj icin yetersizdi (FOV=64 ile ~1.44m dikey kapsama alani, ~1.8m boy sigmiyordu); 1.70 ~1.8m boyu %20 payla sigdirir.
-    camSide   = 0.0,   -- KLONUN yatay konumu (kamera-sag ekseni) — 0 = TAM KARSIDAN/SIMETRIK (2026-08-27, kullanici istegi). ONEMLI: kamera PointCamAtCoord ile HAM anchorPos'a bakar (bkz computeCameraBasis), klonun camSide'a gore KAYDIRILMIS konumuna DEGIL (bilerek — kamera sabit kalsin, ok tuslariyla klon kadraj icinde DOGRUDAN kaysin diye). Bu yuzden camSide != 0 iken klon kameranin optik ekseninden disari dusuyor -> genis FOV'da (zoom out) belirgin bir "yamuk/carpik" gorunume yol aciyor (genis acida merkez-disi nesneler gerilir). Merkezden kaydirmak istersen ok tuslari (sol/sag) canli dial icin hala kullanilabilir, sadece KALICI varsayilan artik 0.
+    -- 2026-08-27 GERCEK KOK NEDEN BULUNDU: camDist=1.70 + fov=64 kombinasyonu
+    -- GENIS-ACI PORTRE DISTORSIYONU yaratiyordu -- kamera govdeye COK yakinken
+    -- genis FOV, klonun kameraya yakin kisimlarini (govdenin one bakan tarafi)
+    -- orantisiz BUYUK, uzak kisimlarini KUCUK gosterir -> poz/pozisyon MUKEMMEL
+    -- simetrik olsa BILE (camSide=0, ambient anim kapali, TaskStandStill duz
+    -- durus) hala "yamuk/carpik" gorunur (fotografcilikta bilinen bir etki:
+    -- yakin+genis-aci portre COK az kişide duz/simetrik durur). Numpad zoom-out
+    -- FOV'u daha da genislettigi (80'e kadar) icin sorun BUYUYORDU. Kullanicinin
+    -- "eskiden 2.55m'de duz goruyordu" hatirlamasi bu teoriyi DOGRULADI.
+    -- COZUM: kamerayi GERIYE al (camDist buyut) + FOV'u AYNI dikey kapsamayi
+    -- (tam-boy kadraj) koruyacak sekilde DARALT -- matematik: kapsama =
+    -- 2*camDist*tan(fov/2) SABIT tutuldu (eskiden 1.70*tan(32)=1.06 -> yeni
+    -- 2.55*tan(22.6)=1.06). Bu, fotografcilikta "portre icin uzun lensle
+    -- uzaktan cek, genis lensle yakinlasma" kuralinin AYNISI -- persfektifi
+    -- DUZLESTIRIR, distorsiyonu koklu sekilde azaltir.
+    camDist   = 2.55,  -- kamera klonun ONUNDE kac metre (SABIT HEDEF; /cam ile degisir, shape-test ile kisilabilir)
+    camSide   = 0.0,   -- KLONUN yatay konumu (kamera-sag ekseni) — 0 = TAM KARSIDAN/SIMETRIK (2026-08-27, kullanici istegi). ONEMLI: kamera PointCamAtCoord ile HAM anchorPos'a bakar (bkz computeCameraBasis), klonun camSide'a gore KAYDIRILMIS konumuna DEGIL (bilerek — kamera sabit kalsin, ok tuslariyla klon kadraj icinde DOGRUDAN kaysin diye). camSide != 0 iken klon kameranin optik ekseninden disari dusuyor -> genis FOV'da bu daha belirgin olabilir. Merkezden kaydirmak istersen ok tuslari (sol/sag) canli dial icin hala kullanilabilir, sadece KALICI varsayilan artik 0.
     camHeight = 0.05,  -- KLONUN dikey konumu (dunya-yukari ekseni) — KALICI (kullanici dial etti)
     lookDown  = 0.30,  -- bakis hedefi: ust gogusun kac metre ALTI (govde ortasi)
-    fov       = 64.0,  -- gorus acisi (dar=yakin/buyuk gorunur) — KALICI (kullanici dial etti)
+    fov       = 45.0,  -- gorus acisi (dar=yakin/buyuk gorunur) — 2026-08-27: 64'ten 45'e DARALTILDI (camDist buyumesiyle AYNI dikey kapsamayi korur, bkz ustteki not) — genis-aci distorsiyonunu azaltmak icin
     backDist  = 2.40,  -- backdrop klonun kac metre ARKASINDA
     backZ     = 0.0,   -- backdrop dikey ince ayar
     -- TEK NOKTA: butun panellerin (karakter/envanter/depo/bagaj/torpido) arka plan
