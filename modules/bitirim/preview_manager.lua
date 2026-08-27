@@ -421,6 +421,10 @@ end
 --- bekleme dongusune gerek kalmadi).
 local function playIdle()
     if not previewPed or not DoesEntityExist(previewPed) then return end
+    -- ClonePed, gercek oyuncunun O ANKI aktif task'ini (yuruyor/donuyor/vs.) miras
+    -- alabilir -- TaskStandStill tek basina bunun UZERINE binip beklenmedik bir
+    -- karisim/gecikme yaratabilir. Once sert sifirla, SONRA duz duruşu ata.
+    ClearPedTasksImmediately(previewPed)
     TaskStandStill(previewPed, -1)
 end
 
@@ -504,6 +508,16 @@ local function CreatePreview(showCharacter)
     SetEntityAsMissionEntity(previewPed, true, true)
     SetEntityInvincible(previewPed, true)
     SetBlockingOfNonTemporaryEvents(previewPed, true)
+    -- TaskStandStill'in KENDI temel duruşu simetriktir, AMA GTA ped'leri bunun
+    -- ustune periyodik olarak rastgele "ambient idle" varyasyonlari (etrafa
+    -- bakinma, agirlik degistirme, vb.) oynatmaya devam eder -- bu, SetBlockingOf-
+    -- NonTemporaryEvents'in KAPSAMADIGI AYRI bir katman (o sadece disaridan
+    -- tetiklenen reaksiyonlari engeller, KENDI ambient varyasyonunu degil). Bu
+    -- yuzden klon zaman zaman "yamuk/yana donuk" gorunuyordu (2026-08-27,
+    -- kullanici bildirdi). SetPedCanPlayAmbientAnims(false) bu varyasyon katmanini
+    -- tamamen kapatir -> previewPed HER ZAMAN TaskStandStill'in duz/simetrik
+    -- temel pozunda kalir.
+    SetPedCanPlayAmbientAnims(previewPed, false)
     -- GERCEK COZUM: madem klon HER HALUKARDA agda (yukaridaki not), sizinti
     -- SORUNU YOK ETMEK yerine EKRANDA GIZLEME'YE gecildi. SetEntityVisible(false)
     -- klonu AGDAKI HERKESE (kendimiz DAHIL) gorunmez yapar -> render loop'ta
