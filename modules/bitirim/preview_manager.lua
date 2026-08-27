@@ -358,7 +358,18 @@ local function placeKlon()
     --    indirmez). Ayni guvenli GetGroundZFor_3dCoord deseni (z+50'den asagi
     --    arama + pcall + found kontrolu) Round 5 diagnostic thread'inde zaten
     --    kullaniliyor -- burada BAGIMSIZ bir kopyasi.
-    local okGround, foundGround, groundZ = pcall(GetGroundZFor_3dCoord, safeX, safeY, pos.z + 50.0, false)
+    -- ICERIDEYSE (bina/interior) bu kontrolu ATLA: GetGroundZFor_3dCoord ic
+    -- mekanlarda GUVENILMEZ (ust kattaki tavan/zemin gibi yanlis bir yuzeye
+    -- carpip previewPed'i GEREKSIZ YERE havaya kaldirabiliyordu -- 2026-08-27,
+    -- kullanici ekran goruntusuyle bildirdi: klon bina icinde zeminden belirgin
+    -- bosluk birakarak havada asili duruyordu). Bu kontrol DISARIDAKI terrain/kaya
+    -- sorunu icin tasarlandi, ic mekan duz zeminlerinde hicbir zaman gerekmez —
+    -- oyuncunun GERCEK Z'si (anchorPos.z, updateAnchor'dan) zaten dogru.
+    local isInterior = realPed and DoesEntityExist(realPed) and GetInteriorFromEntity(realPed) ~= 0
+    local okGround, foundGround, groundZ = false, false, nil
+    if not isInterior then
+        okGround, foundGround, groundZ = pcall(GetGroundZFor_3dCoord, safeX, safeY, pos.z + 50.0, false)
+    end
     local zDeficit = nil
     if okGround and foundGround and groundZ then
         zDeficit = groundZ - pos.z
