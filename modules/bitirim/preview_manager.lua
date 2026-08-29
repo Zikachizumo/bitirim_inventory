@@ -120,6 +120,35 @@ local MIN_CAM_DIST      = 0.45  -- ped govdesi + kamera FOV'una gore belirlenmis
 local CAM_SAFETY_MARGIN = 0.08  -- carpisma noktasindan bu kadar geride dur (duvara gomulmesin)
 local CAM_TEST_RADIUS   = 0.15  -- kapsul yaricapi (ince kenarlardan "sizmasin" diye)
 local CAM_TEST_FLAGS    = 1     -- SADECE dunya/statik geometri (bina/duvar) — ped'leri (realPed/previewPed) otomatik yok sayar
+-- Kamera geri cekilemeyip YAKLASMAK ZORUNDA kaldiginda (dar alan) FOV'u ayni
+-- dikey kapsamayi (tam boy kadraj) koruyacak sekilde GENISLETIRIZ -> klon asla
+-- kirpilmaz. Bu ust sinir olmasa cok dar alanlarda FOV 100+'e cikip asiri
+-- genis-aci distorsiyonu yaratirdi (bkz camDist/fov notu yukarida).
+local MAX_COMPENSATED_FOV = 75.0
+
+------------------------------------------------------------------------------
+-- DAR/KAPALI/ENGELLI ALAN COZUMU: STUDIO YONUNUN (AZIMUT) OTOMATIK SECIMI
+------------------------------------------------------------------------------
+-- SORUN (2026-08-29, kullanici ekran goruntuleri): kamera HER ZAMAN oyuncunun
+-- ARKASINDA konumlaniyordu, yani sahnenin yonu TAMAMEN oyuncunun o anki bakis
+-- yonune bagliydi. Kopru ayagi/beton kolon dibinde veya magaza rafi-tezgahi
+-- arasinda canta acilinca kadraj bu geometriyle DOLUYOR: klonun onunde tezgah,
+-- arkasinda beton kolon kaliyor, sahne kullanilamaz hale geliyordu.
+-- COZUM: klonun ETRAFINDAKI yonler taranir; her yon icin (a) KAMERA tarafindaki
+-- serbest mesafe (kadraji BU belirler) ve (b) klonun ARKASINDAKI (arka plan)
+-- serbest mesafe olculur, en FERAH yon secilir. Oyuncunun kendi bakis yonu kucuk
+-- bir BONUSLA her zaman ilk adaydir -> ACIK ALANDA DAVRANIS HIC DEGISMEZ, sadece
+-- sikisik yerlerde sahne ferah yone doner. Klon kameraya bakmaya devam ettigi
+-- icin (heading = studioYaw + 180) kullanicinin gordugu TEK fark ARKA PLANDIR.
+local YAW_STEPS        = 8      -- 360/8 = 45 derecelik adimlarla aday yon
+local YAW_BATCH        = 2      -- ayni karede baslatilan aday yon sayisi (2 yon x 3 yukseklik x 2 taraf = 12 es zamanli shape test) -> tarama 4 karede biter
+local YAW_PROBE_H      = { 0.35, 1.00, 1.60 }  -- ayak / govde / bas hizasi (tek yukseklik ince tezgah/korkulugu KACIRIR)
+local YAW_BACK_CLEAR   = 2.20   -- klonun ARKASINDA (arka plan) aranan bosluk (metre) — bundan fazlasi puanlamada AYNI sayilir
+local YAW_BACK_WEIGHT  = 0.60   -- arka plan IKINCIL (kadraji kamera tarafi belirler) ama ONEMSIZ DEGIL: kolon/raf dibinde sikayetin ASIL kaynagi arka plandi
+local YAW_NATURAL_BONUS = 0.45  -- oyuncunun kendi bakis yonune verilen avantaj -> acik alanda ASLA gereksiz yere donmez (ama tek tarafi kapali bir yeri de "idare eder" diye SECMEZ)
+local YAW_HYSTERESIS   = 0.45   -- yeni aday, mevcut yondan bu kadar IYI olmadikca DEGISILMEZ (kare-kare savrulma olmasin)
+local YAW_SCAN_PERIOD  = 500    -- ms — tarama bu araliktan daha sik yapilmaz
+local YAW_LERP         = 0.12   -- yon degisimi bu hizla YUMUSAK uygulanir (ani donme/sicrama YOK)
 
 ------------------------------------------------------------------------------
 -- ROUND 10 (2026-08-26) TERRAIN-SAFE YERLESIM (previewPed'in SOLUNDAKI kaya/
@@ -182,13 +211,15 @@ local studioCam    = nil    -- scripted kamera
 local backdrop     = nil    -- siyah panel (on yuz kameraya bakar)
 local backdrop2    = nil    -- ikinci panel (backface guvencesi)
 local anchorPos    = nil    -- klonun durdugu konum (= GERCEK oyuncu konumu, birebir) — HER ACILISTA/KAREDE yeniden hesaplanir
-local anchorHead   = 0.0    -- klonun heading'i (acilis anindaki oyuncu heading'i) — SABIT (kamera bunu kullanir)
+local anchorHead   = 0.0    -- oyuncunun GERCEK heading'i (her karede tazelenir) — studio yon taramasinin ILK/tercihli adayidir, kamera artik DOGRUDAN bunu degil studioYaw'i kullanir
 local dragYaw      = 0.0    -- kullanici surukleme/donme ofseti (klonu dondurur)
 local compCache    = {}     -- aynalama diff onbellegi
 local curWeapon    = nil
-local camF         = nil    -- kamera SABIT ileri vektoru (session boyunca degismez)
-local camR         = nil    -- kamera SABIT sag vektoru (session boyunca degismez)
+local camF         = nil    -- kamera ileri vektoru (studioYaw'dan turetilir)
+local camR         = nil    -- kamera sag vektoru (studioYaw'dan turetilir; camSide bu eksende kaydirir)
 local curSafeDist  = nil    -- collision-aware kamera mesafesi (smoothing icin kareler arasi tasinir; bkz computeCameraBasis)
+local studioYaw    = nil    -- sahnenin O ANKI yonu (yumusak sekilde studioYawTarget'a yaklasir)
+local studioYawTgt = nil    -- taramanin sectigi HEDEF yon (bkz "STUDIO YONUNUN OTOMATIK SECIMI")
 
 ------------------------------------------------------------------------------
 -- YERLESIM
@@ -210,6 +241,19 @@ local function rightOf(h)
     return vector3(math.cos(r), math.sin(r), 0.0)  -- heading h'nin sagi
 end
 
+--- a acisindan b acisina EN KISA yoldan (yani 350->10 arasi 20 derece, 340 DEGIL)
+--- t oraninda ilerle. 0/360 sinirinda tam tur atmayi onler.
+local function lerpAngle(a, b, t)
+    local d = (b - a + 540.0) % 360.0 - 180.0
+    return (a + d * t) % 360.0
+end
+
+--- Sahnenin O ANDA gecerli yonu. Tarama henuz sonuc uretmediyse (ilk kare)
+--- oyuncunun kendi heading'ine duser -> eski davranisla BIREBIR ayni baslangic.
+local function currentYaw()
+    return studioYaw or anchorHead
+end
+
 --- Iki backdrop panelini KLONUN (offsetli konumunun) ARKASINA, kameraya bakacak
 --- sekilde yerlestir. Panel yuzu (-Y) heading+180'de +fwd'e (kameraya) bakar; ikinci
 --- panel ters -> hangi acidan olursa olsun biri HER ZAMAN kaplar (backface guvencesi).
@@ -219,11 +263,104 @@ local function positionBackdrop(fwd, klonX, klonY, centerZ)
     local bz = centerZ + cfg.backZ
     if backdrop and DoesEntityExist(backdrop) then
         SetEntityCoordsNoOffset(backdrop, bx, by, bz, false, false, false)
-        SetEntityHeading(backdrop, (anchorHead + 180.0) % 360.0)
+        SetEntityHeading(backdrop, (currentYaw() + 180.0) % 360.0)
     end
     if backdrop2 and DoesEntityExist(backdrop2) then
         SetEntityCoordsNoOffset(backdrop2, bx - fwd.x * 0.1, by - fwd.y * 0.1, bz, false, false, false)
-        SetEntityHeading(backdrop2, anchorHead % 360.0)
+        SetEntityHeading(backdrop2, currentYaw() % 360.0)
+    end
+end
+
+------------------------------------------------------------------------------
+-- STUDIO YONU TARAMASI (bkz yukaridaki "DAR/KAPALI/ENGELLI ALAN COZUMU" notu)
+------------------------------------------------------------------------------
+--- (cx,cy,cz)'den (dx,dy) yonunde maxDist metreye kadar SERBEST mesafeyi olcer.
+--- Engel yoksa maxDist doner. Shape test ASENKRON oldugu icin bu fonksiyon SADECE
+--- testi BASLATIR ve handle dondurur; sonuc bir sonraki karede okunur (bkz
+--- scanStudioYaw). Ayni karede baslatip okumak PENDING sonuc verir -> her yonu
+--- "acik" sanar, tarama sessizce ise yaramazdi.
+local function startFreeProbe(cx, cy, cz, dx, dy, maxDist)
+    return StartShapeTestCapsule(cx, cy, cz,
+        cx + dx * maxDist, cy + dy * maxDist, cz,
+        CAM_TEST_RADIUS, CAM_TEST_FLAGS, 0, 7)
+end
+
+local function readFreeProbe(handle, cx, cy, maxDist)
+    local _, hit, endCoords = GetShapeTestResult(handle)
+    if hit == 1 or hit == true then
+        local d = #(vector3(endCoords.x - cx, endCoords.y - cy, 0.0))
+        if d < maxDist then return d end
+    end
+    return maxDist
+end
+
+--- Klonun etrafindaki YAW_STEPS yonu tarar, en ferah olani studioYawTgt'ye yazar.
+--- Kendi thread'inde calisir (Wait(0) ile test sonuclarini bir sonraki karede
+--- okuyabilmek icin) -> render thread'i HIC bloklamaz.
+local function scanStudioYaw()
+    if not active or not anchorPos then return end
+    local origin, natural = anchorPos, anchorHead
+    local best, bestScore = natural, -1.0
+    -- Mevcut hedef yona EN YAKIN adayin puani: histerezis karsilastirmasi icin
+    -- (adaylar `natural`e gore uretildigi ve oyuncu bu arada donmus olabilecegi
+    -- icin mevcut yon izgaraya tam oturmayabilir -> en yakin aday kullanilir).
+    local curScore, curBestDelta = nil, 999.0
+
+    -- Adaylar YAW_BATCH'lik gruplar halinde islenir: bir grubun BUTUN isinlari ayni
+    -- karede baslatilir, bir kare beklenip hepsi okunur. Grup boyutu KUCUK tutulur
+    -- cunku motorun es zamanli bekleyebilecegi shape-test sayisi SINIRLI (8 yonun
+    -- 6'sar isini tek karede baslatmak sessizce sonucsuz kalmaya acik olurdu);
+    -- ama tek tek de ilerlenmez, yoksa tarama canta acilisini gereksiz geciktirir.
+    local i = 0
+    while i < YAW_STEPS do
+        if not active or not anchorPos then return end
+        local batch = {}
+        for _ = 1, YAW_BATCH do
+            if i >= YAW_STEPS then break end
+            local yaw = (natural + i * (360.0 / YAW_STEPS)) % 360.0
+            local f = forwardOf(yaw)
+            local camH, backH = {}, {}
+            for k, h in ipairs(YAW_PROBE_H) do
+                local z = origin.z + h
+                camH[k]  = startFreeProbe(origin.x, origin.y, z, -f.x, -f.y, cfg.camDist)
+                backH[k] = startFreeProbe(origin.x, origin.y, z,  f.x,  f.y, YAW_BACK_CLEAR)
+            end
+            batch[#batch + 1] = { idx = i, yaw = yaw, camH = camH, backH = backH }
+            i = i + 1
+        end
+
+        Wait(0)
+        if not active then return end
+
+        for _, c in ipairs(batch) do
+            -- Bir yonun puani EN DAR yuksekligiyle belirlenir: gogus hizasi bos olsa
+            -- bile diz hizasindaki tezgah kadraji bozar (magaza ekran goruntusu).
+            local camClear, backClear = cfg.camDist, YAW_BACK_CLEAR
+            for k = 1, #YAW_PROBE_H do
+                local cd = readFreeProbe(c.camH[k], origin.x, origin.y, cfg.camDist)
+                if cd < camClear then camClear = cd end
+                local bd = readFreeProbe(c.backH[k], origin.x, origin.y, YAW_BACK_CLEAR)
+                if bd < backClear then backClear = bd end
+            end
+
+            local score = camClear + backClear * YAW_BACK_WEIGHT
+            if c.idx == 0 then score = score + YAW_NATURAL_BONUS end  -- oyuncunun kendi bakis yonu
+            if score > bestScore then bestScore, best = score, c.yaw end
+
+            if studioYawTgt then
+                local delta = math.abs((c.yaw - studioYawTgt + 540.0) % 360.0 - 180.0)
+                if delta < curBestDelta then curBestDelta, curScore = delta, score end
+            end
+        end
+    end
+
+    -- Oyuncu tarama sirasinda tasindiysa (arac/tp) sonuc artik baska bir yere ait.
+    if not active or not anchorPos or #(anchorPos - origin) > 2.0 then return end
+
+    -- HISTEREZIS: yeni aday MEVCUT yondan belirgin sekilde iyi degilse yerinde KAL
+    -- -> iki yonun puani birbirine yakinken sahne ileri-geri savrulmaz.
+    if not studioYawTgt or not curScore or bestScore > curScore + YAW_HYSTERESIS then
+        studioYawTgt = best
     end
 end
 
@@ -286,13 +423,29 @@ end
 
 local function computeCameraBasis()
     if not previewPed or not DoesEntityExist(previewPed) or not studioCam or not anchorPos then return end
-    local fwd = forwardOf(anchorHead)
-    local right = rightOf(anchorHead)
+
+    -- Sahnenin yonu:
+    --   * tarama henuz sonuc uretmediyse -> oyuncunun kendi heading'i (eski davranis),
+    --   * ILK sonucta -> ANINDA otur (canta acilir acilmaz gozle gorulur bir donme
+    --     olmasin; ilk tarama zaten kamera aktiflesmeden ONCE bitiyor, bkz CreatePreview),
+    --   * sonraki degisimlerde -> YUMUSAK gecis (ani sicrama YOK).
+    local yaw
+    if studioYawTgt == nil then
+        yaw = anchorHead
+    elseif studioYaw == nil then
+        studioYaw = studioYawTgt
+        yaw = studioYaw
+    else
+        studioYaw = lerpAngle(studioYaw, studioYawTgt, YAW_LERP)
+        yaw = studioYaw
+    end
+    local fwd = forwardOf(yaw)
+    local right = rightOf(yaw)
     SetEntityCoordsNoOffset(previewPed, anchorPos.x, anchorPos.y, anchorPos.z, false, false, false)
     -- KLONUN YUZU kameraya donuk olsun diye +180 (bkz asagidaki YUZ/YON NOTU) —
     -- SADECE gorsel/kozmetik, kameranin konumu/baktigi yonu (dolayisiyla arka
     -- planda gorunen dunya yonu) ETKILEMEZ.
-    SetEntityHeading(previewPed, (anchorHead + 180.0) % 360.0)
+    SetEntityHeading(previewPed, (yaw + 180.0) % 360.0)
     local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
     camF = fwd
     camR = right
@@ -303,7 +456,20 @@ local function computeCameraBasis()
         anchorPos.x - fwd.x * dist,
         anchorPos.y - fwd.y * dist,
         chest.z)
-    SetCamFov(studioCam, cfg.fov)
+
+    -- FOV TELAFISI: kamera bir engel yuzunden hedef mesafesine cikamadiysa
+    -- (dar/kapali alan) SABIT bir FOV klonu KIRPARDI (kadraj daralir, kafa/ayak
+    -- disarida kalir). Dikey kapsamayi (kapsama = 2*mesafe*tan(fov/2)) SABIT
+    -- tutacak sekilde FOV'u genisletiriz -> klon her mesafede TAM BOY kalir.
+    -- Genis-aci distorsiyonu buyumesin diye MAX_COMPENSATED_FOV ile sinirli.
+    local fov = cfg.fov
+    if dist < cfg.camDist - 0.01 then
+        local halfCoverage = cfg.camDist * math.tan(math.rad(cfg.fov) * 0.5)
+        -- Telafi SADECE GENISLETIR: kullanici Numpad ile cfg.fov'u zaten ust sinirin
+        -- uzerine cikardiysa (zoom-out) daraltip zoom'unu geri almaz.
+        fov = math.max(cfg.fov, math.min(MAX_COMPENSATED_FOV, math.deg(2.0 * math.atan(halfCoverage / dist))))
+    end
+    SetCamFov(studioCam, fov)
     -- Kamera ARKADA (-fwd), buraya (anchorPos, klonun konumu) bakar -> bakis yonu
     -- otomatik +fwd olur (klonla AYNI yon) — pozisyon flip'i yeterli, ayrica bir
     -- "ileriye bak" hedefi gerekmez.
@@ -319,7 +485,7 @@ local function placeKlon()
         anchorPos.y + camR.y * cfg.camSide,
         anchorPos.z + cfg.camHeight)
     SetEntityCoordsNoOffset(previewPed, pos.x, pos.y, pos.z, false, false, false)
-    SetEntityHeading(previewPed, (anchorHead + 180.0 + dragYaw) % 360.0)
+    SetEntityHeading(previewPed, (currentYaw() + 180.0 + dragYaw) % 360.0)
     local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
     positionBackdrop(camF, pos.x, pos.y, chest.z)
 
@@ -581,6 +747,10 @@ local function CreatePreview(showCharacter)
     updateAnchor()
     dragYaw = 0.0
     curSafeDist = cfg.camDist
+    -- Studio yonu her acilista SIFIRLANIR: ilk kare oyuncunun kendi bakis yonuyle
+    -- (eski davranisin AYNISI) baslar, tarama thread'i sonuc uretince (ilk sonuc
+    -- ~150ms) sahne gerekiyorsa ferah yone YUMUSAKCA doner.
+    studioYaw, studioYawTgt = nil, nil
 
     -- 3) Scripted kamera (dogrudan studio konumunda olusturulur; GECIS ANIMASYONU YOK)
     studioCam = CreateCamWithParams('DEFAULT_SCRIPTED_CAMERA', anchorPos.x, anchorPos.y, anchorPos.z, 0.0, 0.0, 0.0, cfg.fov, false, 2)
@@ -617,6 +787,13 @@ local function CreatePreview(showCharacter)
     Wait(0)
     Wait(0)
 
+    -- ILK YON TARAMASI kamera AKTIFLESMEDEN ONCE calisir -> sahne daha ILK karede
+    -- dogru (ferah) yonde acilir, acildiktan sonra gozle gorulur bir donme OLMAZ
+    -- (bkz computeCameraBasis'teki "ILK sonucta ANINDA otur" dali). Tarama grup
+    -- basina bir kare bekler (8 yon / YAW_BATCH = 4 kare, ~65ms) — acilis
+    -- gecikmesi goz ile fark edilmeyecek kadar kisa tutulmasinin sebebi budur.
+    scanStudioYaw()
+
     -- GUVENLIK: yukaridaki Wait(0)'lar CreatePreview'i ARTIK kesilebilir (preemptible)
     -- yapiyor — bu pencerede kullanici envanteri ANINDA kapatirsa (ayri bir coroutine'de
     -- DestroyPreview() calisirsa) previewPed COKTAN silinmis olabilir. Boyle bir durumda
@@ -624,13 +801,16 @@ local function CreatePreview(showCharacter)
     -- (DestroyPreview zaten her seyi temizledi, tekrar dokunmuyoruz).
     if not active or not previewPed or not DoesEntityExist(previewPed) then return end
 
+    setupStudio()   -- taramanin sectigi yonle kamerayi/klonu yeniden otur
+
     FreezeEntityPosition(previewPed, true)  -- KLON statik (ARTIK oda kaydi olustuktan SONRA)
     SetEntityCollision(previewPed, false, false)
 
     SetCamActive(studioCam, true)
     -- ANINDA GECIS: bir sonraki frame direkt studio kadrajinda goruntulenir (ease=false,
-    -- sure=0). Smooth blend YOK — kullanici istegi. (Yukaridaki 2 karelik oda-kaydi
-    -- bekleme suresi ~32ms, goz ile fark edilmez -> "aninda" his korunur.)
+    -- sure=0). Smooth blend YOK — kullanici istegi. (Yukaridaki oda-kaydi + yon
+    -- taramasi beklemesi toplam ~6 kare / ~100ms, goz ile fark edilmez -> "aninda"
+    -- his korunur; buna karsilik sahne ILK karede dogru yonde acilir.)
     RenderScriptCams(true, false, 0, true, true)
     playIdle()
     mirrorWeapon(true)
@@ -665,11 +845,26 @@ local function CreatePreview(showCharacter)
             Wait(150)
         end
     end)
+
+    -- STUDIO YONU thread: dar/kapali/engelli alanda sahneyi en ferah yone cevirir
+    -- (bkz "DAR/KAPALI/ENGELLI ALAN COZUMU" notu). Kendi thread'inde calisir cunku
+    -- shape test sonuclari ancak BIR SONRAKI karede okunabilir -> render thread'i
+    -- bloklamamasi icin ayri. ILK tarama yukarida (kamera aktiflesmeden once) zaten
+    -- yapildi; bu thread SADECE tazeleme yapar (oyuncu araba/tekneyle yer degistirse
+    -- veya cevre degisse bile sahne ferah kalsin).
+    CreateThread(function()
+        while active and previewPed and DoesEntityExist(previewPed) do
+            Wait(YAW_SCAN_PERIOD)
+            scanStudioYaw()
+        end
+    end)
 end
 
 local function DestroyPreview()
     if not active then return end
     active = false -- thread'ler cikar
+    -- Sahne yonu bir sonraki acilisa SIZMASIN (yeni yer, yeni tarama).
+    studioYaw, studioYawTgt = nil, nil
 
     -- Kamerayi gameplay'e ANINDA geri ver (sure=0). Smooth (400ms) donus + hemen
     -- ardindan cam/klon/backdrop silme YARIS DURUMU yaratir: kullanici o 400ms
@@ -780,7 +975,7 @@ local function RotatePreview(mode, value)
     elseif mode == 'reset' then
         dragYaw = 0.0
     end
-    SetEntityHeading(previewPed, (anchorHead + 180.0 + dragYaw) % 360.0)
+    SetEntityHeading(previewPed, (currentYaw() + 180.0 + dragYaw) % 360.0)
 end
 
 --- Studio kadraj ince ayari (chat /cam icin — tum degerleri kabul eder, kamera TABANINI
