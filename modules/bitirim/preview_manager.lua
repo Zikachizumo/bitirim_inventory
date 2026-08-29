@@ -657,6 +657,19 @@ local function CreatePreview(showCharacter)
     -- tamamen kapatir -> previewPed HER ZAMAN TaskStandStill'in duz/simetrik
     -- temel pozunda kalir.
     SetPedCanPlayAmbientAnims(previewPed, false)
+
+    -- YURUMEYI HEMEN KES (2026-08-30, kullanici bina icinde bildirdi): ClonePed
+    -- klonu oyuncunun O ANKI gorev/animasyon durumuyla birlikte kopyalar. Oyuncu
+    -- yururken canta acilirsa klon da YURUMEYE DEVAM ediyordu. Iki sonucu vardi:
+    --   * yuruyen bir ped'in HEADING'ini gorev belirler ve bizim her karede
+    --     yazdigimiz yonu EZER -> klon kameraya donmek yerine SIRTI donuk
+    --     gorunuyordu (kullanici ekran goruntusu: magazada arkadan gorunum),
+    --   * klon donmadan once fiilen yol alabiliyordu (freeze birkac kare SONRA
+    --     uygulanir; oda/portal kaydi icin o pencere gerekli).
+    -- playIdle() burada, kurulum penceresinden ONCE cagrilir; sondaki cagri
+    -- (RenderScriptCams'ten sonra) emniyet olarak duruyor.
+    SetEntityVelocity(previewPed, 0.0, 0.0, 0.0)
+    playIdle()
     -- GERCEK COZUM: madem klon HER HALUKARDA agda (yukaridaki not), sizinti
     -- SORUNU YOK ETMEK yerine EKRANDA GIZLEME'YE gecildi. SetEntityVisible(false)
     -- klonu AGDAKI HERKESE (kendimiz DAHIL) gorunmez yapar -> render loop'ta
@@ -724,6 +737,8 @@ local function CreatePreview(showCharacter)
     RequestCollisionAtCoord(anchorPos.x, anchorPos.y, anchorPos.z)
     for _ = 1, 3 do
         SetEntityCoordsNoOffset(previewPed, anchorPos.x, anchorPos.y, anchorPos.z, false, false, false)
+        -- Collision bu pencerede ACIK oldugu icin devralinan hiz klonu kaydirabilir.
+        SetEntityVelocity(previewPed, 0.0, 0.0, 0.0)
         Wait(0)
         if not active or not previewPed or not DoesEntityExist(previewPed) then return end
     end
