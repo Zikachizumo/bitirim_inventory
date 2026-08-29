@@ -94,8 +94,8 @@ local cfg = {
     -- uzaktan cek, genis lensle yakinlasma" kuralinin AYNISI -- persfektifi
     -- DUZLESTIRIR, distorsiyonu koklu sekilde azaltir.
     camDist   = 2.55,  -- kamera klonun ONUNDE kac metre (SABIT HEDEF; /cam ile degisir, shape-test ile kisilabilir)
-    camSide   = 0.0,   -- KLONUN yatay konumu (kamera-sag ekseni) — 0 = TAM KARSIDAN/SIMETRIK (2026-08-27, kullanici istegi). ONEMLI: kamera PointCamAtCoord ile HAM anchorPos'a bakar (bkz computeCameraBasis), klonun camSide'a gore KAYDIRILMIS konumuna DEGIL (bilerek — kamera sabit kalsin, ok tuslariyla klon kadraj icinde DOGRUDAN kaysin diye). camSide != 0 iken klon kameranin optik ekseninden disari dusuyor -> genis FOV'da bu daha belirgin olabilir. Merkezden kaydirmak istersen ok tuslari (sol/sag) canli dial icin hala kullanilabilir, sadece KALICI varsayilan artik 0.
-    camHeight = 0.05,  -- KLONUN dikey konumu (dunya-yukari ekseni) — KALICI (kullanici dial etti)
+    camSide   = 0.0,   -- KLONUN KADRAJDAKI yatay yeri (kamera-sag ekseni). 2026-08-29'dan beri KLONU DEGIL KAMERAYI kaydirir (bkz computeCameraBasis "LENS KAYDIRMA") -> klon her zaman oyuncunun GERCEK dunya konumunda kalir. 0 = klon kadrajin ortasinda. Ok tuslari (sol/sag) ile canli dial edilir.
+    camHeight = 0.05,  -- KLONUN KADRAJDAKI dikey yeri — camSide gibi KAMERAYI kaydirir (klonun dunyadaki Z'sine DOKUNMAZ). Ok tuslari (yukari/asagi) ile dial edilir.
     lookDown  = 0.30,  -- bakis hedefi: ust gogusun kac metre ALTI (govde ortasi)
     fov       = 45.0,  -- gorus acisi (dar=yakin/buyuk gorunur) — 2026-08-27: 64'ten 45'e DARALTILDI (camDist buyumesiyle AYNI dikey kapsamayi korur, bkz ustteki not) — genis-aci distorsiyonunu azaltmak icin
     backDist  = 2.40,  -- backdrop klonun kac metre ARKASINDA
@@ -151,48 +151,20 @@ local YAW_SCAN_PERIOD  = 500    -- ms — tarama bu araliktan daha sik yapilmaz
 local YAW_LERP         = 0.12   -- yon degisimi bu hizla YUMUSAK uygulanir (ani donme/sicrama YOK)
 
 ------------------------------------------------------------------------------
--- ROUND 10 (2026-08-26) TERRAIN-SAFE YERLESIM (previewPed'in SOLUNDAKI kaya/
--- yamaca gomulmesini onleme)
+-- TERRAIN-SAFE YERLESIM: KALDIRILDI (2026-08-29)
 ------------------------------------------------------------------------------
--- Round 7-9 collision diagnostic'i (previewCollisionDebug/dbgShapeTest, asagida)
--- SOL tarafta previewPed'in TUM bone'larinin (pelvis..head) ayni dunya/statik
--- geometriye (ent=8229640) HIT verdigini, previewSide=LEFT icin cameraLOS'un
--- CLEAR kaldigini VE probe matematiginin (camR bazli, RIGHT ile birebir ayna)
--- zaten dogru oldugunu kanitladi -> previewPed'in kendisi camSide=-0.22
--- nedeniyle o kayaya SAGdan daha yakin duruyor, gercek terrain de o yonde
--- yukseliyor (LEFT groundZ ~0.47m daha yuksek). Bu YUZDEN placeKlon()'un
--- SONUNA (mevcut satirlar DEGISMEDEN) BAGIMSIZ bir govde-terrain guvenlik
--- kontrolu eklendi -- diagnostic kodunu (dbgShapeTest) CAGIRMAZ, kendi
--- StartShapeTestCapsule/GetShapeTestResult cagrisini yapar (resolveSafeCamDist
--- ile AYNI CAM_TEST_FLAGS=1/CAM_TEST_RADIUS deseni). SADECE previewPed'in SOLUNDA
--- (camR'nin TERSI) LEFT_TERRAIN_SAFE_DIST icinde dunya/statik geometri varsa
--- previewPed'i SAGA (camR yonunde), sadece eksigi kadar (en fazla
--- LEFT_TERRAIN_MAX_PUSH) kaydirir. HIT yoksa (duz zemin/RIGHT taraf) pushAmount
--- 0 kalir -> previewPed'in konumu HICBIR SEKILDE etkilenmez.
---
--- ROUND 11 (2026-08-26) REVIZYON — Round 10 CANLIDA ETKISIZ KALDI: incelemede
--- LEFT_TERRAIN_SAFE_DIST=0.55m'nin, ayni engeli 1.5m'de (DBG_PROBE_DISTANCE)
--- bulan Round 7-9 diagnostic'ine kiyasla COK KISA oldugu (probe hicbir zaman
--- HIT bulamamis olabilir) VE duzeltmenin SADECE X/Y yaptigi, previewPed Z'sinin
--- HER ZAMAN anchorPos.z+camHeight'ta sabit kaldigi (SOL zemin ~0.47m daha
--- yuksekken previewPed'in ayaklarinin zemine GOMULMUS olabilecegi) tespit
--- edildi. Bu yuzden: (1) LEFT_TERRAIN_SAFE_DIST asagida 1.5'e cikarildi (artik
--- diagnostic'in FIILEN buldugu mesafeyle uyumlu), (2) placeKlon()'un sonuna
--- AYRICA previewPed'in (yatay duzeltmeden SONRAKI nihai) X/Y'sindeki GERCEK
--- zemin yuksekligini (GetGroundZFor_3dCoord + pcall + found kontrolu)
--- previewPed'in mevcut Z'siyle karsilastiran, previewPed'i SADECE zemin daha
--- YUKSEKSE VE SADECE o gercek fark kadar YUKARI kaldiran bagimsiz bir dikey
--- kontrol eklendi. (Arama artik z+50'den DEGIL, klonun hemen ustunden baslar ve
--- MAX_TERRAIN_Z_LIFT'i asan bulgular kirpilmadan REDDEDILIR -- bkz placeKlon
--- icindeki "KOPRU/VIYADUK ALTI DUZELTMESI" notu, 2026-08-29.) Her iki kontrol de HER CAGRIDA (her
--- frame) `pos`'tan (yani taze anchorPos'tan) SIFIRDAN hesaplanir -> ONCEKI
--- karenin duzeltilmis konumu asla girdi olarak kullanilmaz (kumulatif SURUKLENME
--- YOK). Duz zeminde/RIGHT tarafta iki kontrol de "duzeltme gerekmiyor" sonucuna
--- varir -> previewPed'e HICBIR ek SetEntityCoordsNoOffset cagrisi yapilmaz.
-local LEFT_TERRAIN_SAFE_DIST = 1.5   -- previewPed'in SOLUNDA bu mesafeye kadar dunya/statik geometri OLMAMALI -- Round 7-9 diagnostic'in AYNI engeli 1.5m'de bulmus olmasiyla UYUMLU (bkz Round 11 notu)
-local LEFT_TERRAIN_MAX_PUSH  = 0.30  -- previewPed en fazla bu kadar SAGA (camR yonunde) itilebilir -- kadraj/kompozisyon asiri bozulmasin
-local MAX_TERRAIN_Z_LIFT     = 0.60  -- previewPed en fazla bu kadar YUKARI kaldirilabilir -- bunun USTUNDEKI "zemin" bulgusu kirpilmaz, GECERSIZ sayilir (kopru tabliyesi/tavan/ust kat); gercek fark bilindigi kadariyla ~0.47m
-local GROUND_PROBE_MARGIN    = 0.10  -- zemin aramasi klonun (pos.z + MAX_TERRAIN_Z_LIFT) uzerinden bu kadar yukaridan baslar -- ustteki kopru/tavan isin menziline hic girmesin diye KUCUK tutulur (eskiden 50.0 idi, kopru alti hatasinin sebebi)
+-- Round 10/11'de eklenen iki duzeltme (klonu SOLDAKI kaya/duvardan SAGA itme +
+-- altindaki zemin daha yuksekse YUKARI kaldirma) SADECE su yuzden gerekliydi:
+-- klon, kadrajda dogru yerde dursun diye camSide/camHeight ile oyuncunun gercek
+-- konumundan KAYDIRILIYORDU; kaydirilan noktada bazen kaya/yamac/zemin farki
+-- oluyordu. Bu iki duzeltmenin KENDISI de sonradan hatalarin kaynagi oldu
+-- (kopru tabliyesini "zemin" sanip klonu 0.60m havaya kaldirmasi, ic mekanda ust
+-- kat zeminine carpmasi).
+-- Klon ARTIK HIC KAYDIRILMIYOR (kadraj yerlesimi kamerayla yapiliyor, bkz
+-- computeCameraBasis "LENS KAYDIRMA") -> klon her zaman oyuncunun GERCEK ayak
+-- bastigi noktada. Oyuncunun kendisi kayaya gomulu/havada olamayacagi icin bu
+-- duzeltmelere ARTIK GEREK YOK; ikisi de (ve LEFT_TERRAIN_*/MAX_TERRAIN_Z_LIFT/
+-- GROUND_PROBE_MARGIN sabitleri) tamamen kaldirildi.
 
 
 -- Aynalanan ped bilesenleri / proplari (illenium + GTA standart).
@@ -450,12 +422,27 @@ local function computeCameraBasis()
     camF = fwd
     camR = right
 
-    local dist = resolveSafeCamDist(anchorPos.x, anchorPos.y, chest.z, fwd, cfg.camDist)
+    -- LENS KAYDIRMA (2026-08-29, KULLANICI BILDIRDI): klonun kadrajdaki yeri
+    -- (sol taraftaki KARAKTER panelinin ortasi) ESKIDEN KLONU dunyada yana/yukari
+    -- kaydirarak ayarlaniyordu -> klon oyuncunun GERCEK durdugu noktadan gozle
+    -- gorulur sekilde KAYIK duruyordu ("oyun ici karakter beyaz+sari cizginin
+    -- kesistigi noktada, canli ped biraz solunda"). ARTIK KLON HIC KAYDIRILMAZ
+    -- (bkz placeKlon); ayni yerlesimi KAMERA ile yapariz: kamera VE bakis hedefi
+    -- AYNI miktarda yana (sx) / yukari (sz) otelenir -> sahne kadrajda ayni yere
+    -- oturur ama klon oyuncunun GERCEK dunya konumunda kalir.
+    -- ISARET: kadraji SAGA otelemek klonu ekranda SOLA goturur; ok tuslarinin
+    -- yonu degismesin diye camSide/camHeight'in TERSI alinir.
+    local sx, sz = -cfg.camSide, -cfg.camHeight
+    local aimX = anchorPos.x + right.x * sx
+    local aimY = anchorPos.y + right.y * sx
+    local aimZ = chest.z + sz
+
+    local dist = resolveSafeCamDist(aimX, aimY, aimZ, fwd, cfg.camDist)
 
     SetCamCoord(studioCam,
-        anchorPos.x - fwd.x * dist,
-        anchorPos.y - fwd.y * dist,
-        chest.z)
+        aimX - fwd.x * dist,
+        aimY - fwd.y * dist,
+        aimZ)
 
     -- FOV TELAFISI: kamera bir engel yuzunden hedef mesafesine cikamadiysa
     -- (dar/kapali alan) SABIT bir FOV klonu KIRPARDI (kadraj daralir, kafa/ayak
@@ -473,97 +460,20 @@ local function computeCameraBasis()
     -- Kamera ARKADA (-fwd), buraya (anchorPos, klonun konumu) bakar -> bakis yonu
     -- otomatik +fwd olur (klonla AYNI yon) — pozisyon flip'i yeterli, ayrica bir
     -- "ileriye bak" hedefi gerekmez.
-    PointCamAtCoord(studioCam, anchorPos.x, anchorPos.y, chest.z - cfg.lookDown)
+    PointCamAtCoord(studioCam, aimX, aimY, aimZ - cfg.lookDown)
 end
 
---- Klonu (ve arkasindaki backdrop'u) camSide/camHeight/dragYaw'a gore yerlestirir.
---- KAMERA BURADA DEGISMEZ -> ok tuslari basinca klon basilan yone DOGRUDAN kayar.
+--- Klonu yerlestirir. ARTIK HICBIR OFSET UYGULAMAZ: klon oyuncunun GERCEK dunya
+--- konumunda (anchorPos) ve gercek noktasinda durur -- oyun icinde karakter yol
+--- cizgilerinin kesistigi noktadaysa, cantada da TAM O NOKTADA durur.
+--- KLONUN KADRAJ ICINDEKI yeri (camSide/camHeight) KAMERAYI kaydirarak ayarlanir
+--- (bkz computeCameraBasis "LENS KAYDIRMA") -> gorunum ayni, konum GERCEK.
 local function placeKlon()
     if not previewPed or not DoesEntityExist(previewPed) or not camR or not anchorPos then return end
-    local pos = vector3(
-        anchorPos.x + camR.x * cfg.camSide,
-        anchorPos.y + camR.y * cfg.camSide,
-        anchorPos.z + cfg.camHeight)
-    SetEntityCoordsNoOffset(previewPed, pos.x, pos.y, pos.z, false, false, false)
+    SetEntityCoordsNoOffset(previewPed, anchorPos.x, anchorPos.y, anchorPos.z, false, false, false)
     SetEntityHeading(previewPed, (currentYaw() + 180.0 + dragYaw) % 360.0)
     local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
-    positionBackdrop(camF, pos.x, pos.y, chest.z)
-
-    -- ROUND 10/11 TERRAIN-SAFE DUZELTME (bkz ustteki modul basi aciklamasi):
-    -- previewPed'in SOLUNDA (camR'nin TERSI) dunya/statik geometri varsa SAGA
-    -- it (X/Y) VE previewPed'in (yatay duzeltmeden SONRAKI) nihai X/Y'sindeki
-    -- zemin previewPed'in Z'sinden yuksekse YUKARI kaldir (Z). Ikisi de HER
-    -- CAGRIDA `pos`'tan (taze anchorPos'tan) SIFIRDAN hesaplanir -> ONCEKI
-    -- karenin sonucu asla girdi olarak kullanilmaz (kumulatif surukleme YOK).
-    -- Diagnostic kodundan (dbgShapeTest) BAGIMSIZ; hicbir HIT/fark yoksa
-    -- previewPed'e EK bir SetEntityCoordsNoOffset cagrisi YAPILMAZ.
-    local safeX, safeY, safeZ = pos.x, pos.y, pos.z
-    local moved = false
-
-    -- 1) YATAY: SOLDA LEFT_TERRAIN_SAFE_DIST icinde dunya/statik geometri varsa
-    --    SAGA, sadece eksigi kadar (en fazla LEFT_TERRAIN_MAX_PUSH) it.
-    local leftTestX = pos.x - camR.x * LEFT_TERRAIN_SAFE_DIST
-    local leftTestY = pos.y - camR.y * LEFT_TERRAIN_SAFE_DIST
-    local leftRay = StartShapeTestCapsule(pos.x, pos.y, chest.z, leftTestX, leftTestY, chest.z, CAM_TEST_RADIUS, CAM_TEST_FLAGS, 0, 7)
-    local _, leftHit, leftEndCoords = GetShapeTestResult(leftRay)
-
-    local leftHitDist, deficit, pushAmount = nil, nil, nil
-    if leftHit == 1 or leftHit == true then
-        leftHitDist = #(vector3(leftEndCoords.x - pos.x, leftEndCoords.y - pos.y, leftEndCoords.z - chest.z))
-        deficit = LEFT_TERRAIN_SAFE_DIST - leftHitDist
-        if deficit > 0.0 then
-            pushAmount = math.min(deficit, LEFT_TERRAIN_MAX_PUSH)
-            safeX = pos.x + camR.x * pushAmount
-            safeY = pos.y + camR.y * pushAmount
-            moved = true
-        end
-    end
-
-    -- 2) DIKEY: previewPed'in nihai (yukaridaki duzeltmeden SONRAKI) X/Y'sindeki
-    --    GERCEK zemin previewPed'in Z'sinden yuksekse (ayaklar gomulur), SADECE
-    --    o gercek fark kadar YUKARI kaldir. Zemin daha ALCAKSA (duz zemin/RIGHT
-    --    taraf) HICBIR SEY degismez (asla asagi indirmez).
-    -- KOPRU/VIYADUK ALTI DUZELTMESI (2026-08-29): arama BASLANGIC yuksekligi
-    -- eskiden pos.z + 50.0 idi; GetGroundZFor_3dCoord ASAGI dogru aradigi icin
-    -- bu, oyuncunun USTUNDEKI koprunun/viyadugun TABLIYESINI "zemin" olarak
-    -- buluyordu (Olympic Fwy alti). zDeficit metrelerce cikiyor, math.min ile
-    -- MAX_TERRAIN_Z_LIFT'e kirpiliyor ve klon HER ZAMAN tam 0.60m havaya
-    -- kalkiyordu -> kafa cerceve disinda kaliyordu (kullanici ekran goruntusu).
-    -- IKI KATMANLI KORUMA:
-    --   (a) aramaya klonun sadece PROBE_MARGIN kadar ustunden basla -> ustteki
-    --       tabliye/tavan zaten isin menziline GIRMEZ,
-    --   (b) buna ragmen MAX_TERRAIN_Z_LIFT'ten YUKSEK bir "zemin" bulunursa bu
-    --       bizim zeminimiz DEGILDIR (kopru/tavan/ust kat) -> kirpma YOK, hicbir
-    --       duzeltme uygulanmaz. Gercek "ayak gomulmesi" vakasi (kaldirim/egim)
-    --       her zaman KUCUK bir farktir; buyuk fark = yanlis yuzey.
-    -- ICERIDEYSE (bina/interior) bu kontrolu ATLA: GetGroundZFor_3dCoord ic
-    -- mekanlarda GUVENILMEZ (ust kattaki tavan/zemin gibi yanlis bir yuzeye
-    -- carpip previewPed'i GEREKSIZ YERE havaya kaldirabiliyordu -- 2026-08-27,
-    -- kullanici ekran goruntusuyle bildirdi: klon bina icinde zeminden belirgin
-    -- bosluk birakarak havada asili duruyordu). Bu kontrol DISARIDAKI terrain/kaya
-    -- sorunu icin tasarlandi, ic mekan duz zeminlerinde hicbir zaman gerekmez —
-    -- oyuncunun GERCEK Z'si (anchorPos.z, updateAnchor'dan) zaten dogru.
-    local isInterior = realPed and DoesEntityExist(realPed) and GetInteriorFromEntity(realPed) ~= 0
-    local okGround, foundGround, groundZ = false, false, nil
-    if not isInterior then
-        okGround, foundGround, groundZ = pcall(GetGroundZFor_3dCoord, safeX, safeY,
-            pos.z + MAX_TERRAIN_Z_LIFT + GROUND_PROBE_MARGIN, false)
-    end
-    local zDeficit = nil
-    if okGround and foundGround and groundZ then
-        zDeficit = groundZ - pos.z
-        -- Sadece KUCUK ve POZITIF fark gercek bir zemin duzeltmesidir. Ust sinirin
-        -- USTUNDEKI degerler kirpilmaz, KOMPLE REDDEDILIR (bkz kopru alti notu).
-        if zDeficit > 0.0 and zDeficit <= MAX_TERRAIN_Z_LIFT then
-            safeZ = pos.z + zDeficit
-            moved = true
-        end
-    end
-
-    if moved then
-        SetEntityCoordsNoOffset(previewPed, safeX, safeY, safeZ, false, false, false)
-        positionBackdrop(camF, safeX, safeY, chest.z)
-    end
+    positionBackdrop(camF, anchorPos.x, anchorPos.y, chest.z)
 end
 
 --- Tam yerlesim: kamera tabani + klon. /cam (chat) ve ilk yerlesim (settle) icin.
@@ -994,27 +904,29 @@ local function SetCamera(cfgIn)
 end
 
 --- Klavye ayar (index.tsx -> NUI 'bitirim:charTune' -> buraya). 2 EKSEN + zoom:
----   Ok tuslari up/down    = KLON DIKEY konumu (camHeight) — kamera SABIT
----   Ok tuslari left/right = KLON YATAY konumu (camSide) — kamera SABIT
+---   Ok tuslari up/down    = KLONUN KADRAJDAKI dikey yeri (camHeight)
+---   Ok tuslari left/right = KLONUN KADRAJDAKI yatay yeri (camSide)
 ---   Numpad 1/2 zoomin/zoomout = ZOOM (fov; kucuk fov=yakin/buyuk gorunur)
---- KAMERA POZISYONU BURADA HIC DEGISMEZ (computeCameraBasis/setupStudio CAGRILMAZ) ->
---- basilan tusun yonu ile klonun ekrandaki hareketi AYNI (ters paralaks YOK).
+--- 2026-08-29'dan beri bu iki eksen KLONU DEGIL KAMERAYI oteler (lens kaydirma,
+--- bkz computeCameraBasis) -> klon oyuncunun GERCEK konumunda kalir. Isaret
+--- computeCameraBasis'te terslendigi icin basilan tusun yonu ile klonun ekranda
+--- kaydigi yon HALA AYNI (ters paralaks YOK).
 --- Begenilen degerleri F8'de gorup soyle -> kalici yaparim.
 local function TuneScene(action)
     if not active then return end
     local POS, FOVSTEP = 0.10, 2.0  -- tek tusa basinca ACIKCA gorunur adim
     if action == 'up' then
         cfg.camHeight = cfg.camHeight + POS
-        placeKlon()
+        setupStudio()
     elseif action == 'down' then
         cfg.camHeight = cfg.camHeight - POS
-        placeKlon()
+        setupStudio()
     elseif action == 'left' then
         cfg.camSide = cfg.camSide - POS
-        placeKlon()
+        setupStudio()
     elseif action == 'right' then
         cfg.camSide = cfg.camSide + POS
-        placeKlon()
+        setupStudio()
     elseif action == 'zoomin' then
         cfg.fov = math.max(10.0, cfg.fov - FOVSTEP)
         if studioCam then SetCamFov(studioCam, cfg.fov) end
