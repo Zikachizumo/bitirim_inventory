@@ -735,9 +735,18 @@ local function CreatePreview(showCharacter)
     playIdle()
     mirrorWeapon(true)
 
+    -- ox'un screenblur'u ZATEN kapali (character_client.lua: client.screenblur=false),
+    -- bu yalnizca emniyet: acilista bir kez varsa calisan fade'i kes. ESKIDEN HER
+    -- KAREDE cagriliyordu (asagidaki render thread icinde) -- screenblur fade'i
+    -- oyunun frontend/pause ses sahnesine bagli oldugu icin her kare yeniden
+    -- tetiklemek sessiz ortamda duyulabilen bir ses artefakti birakabiliyor
+    -- (kullanici kulaklikla bildirdi, 2026-08-29). Tek sefer yeterli.
+    if IsScreenblurFadeRunning() then DisableScreenblurFade() end
+    TriggerScreenblurFadeOut(0.0)
+
     -- RENDER thread (Wait 0): gercek bedeni yerel gizle + HER KAREDE ankoru guncelle
     -- (araç/uçak/helikopterle hareket ederken sahne akici sekilde takip eder) + kadraji
-    -- oturt + odak klona + ox screenblur kapat.
+    -- oturt + odak klona.
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
             if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
@@ -751,8 +760,9 @@ local function CreatePreview(showCharacter)
             setupStudio()
             local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
             SetFocusPosAndVel(chest.x, chest.y, chest.z, 0.0, 0.0, 0.0)
+            -- Blur SADECE gercekten calisiyorsa kesilir; her karede yeniden
+            -- TETIKLENMEZ (bkz yukaridaki ses artefakti notu).
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
-            TriggerScreenblurFadeOut(0.0)
             Wait(0)
         end
     end)
