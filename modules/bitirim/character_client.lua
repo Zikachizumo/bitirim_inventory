@@ -7,7 +7,6 @@
 
         NUI 'bitirim:charScene'  {open}          -> CreatePreview / DestroyPreview
         NUI 'bitirim:charRotate' {mode,value}    -> RotatePreview
-        NUI 'bitirim:charTune'   {action}        -> TuneScene (ok tuslari + Numpad1/2 dial)
         /cam ...                                 -> SetCamera (studio kadraj ince ayar)
 
     Mevcut NUI event isimleri/UI davranisi DEGISMEDI (index.tsx aynen calisir).
@@ -58,18 +57,11 @@ RegisterNUICallback('bitirim:charRotate', function(data, cb)
     Preview:RotatePreview(mode, type(data) == 'table' and data.value or nil)
 end)
 
--- Klavye dial (index.tsx -> NUI): ok tuslari = kamera kadraj ofseti (yukari/asagi/
--- sag/sol), Numpad 1/2 = zoom. Klon SABIT konumda kalir, sadece kamera kadraji degisir.
-RegisterNUICallback('bitirim:charTune', function(data, cb)
-    cb(1)
-    local action = type(data) == 'table' and data.action or nil
-    if action then Preview:TuneScene(action) end
-end)
-
 --[[
     /cam — STUDIO KADRAJI ince ayar (onizleme acikken). GAMEPLAY KAMERASI ONEMSIZ
-    (studio kamerasi devrede) — sadece bu kadraji degistirir. Ok tuslari + Numpad1/2
-    ile de canli dial edilebilir (yukarida bitirim:charTune).
+    (studio kamerasi devrede) — sadece bu kadraji degistirir. Klavye dial (ok tuslari
+    + Numpad1/2) 2026-08-30'da KALDIRILDI; kadraj artik cfg icinde SABIT. Fare ile
+    cevirme (charRotate) duruyor.
     Begenince degerleri bana soyle, kalici yaparim (preview_manager.lua cfg).
       /cam dist <n>      kamera klonun ONUNDE kac metre (buyuk = uzak/kucuk gorunur)
       /cam side <n>      kamera YATAY ofseti (negatif = ekranda sola)

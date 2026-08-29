@@ -74,35 +74,10 @@ const Inventory: React.FC = () => {
     fetchNui('bitirim:charScene', { open: sceneOpen, showCharacter }).catch(() => {});
   }, [inventoryVisible, isDrop, hasContainer]);
 
-  // Bitirim: STUDIO KAMERA kadraj kontrolleri (yalniz karakter paneli acikken).
-  //   Ok tuslari  = kadraj konumu, 2 EKSEN: yukari/asagi = kamera yuksekligi (dikey
-  //                 eksen), sag/sol = kamera yatay ofseti (yatay eksen). Ikisi
-  //                 birlikte de kullanilabilir (basili tutunca tekrarlar).
-  //   Numpad 1/2  = ZOOM (3. eksen: yakinlastir / uzaklastir).
-  // Karakter, oyuncunun konumunun ustunde durur (acilista hesaplanir); bu tuslar
-  // sadece stüdyo kamerasinin o karaktere gore kadrajini ayarlar.
-  // Karakter sag/sola donme yine fare surukleme ile (char-view uzerinde).
-  useEffect(() => {
-    const showChar = inventoryVisible && !isDrop && !hasContainer;
-    if (!showChar) return;
-    const onKey = (e: KeyboardEvent) => {
-      let action: string | null = null;
-      switch (e.code) {
-        case 'ArrowUp': action = 'up'; break;
-        case 'ArrowDown': action = 'down'; break;
-        case 'ArrowLeft': action = 'left'; break;
-        case 'ArrowRight': action = 'right'; break;
-        case 'Numpad1': action = 'zoomin'; break;
-        case 'Numpad2': action = 'zoomout'; break;
-      }
-      if (action) {
-        e.preventDefault();
-        fetchNui('bitirim:charTune', { action }).catch(() => {});
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [inventoryVisible, isDrop, hasContainer]);
+  // Bitirim: STUDIO KAMERA kadraj kontrolleri (ok tuslari + Numpad1/2) 2026-08-30'da
+  // KALDIRILDI. Kullanici begendigi kadraji buldu; degerler artik preview_manager.lua
+  // icindeki cfg'de SABIT (camSide/camHeight/fov). Karakteri sag/sola cevirme fare ile
+  // surukleyerek (char-view uzerinde) DEVAM EDIYOR.
 
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
