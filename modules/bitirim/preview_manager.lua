@@ -112,14 +112,13 @@ local cfg = {
 ------------------------------------------------------------------------------
 -- KAMERA COLLISION (DUVAR/BINA ICINE GIRMEYI ONLEME)
 ------------------------------------------------------------------------------
--- computeCameraBasis() her karede previewPed (chest) ile "istenen" kamera
--- noktasi arasinda bir shape test (kapsul) atar. Engel varsa kamera mesafesi
--- carpismaya kadar olan mesafe - guvenlik payi kadar kisilir, ASLA MIN_CAM_DIST
--- altina inmez (previewPed'in icine girmesin diye).
+-- Kameranin duvarin/binanin/arazinin ICINE girmemesi icin gerekli mesafe, yon
+-- taramasi sirasinda SECILEN yonun olculen boslugundan BIR KEZ hesaplanir
+-- (scanStudioYaw -> studioCamDist) ve canta kapanana kadar SABIT kalir. Her
+-- karede yeniden olcum YAPILMAZ (kamera oynardi, ses artefakti uretirdi).
 local MIN_CAM_DIST      = 0.45  -- ped govdesi + kamera FOV'una gore belirlenmis en yakin guvenli mesafe
 local CAM_SAFETY_MARGIN = 0.08  -- carpisma noktasindan bu kadar geride dur (duvara gomulmesin)
-local CAM_TEST_RADIUS   = 0.15  -- kapsul yaricapi (ince kenarlardan "sizmasin" diye)
-local CAM_TEST_FLAGS    = 1     -- SADECE dunya/statik geometri (bina/duvar) — ped'leri (realPed/previewPed) otomatik yok sayar
+local CAM_TEST_FLAGS    = 17    -- 1 (dunya|harita|MLO duvarlari) + 16 (nesneler: raf|tezgah|kasa) -- ped'ler (realPed/previewPed) ve araclar HARIC, dolayisiyla ayrica ignore etmeye gerek yok. 2026-08-30: eskiden sadece 1 idi; magaza raflari/tezgahlari gibi nesneler kamerayi engellemiyordu.
 -- Kamera geri cekilemeyip YAKLASMAK ZORUNDA kaldiginda (dar alan) FOV'u ayni
 -- dikey kapsamayi (tam boy kadraj) koruyacak sekilde GENISLETIRIZ -> klon asla
 -- kirpilmaz. Bu ust sinir olmasa cok dar alanlarda FOV 100+'e cikip asiri
@@ -146,13 +145,11 @@ local MAX_COMPENSATED_FOV = 75.0
 -- oynuyordu (kullanici: "ekranda saniyede bir sicrama"). Tek seferlik tarama hem
 -- bu sorunu kokten kaldirir hem de yeterlidir: canta acikken oyuncu yerinde durur.
 local YAW_STEPS        = 8      -- 360/8 = 45 derecelik adimlarla aday yon
-local YAW_BATCH        = 2      -- ayni karede baslatilan aday yon sayisi (2 yon x 3 yukseklik x 2 taraf = 12 es zamanli shape test) -> tarama 4 karede biter
+local YAW_BATCH        = 3      -- kac yon bir karede olculur; SADECE tek karede cok sayida pahali senkron prob atmamak icin (dogruluk icin DEGIL) -> 8 yon ~3 karede biter
 local YAW_PROBE_H      = { 0.35, 1.00, 1.60 }  -- ayak / govde / bas hizasi (tek yukseklik ince tezgah/korkulugu KACIRIR)
 local YAW_BACK_CLEAR   = 2.20   -- klonun ARKASINDA (arka plan) aranan bosluk (metre) — bundan fazlasi puanlamada AYNI sayilir
 local YAW_BACK_WEIGHT  = 0.60   -- arka plan IKINCIL (kadraji kamera tarafi belirler) ama ONEMSIZ DEGIL: kolon/raf dibinde sikayetin ASIL kaynagi arka plandi
 local YAW_NATURAL_BONUS = 0.45  -- oyuncunun kendi bakis yonune verilen avantaj -> acik alanda ASLA gereksiz yere donmez (ama tek tarafi kapali bir yeri de "idare eder" diye SECMEZ)
-local PROBE_MAX_WAIT   = 8      -- bir grubun shape-test sonuclari icin beklenecek EN FAZLA kare; gelmezse o grup PUANLANMAZ (yarim olcumle karar vermek "saniyede bir sicrama" hatasinin sebebiydi)
-local SCAN_MAX_FRAMES  = 14     -- TUM taramanin toplam kare butcesi -- sonuclar gecikse bile canta acilisi bu suredan (~230ms) fazla beklemez, kalan yonler puanlanmadan gecilir
 
 ------------------------------------------------------------------------------
 -- TERRAIN-SAFE YERLESIM: KALDIRILDI (2026-08-29)
@@ -281,24 +278,29 @@ end
 ------------------------------------------------------------------------------
 -- STUDIO YONU TARAMASI (bkz yukaridaki "DAR/KAPALI/ENGELLI ALAN COZUMU" notu)
 ------------------------------------------------------------------------------
---- (cx,cy,cz)'den (dx,dy) yonunde maxDist metreye kadar bakan bir shape test
---- BASLATIR ve handle dondurur. Sonuc AYNI KAREDE hazir olmaz -> bkz tryReadProbe.
-local function startFreeProbe(cx, cy, cz, dx, dy, maxDist)
-    return StartShapeTestCapsule(cx, cy, cz,
+--- (cx,cy,cz)'den (dx,dy) yonunde maxDist metreye kadar SERBEST mesafeyi olcer.
+--- Engel yoksa maxDist doner.
+---
+--- NEDEN SENKRON PROB (2026-08-30, KULLANICI IKI EKRAN GORUNTUSUYLE BILDIRDI):
+--- Onceki surum StartShapeTestCapsule (ASENKRON) kullaniyordu. Uc sorunu vardi:
+---   1) sonuc ancak sonraki kare(ler)de geliyor,
+---   2) motorun ayni anda bekletebilecegi test sayisi SINIRLI -> ayni karede 12
+---      test baslatinca bir kismi hic sonuclanmiyor,
+---   3) tek bir olcum bile eksik kalinca o grup TAMAMEN atlaniyordu; hepsi
+---      atlanirsa koruma sessizce DEVRE DISI kaliyor, kamera istenen 2.55m'ye
+---      cikip DUVARIN/ZEMININ ICINE giriyordu.
+--- Sonuc: dik yamacta kamera zeminin altina giriyor (arka planda arazinin ic
+--- yuzeyi gorunuyor), kiyafet magazasinda kamera duvardan disari cikip klonu
+--- portal culling'e kurban veriyordu (karakter paneli KOMPLE bos).
+--- StartExpensiveSynchronousShapeTestLosProbe sonucu AYNI KAREDE verir -> zaman
+--- asimi, havuz tikanmasi, "yarim olcum" diye bir sey KALMAZ. Pahali bir native
+--- ama tarama canta acilisinda SADECE BIR KEZ calisiyor.
+local function freeDistance(cx, cy, cz, dx, dy, maxDist)
+    local handle = StartExpensiveSynchronousShapeTestLosProbe(
+        cx, cy, cz,
         cx + dx * maxDist, cy + dy * maxDist, cz,
-        CAM_TEST_RADIUS, CAM_TEST_FLAGS, 0, 7)
-end
-
---- Sonuc HAZIRSA serbest mesafeyi, hazir DEGILSE nil doner.
---- KRITIK (2026-08-29, kullanici "ekranda saniyede bir sicrama" olarak bildirdi):
---- GetShapeTestResult'in ILK donus degeri DURUMDUR (2 = hazir, 1 = hesaplaniyor).
---- Bu durum eskiden yok sayiliyordu; hesaplanmakta olan bir isin "carpma yok"
---- gibi okunmasi o yonu "tamamen acik" gosteriyordu. Hangi isinin hangi karede
---- yetisecegi degisken oldugu icin her taramada BASKA bir yon kazaniyor, sahne
---- surekli oraya savriliyordu. Artik hazir olmayan sonuc OKUNMAZ, beklenir.
-local function tryReadProbe(handle, cx, cy, maxDist)
-    local state, hit, endCoords = GetShapeTestResult(handle)
-    if state ~= 2 then return nil end
+        CAM_TEST_FLAGS, 0, 7)
+    local _, hit, endCoords = GetShapeTestResult(handle)
     if hit == 1 or hit == true then
         local d = #(vector3(endCoords.x - cx, endCoords.y - cy, 0.0))
         if d < maxDist then return d end
@@ -306,94 +308,49 @@ local function tryReadProbe(handle, cx, cy, maxDist)
     return maxDist
 end
 
---- Bir grubun butun isinlarini sonuclanana kadar (en fazla PROBE_MAX_WAIT kare)
---- toplar. Hepsi geldiyse true, gelmediyse false doner -> eksik olcumle karar
---- VERILMEZ, o grup atlanir.
-local function collectProbes(batch, ox, oy, budget)
-    local pending = #batch * #YAW_PROBE_H * 2
-    local tries = 0
-    while pending > 0 and tries < PROBE_MAX_WAIT and budget.frames < SCAN_MAX_FRAMES do
-        Wait(0)
-        tries = tries + 1
-        budget.frames = budget.frames + 1
-        if not active then return false end
-        for _, c in ipairs(batch) do
-            for k = 1, #YAW_PROBE_H do
-                if c.camD[k] == nil then
-                    local d = tryReadProbe(c.camH[k], ox, oy, cfg.camDist)
-                    if d then c.camD[k] = d; pending = pending - 1 end
-                end
-                if c.backD[k] == nil then
-                    local d = tryReadProbe(c.backH[k], ox, oy, YAW_BACK_CLEAR)
-                    if d then c.backD[k] = d; pending = pending - 1 end
-                end
-            end
-        end
-    end
-    return pending == 0
-end
-
---- Klonun etrafindaki YAW_STEPS yonu tarar, en ferah olani studioYawTgt'ye yazar.
---- SADECE canta acilirken (kamera aktiflesmeden once) BIR KEZ calisir — periyodik
---- tekrar YOK (bkz CreatePreview'daki not). Kendi Wait(0)'lari oldugu icin bir
---- coroutine icinden cagrilmalidir.
+--- Klonun etrafindaki YAW_STEPS yonu tarar; en ferah yonu studioYawTgt'ye,
+--- o yonun olculen boslugundan turetilen kamera mesafesini studioCamDist'e yazar.
+--- SADECE canta acilirken (kamera aktiflesmeden once) BIR KEZ calisir.
+--- Olcumler senkron oldugu icin tarama YAW_BATCH yonluk gruplar halinde, sadece
+--- tek karede cok sayida pahali prob atmamak icin bolunur (dogruluk icin DEGIL).
 local function scanStudioYaw()
     if not active or not anchorPos then return end
     local origin, natural = anchorPos, anchorHead
-    local best, bestScore, bestClear = nil, -1.0, nil
-    local budget = { frames = 0 }   -- tum taramanin ortak kare butcesi (bkz SCAN_MAX_FRAMES)
+    local best, bestScore, bestClear = natural, -1.0, nil
 
-    -- Adaylar YAW_BATCH'lik gruplar halinde islenir: motorun ayni anda
-    -- hesaplayabilecegi shape-test sayisi sinirli oldugu icin 8 yonun 6'sar isini
-    -- TEK karede baslatmak sonuclari geciktirir; tek tek ilerlemek ise acilisi
-    -- gereksiz uzatir.
-    local i = 0
-    while i < YAW_STEPS and budget.frames < SCAN_MAX_FRAMES do
+    for i = 0, YAW_STEPS - 1 do
         if not active or not anchorPos then return end
-        local batch = {}
-        for _ = 1, YAW_BATCH do
-            if i >= YAW_STEPS then break end
-            local yaw = (natural + i * (360.0 / YAW_STEPS)) % 360.0
-            local f = forwardOf(yaw)
-            local camH, backH = {}, {}
-            for k, h in ipairs(YAW_PROBE_H) do
-                local z = origin.z + h
-                camH[k]  = startFreeProbe(origin.x, origin.y, z, -f.x, -f.y, cfg.camDist)
-                backH[k] = startFreeProbe(origin.x, origin.y, z,  f.x,  f.y, YAW_BACK_CLEAR)
-            end
-            batch[#batch + 1] = { idx = i, yaw = yaw, camH = camH, backH = backH, camD = {}, backD = {} }
-            i = i + 1
+        local yaw = (natural + i * (360.0 / YAW_STEPS)) % 360.0
+        local f = forwardOf(yaw)
+
+        -- Bir yonun puani EN DAR yuksekligiyle belirlenir: gogus hizasi bos olsa
+        -- bile diz hizasindaki tezgah kadraji bozar (magaza ekran goruntusu).
+        local camClear, backClear = cfg.camDist, YAW_BACK_CLEAR
+        for _, h in ipairs(YAW_PROBE_H) do
+            local z = origin.z + h
+            local c = freeDistance(origin.x, origin.y, z, -f.x, -f.y, cfg.camDist)
+            if c < camClear then camClear = c end
+            local b = freeDistance(origin.x, origin.y, z, f.x, f.y, YAW_BACK_CLEAR)
+            if b < backClear then backClear = b end
         end
 
-        -- Olcumler EKSIKSE bu grup PUANLANMAZ (yarim veriyle karar verilmez),
-        -- diger gruplarla devam edilir.
-        if collectProbes(batch, origin.x, origin.y, budget) then
-            for _, c in ipairs(batch) do
-                -- Bir yonun puani EN DAR yuksekligiyle belirlenir: gogus hizasi bos
-                -- olsa bile diz hizasindaki tezgah kadraji bozar (magaza gorseli).
-                local camClear, backClear = cfg.camDist, YAW_BACK_CLEAR
-                for k = 1, #YAW_PROBE_H do
-                    if c.camD[k] < camClear then camClear = c.camD[k] end
-                    if c.backD[k] < backClear then backClear = c.backD[k] end
-                end
+        local score = camClear + backClear * YAW_BACK_WEIGHT
+        if i == 0 then score = score + YAW_NATURAL_BONUS end  -- oyuncunun kendi bakis yonu
+        if score > bestScore then bestScore, best, bestClear = score, yaw, camClear end
 
-                local score = camClear + backClear * YAW_BACK_WEIGHT
-                if c.idx == 0 then score = score + YAW_NATURAL_BONUS end  -- oyuncunun kendi bakis yonu
-                if score > bestScore then bestScore, best, bestClear = score, c.yaw, camClear end
-            end
-        elseif not active then
-            return
+        -- Tek karede cok sayida pahali prob atmamak icin gruplar arasinda bir kare bekle.
+        if (i + 1) % YAW_BATCH == 0 then
+            Wait(0)
+            if not active then return end
         end
     end
 
-    -- Hicbir yon olculemediyse (butun isinlar zaman asimina ugradi) sahneyi
-    -- oyuncunun kendi bakis yonunde birak — eski davranisin AYNISI.
-    studioYawTgt = best or natural
+    studioYawTgt = best
 
     -- KAMERA MESAFESI de burada, SECILEN yonun OLCULEN boslugundan BIR KEZ
-    -- belirlenir; canta kapanana kadar degismez (bkz resolveSafeCamDist notu).
-    -- Yon ferahsa istenen mesafe aynen kullanilir; dar ise duvara gomulmemek
-    -- icin guvenlik payi kadar geride durulur.
+    -- belirlenir; canta kapanana kadar degismez. Yon ferahsa istenen mesafe
+    -- aynen kullanilir; dar ise duvara/zemine gomulmemek icin guvenlik payi
+    -- kadar geride durulur.
     if bestClear and bestClear < cfg.camDist then
         studioCamDist = math.max(MIN_CAM_DIST, bestClear - CAM_SAFETY_MARGIN)
     else
@@ -515,10 +472,18 @@ local function computeCameraBasis()
     -- sx (yanal) / sz (dikey) kadar KAYDIRILIR: kamera boylece o kadar DONER ve
     -- klon kadrajda istenen yere oturur -- kamera yerinden OYNAMADIGI icin klona
     -- bakis acisi TAM CEPHE kalir (bkz yukaridaki "SADECE DONDURULUR" notu).
+    -- OLCEKLEME: klonun ekrandaki yerini belirleyen sey hedef ofsetinin MESAFEYE
+    -- ORANI (aci = atan(ofset/mesafe)). Kamera bir engel yuzunden yaklasmak
+    -- zorunda kaldiginda ofset sabit kalirsa aci patlar (ornek: 0.45m mesafede
+    -- 1.10m ofset = 68 derece -> klon kadrajin TAMAMEN disina cikar). Ofsetleri
+    -- mesafeyle ayni oranda kucultunce aci -- yani kompozisyon -- her mesafede
+    -- AYNI kalir. (FOV telafisi de dikey kapsamayi ayni tuttugu icin dar alanda
+    -- kadraj bire bir korunur.)
+    local k = dist / cfg.camDist
     PointCamAtCoord(studioCam,
-        anchorPos.x + right.x * sx,
-        anchorPos.y + right.y * sx,
-        cz + sz - cfg.lookDown)
+        anchorPos.x + right.x * sx * k,
+        anchorPos.y + right.y * sx * k,
+        cz + (sz - cfg.lookDown) * k)
 end
 
 --- Klonu yerlestirir. ARTIK HICBIR OFSET UYGULAMAZ: klon oyuncunun GERCEK dunya
@@ -753,11 +718,10 @@ local function CreatePreview(showCharacter)
     Wait(0)
     Wait(0)
 
-    -- ILK YON TARAMASI kamera AKTIFLESMEDEN ONCE calisir -> sahne daha ILK karede
-    -- dogru (ferah) yonde acilir, acildiktan sonra gozle gorulur bir donme OLMAZ
-    -- Secilen yon canta kapanana kadar SABIT kalir (periyodik tazeleme YOK).
-    -- Tarama grup basina sonuclar gelene kadar bekler (tipik 8 yon / YAW_BATCH =
-    -- 4 kare, ~65ms; sonuclar gecikirse grup basina en fazla PROBE_MAX_WAIT kare).
+    -- YON TARAMASI kamera AKTIFLESMEDEN ONCE calisir -> sahne daha ILK karede
+    -- dogru (ferah) yonde ve dogru mesafede acilir. Secilen yon + mesafe canta
+    -- kapanana kadar SABIT kalir (periyodik tazeleme YOK). Olcumler senkron
+    -- oldugu icin tarama ~3-4 kare surer ve ASLA sonucsuz kalmaz.
     scanStudioYaw()
 
     -- GUVENLIK: yukaridaki Wait(0)'lar CreatePreview'i ARTIK kesilebilir (preemptible)
