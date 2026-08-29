@@ -193,7 +193,8 @@ local compCache    = {}     -- aynalama diff onbellegi
 local curWeapon    = nil
 local camF         = nil    -- kamera ileri vektoru (studioYaw'dan turetilir)
 local camR         = nil    -- kamera sag vektoru (studioYaw'dan turetilir; camSide bu eksende kaydirir)
-local curSafeDist  = nil    -- collision-aware kamera mesafesi (smoothing icin kareler arasi tasinir; bkz computeCameraBasis)
+local chestOffsetZ = nil    -- klonun gogus yuksekliginin ankora gore ofseti; BIR KEZ olculur (bkz chestZ) -> kamera Z nefes animasyonuyla titremez
+local studioCamDist = nil   -- canta acilisinda BIR KEZ belirlenen kamera mesafesi (secilen yonun olculen boslugundan); canta kapanana kadar SABIT -> kamera hic oynamaz
 local studioYaw    = nil    -- sahnenin O ANKI yonu (yumusak sekilde studioYawTarget'a yaklasir)
 local studioYawTgt = nil    -- taramanin sectigi HEDEF yon (bkz "STUDIO YONUNUN OTOMATIK SECIMI")
 
@@ -221,6 +222,43 @@ end
 --- oyuncunun kendi heading'ine duser -> eski davranisla BIREBIR ayni baslangic.
 local function currentYaw()
     return studioYaw or anchorHead
+end
+
+--- previewPed'i SADECE GERCEKTEN degistiyse tasir/dondurur.
+--- Konum/heading her karede YENIDEN yazilmasi (ayni degerle bile) oyunun ped ses
+--- sistemini tetikleyip sessiz ortamda duyulan "her saniye adim atiyor / spawn
+--- oluyor" tarzi bir artefakt uretebiliyor (kullanici kulaklikla bildirdi,
+--- 2026-08-29; canta kapaninca ses kayboluyordu). Klon zaten dogru yerdeyse
+--- native HIC cagrilmaz -> oyuncu yerinde dururken sahne TAMAMEN hareketsiz.
+--- Aractayken anchor gercekten degistigi icin takip AYNEN calismaya devam eder.
+local POSE_POS_EPS  = 0.01   -- metre
+local POSE_HEAD_EPS = 0.10   -- derece
+local function setKlonPose(x, y, z, heading)
+    local c = GetEntityCoords(previewPed)
+    if math.abs(c.x - x) > POSE_POS_EPS or math.abs(c.y - y) > POSE_POS_EPS or math.abs(c.z - z) > POSE_POS_EPS then
+        SetEntityCoordsNoOffset(previewPed, x, y, z, false, false, false)
+    end
+    local h = GetEntityHeading(previewPed)
+    if math.abs((h - heading + 540.0) % 360.0 - 180.0) > POSE_HEAD_EPS then
+        SetEntityHeading(previewPed, heading)
+    end
+end
+
+--- Klonun gogus yuksekligi (kadraj/odak referansi), ankora GORE ofset olarak
+--- BIR KEZ olculur ve oturum boyunca kullanilir.
+--- NEDEN CANLI OKUNMUYOR (2026-08-29): GetPedBoneCoords canli bir kemik konumu
+--- dondurur; klon dursa bile nefes alma animasyonu yuzunden bu deger her karede
+--- milimetrik oynar. Kamera Z'si buna bagli oldugu icin kamera (ve ona bagli SES
+--- DINLEYICISI) surekli titriyordu -> sessiz ortamda duyulan periyodik ses
+--- artefaktinin kaynaklarindan biri. Ofset sabit olunca kamera tas gibi durur;
+--- oyuncu araca binip hareket ederse anchorPos degistigi icin takip bozulmaz.
+local function chestZ()
+    if chestOffsetZ == nil then
+        if not previewPed or not DoesEntityExist(previewPed) or not anchorPos then return nil end
+        local c = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
+        chestOffsetZ = c.z - anchorPos.z
+    end
+    return anchorPos.z + chestOffsetZ
 end
 
 --- Iki backdrop panelini KLONUN (offsetli konumunun) ARKASINA, kameraya bakacak
@@ -302,7 +340,7 @@ end
 local function scanStudioYaw()
     if not active or not anchorPos then return end
     local origin, natural = anchorPos, anchorHead
-    local best, bestScore = nil, -1.0
+    local best, bestScore, bestClear = nil, -1.0, nil
     local budget = { frames = 0 }   -- tum taramanin ortak kare butcesi (bkz SCAN_MAX_FRAMES)
 
     -- Adaylar YAW_BATCH'lik gruplar halinde islenir: motorun ayni anda
@@ -341,7 +379,7 @@ local function scanStudioYaw()
 
                 local score = camClear + backClear * YAW_BACK_WEIGHT
                 if c.idx == 0 then score = score + YAW_NATURAL_BONUS end  -- oyuncunun kendi bakis yonu
-                if score > bestScore then bestScore, best = score, c.yaw end
+                if score > bestScore then bestScore, best, bestClear = score, c.yaw, camClear end
             end
         elseif not active then
             return
@@ -351,6 +389,16 @@ local function scanStudioYaw()
     -- Hicbir yon olculemediyse (butun isinlar zaman asimina ugradi) sahneyi
     -- oyuncunun kendi bakis yonunde birak — eski davranisin AYNISI.
     studioYawTgt = best or natural
+
+    -- KAMERA MESAFESI de burada, SECILEN yonun OLCULEN boslugundan BIR KEZ
+    -- belirlenir; canta kapanana kadar degismez (bkz resolveSafeCamDist notu).
+    -- Yon ferahsa istenen mesafe aynen kullanilir; dar ise duvara gomulmemek
+    -- icin guvenlik payi kadar geride durulur.
+    if bestClear and bestClear < cfg.camDist then
+        studioCamDist = math.max(MIN_CAM_DIST, bestClear - CAM_SAFETY_MARGIN)
+    else
+        studioCamDist = cfg.camDist
+    end
 end
 
 --- KAMERA TABANINI hesaplar (SADECE kamera; klona DOKUNMAZ). previewPed'i GECICI
@@ -381,34 +429,21 @@ end
 --- Boylece kamera hala DOGRU yone bakarken (arka plan hala oyuncunun gercekte
 --- baktigi yon), klon da artik kameraya DONUK (yuzu/kiyafetleri gorunur) —
 --- onceki "ya yuz ya dogru yon" ikilemi boylece COZULDU (ikisi ayni anda mumkunmus).
---- Kamera ile previewPed (chest) arasinda shape test atar; aralarinda duvar/nesne
---- varsa "istenen" camDist yerine carpismaya kadar olan guvenli mesafeyi doner.
---- Sadece DUNYA/statik geometriyle (CAM_TEST_FLAGS=1) test eder -> realPed/
---- previewPed (ped'ler) otomatik yok sayilir, ayrica entity ignore etmeye gerek yok.
---- SMOOTHING: kuculme (yeni engel/daha yakin duvar) ANINDA uygulanir (guvenlik —
---- bir kare bile duvarin icine girmesin), buyume (engel kalkinca eski mesafeye
---- donus) YUMUSAK (lerp) yapilir -> shape test'in kare-kare ufak sapmalarindan
---- kaynaklanan "0.90/0.65/0.90..." titremesi engellenir.
-local function resolveSafeCamDist(chestX, chestY, chestZ, fwd, desired)
-    local endX = chestX - fwd.x * desired
-    local endY = chestY - fwd.y * desired
-    local rayHandle = StartShapeTestCapsule(chestX, chestY, chestZ, endX, endY, chestZ, CAM_TEST_RADIUS, CAM_TEST_FLAGS, 0, 7)
-    local _, hit, endCoords = GetShapeTestResult(rayHandle)
-
-    local raw = desired
-    if hit == 1 or hit == true then
-        local hitDist = #(vector3(endCoords.x - chestX, endCoords.y - chestY, endCoords.z - chestZ))
-        raw = math.max(MIN_CAM_DIST, hitDist - CAM_SAFETY_MARGIN)
-    end
-
-    if curSafeDist == nil or raw < curSafeDist then
-        curSafeDist = raw
-    else
-        curSafeDist = curSafeDist + (raw - curSafeDist) * 0.25
-    end
-
-    return curSafeDist
-end
+--- KAMERA MESAFESI ARTIK HER KARE HESAPLANMIYOR (2026-08-29).
+--- Eskiden her karede kamera ile klon arasina bir shape test atilip mesafe
+--- yeniden belirleniyordu. Iki sorunu vardi:
+---   1) test AYNI KAREDE okunuyordu -> sonuc cogu zaman hazir degil, yani
+---      koruma pratikte calismiyordu; ara sira hazir gelen bir sonuc ise
+---      "kuculme ANINDA uygulanir" kurali yuzunden kamerayi tek karede
+---      metrelerce one ziplatiyordu,
+---   2) ses dinleyicisi (audio listener) kameraya bagli oldugu icin bu
+---      ziplama, sessiz ortamda duyulan periyodik bir ses artefakti
+---      uretiyordu (kullanici: "her saniye adim atiyor/spawn oluyor gibi
+---      render sesi", canta kapaninca kayboluyor).
+--- ARTIK: guvenli mesafe, yon taramasi sirasinda SECILEN yonun OLCULEN
+--- boslugundan BIR KEZ hesaplanir (bkz scanStudioYaw -> studioCamDist) ve
+--- canta kapanana kadar SABIT kalir -> kamera tamamen hareketsiz, dolayisiyla
+--- ses dinleyicisi de hareketsiz.
 
 local function computeCameraBasis()
     if not previewPed or not DoesEntityExist(previewPed) or not studioCam or not anchorPos then return end
@@ -423,12 +458,15 @@ local function computeCameraBasis()
     studioYaw = yaw
     local fwd = forwardOf(yaw)
     local right = rightOf(yaw)
-    SetEntityCoordsNoOffset(previewPed, anchorPos.x, anchorPos.y, anchorPos.z, false, false, false)
     -- KLONUN YUZU kameraya donuk olsun diye +180 (bkz asagidaki YUZ/YON NOTU) —
     -- SADECE gorsel/kozmetik, kameranin konumu/baktigi yonu (dolayisiyla arka
-    -- planda gorunen dunya yonu) ETKILEMEZ.
-    SetEntityHeading(previewPed, (yaw + 180.0) % 360.0)
-    local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
+    -- planda gorunen dunya yonu) ETKILEMEZ. dragYaw da BURADA dahil edilir:
+    -- eskiden bu satir dragYaw'siz, placeKlon ise dragYaw'li yaziyordu -> klon
+    -- her karede IKI FARKLI heading arasinda gidip geliyordu (kullanici mouse ile
+    -- cevirdiginde). Ikisi artik AYNI degeri kullanir.
+    setKlonPose(anchorPos.x, anchorPos.y, anchorPos.z, (yaw + 180.0 + dragYaw) % 360.0)
+    local cz = chestZ()
+    if not cz then return end
     camF = fwd
     camR = right
 
@@ -445,9 +483,10 @@ local function computeCameraBasis()
     local sx, sz = -cfg.camSide, -cfg.camHeight
     local aimX = anchorPos.x + right.x * sx
     local aimY = anchorPos.y + right.y * sx
-    local aimZ = chest.z + sz
+    local aimZ = cz + sz
 
-    local dist = resolveSafeCamDist(aimX, aimY, aimZ, fwd, cfg.camDist)
+    -- Tarama sirasinda bir kez belirlenen SABIT mesafe (bkz yukaridaki not).
+    local dist = math.min(cfg.camDist, studioCamDist or cfg.camDist)
 
     SetCamCoord(studioCam,
         aimX - fwd.x * dist,
@@ -480,10 +519,8 @@ end
 --- (bkz computeCameraBasis "LENS KAYDIRMA") -> gorunum ayni, konum GERCEK.
 local function placeKlon()
     if not previewPed or not DoesEntityExist(previewPed) or not camR or not anchorPos then return end
-    SetEntityCoordsNoOffset(previewPed, anchorPos.x, anchorPos.y, anchorPos.z, false, false, false)
-    SetEntityHeading(previewPed, (currentYaw() + 180.0 + dragYaw) % 360.0)
-    local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
-    positionBackdrop(camF, anchorPos.x, anchorPos.y, chest.z)
+    setKlonPose(anchorPos.x, anchorPos.y, anchorPos.z, (currentYaw() + 180.0 + dragYaw) % 360.0)
+    positionBackdrop(camF, anchorPos.x, anchorPos.y, chestZ() or anchorPos.z)
 end
 
 --- Tam yerlesim: kamera tabani + klon. /cam (chat) ve ilk yerlesim (settle) icin.
@@ -662,11 +699,11 @@ local function CreatePreview(showCharacter)
     -- 2) Klon konumu: oyuncunun O ANKI X/Y/Z'sinin BIREBIR AYNISI (offsetsiz) —
     -- oyuncu sokakta/evde/ofiste/garajda/arac icinde farketmez, previewPed HER
     -- ZAMAN ayni yerde kalir (updateAnchor() HER KAREDE de cagrilir, bkz render
-    -- thread). curSafeDist da her acilista sifirlanir ki eski oturumdan kalan
+    -- thread). studioCamDist/studioYaw da her acilista sifirlanir ki eski oturumdan kalan
     -- collision-mesafesi yeni sahneye "sizmasin".
     updateAnchor()
     dragYaw = 0.0
-    curSafeDist = cfg.camDist
+    studioCamDist, chestOffsetZ = nil, nil
     -- Studio yonu her acilista SIFIRLANIR: ilk kare oyuncunun kendi bakis yonuyle
     -- (eski davranisin AYNISI) baslar, tarama thread'i sonuc uretince (ilk sonuc
     -- ~150ms) sahne gerekiyorsa ferah yone YUMUSAKCA doner.
@@ -758,8 +795,9 @@ local function CreatePreview(showCharacter)
             if showCharacter then SetEntityLocallyVisible(previewPed) end
             updateAnchor()
             setupStudio()
-            local chest = GetPedBoneCoords(previewPed, BONE_CHEST, 0.0, 0.0, 0.0)
-            SetFocusPosAndVel(chest.x, chest.y, chest.z, 0.0, 0.0, 0.0)
+            -- Odak SABIT bir noktaya kurulur (canli kemik degil) -> streaming/ses
+            -- sistemi her karede yeniden hedeflenmez (bkz chestZ notu).
+            SetFocusPosAndVel(anchorPos.x, anchorPos.y, chestZ() or anchorPos.z, 0.0, 0.0, 0.0)
             -- Blur SADECE gercekten calisiyorsa kesilir; her karede yeniden
             -- TETIKLENMEZ (bkz yukaridaki ses artefakti notu).
             if IsScreenblurFadeRunning() then DisableScreenblurFade() end
@@ -823,7 +861,7 @@ local function DestroyPreview()
     compCache = {}
     curWeapon = nil
     dragYaw = 0.0
-    curSafeDist = nil
+    studioCamDist, chestOffsetZ = nil, nil
 end
 
 ------------------------------------------------------------------------------
