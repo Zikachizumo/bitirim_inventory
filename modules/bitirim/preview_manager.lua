@@ -190,6 +190,7 @@ local compCache    = {}     -- aynalama diff onbellegi
 local curWeapon    = nil
 local camF         = nil    -- kamera ileri vektoru (studioYaw'dan turetilir)
 local camR         = nil    -- kamera sag vektoru (studioYaw'dan turetilir; camSide bu eksende kaydirir)
+local viewportRoomKey = nil -- MLO interior odasi viewport icin sabitlendiyse anahtari (bkz CreatePreview/DestroyPreview)
 local chestOffsetZ = nil    -- klonun gogus yuksekliginin ankora gore ofseti; BIR KEZ olculur (bkz chestZ) -> kamera Z nefes animasyonuyla titremez
 local studioCamDist = nil   -- canta acilisinda BIR KEZ belirlenen kamera mesafesi (secilen yonun olculen boslugundan); canta kapanana kadar SABIT -> kamera hic oynamaz
 local studioYaw    = nil    -- sahnenin O ANKI yonu (yumusak sekilde studioYawTarget'a yaklasir)
@@ -714,9 +715,31 @@ local function CreatePreview(showCharacter)
     -- olmaz. NOT: interior fallback (eski -301.72,-71.13,316.92 koordinati) GERI
     -- GETIRILMEDI — previewPed hep GERCEK oyuncu konumunda kalir, sadece oda
     -- KAYDI duzeltiliyor.
+    -- ODA KAYDI ICIN KONUM YAZMAK ZORUNLU: portal tracker ancak entity bir konum/
+    -- fizik guncellemesi ALDIGINDA calisir. setKlonPose "konum degismediyse yazma"
+    -- optimizasyonu yaptigi icin (ses artefakti duzeltmesi) bu pencerede tek bir
+    -- yazma bile olmayabiliyordu -> klon magaza/MLO icinde portal testine takilip
+    -- GORUNMEZ kaliyordu (kullanici: karakter paneli komple bos). Burada guard'i
+    -- BILEREK atlayip her karede acikca yaziyoruz.
     RequestCollisionAtCoord(anchorPos.x, anchorPos.y, anchorPos.z)
-    Wait(0)
-    Wait(0)
+    for _ = 1, 3 do
+        SetEntityCoordsNoOffset(previewPed, anchorPos.x, anchorPos.y, anchorPos.z, false, false, false)
+        Wait(0)
+        if not active or not previewPed or not DoesEntityExist(previewPed) then return end
+    end
+
+    -- Ustelik oda kaydini SANSA birakmiyoruz: oyuncu bir MLO icindeyse klonu
+    -- ACIKCA oyuncunun odasina yaziyoruz. Portal tracker'in kendiliginden dogru
+    -- odayi bulmasini beklemek (yukaridaki konum yazmalari) tek basina kirilgan.
+    if realPed and DoesEntityExist(realPed) then
+        local interior = GetInteriorFromEntity(realPed)
+        if interior ~= 0 then
+            local ok, roomKey = pcall(GetRoomKeyFromEntity, realPed)
+            if ok and roomKey and roomKey ~= 0 then
+                pcall(ForceRoomForEntity, previewPed, interior, roomKey)
+            end
+        end
+    end
 
     -- YON TARAMASI kamera AKTIFLESMEDEN ONCE calisir -> sahne daha ILK karede
     -- dogru (ferah) yonde ve dogru mesafede acilir. Secilen yon + mesafe canta
@@ -742,6 +765,23 @@ local function CreatePreview(showCharacter)
     -- taramasi beklemesi toplam ~6 kare / ~100ms, goz ile fark edilmez -> "aninda"
     -- his korunur; buna karsilik sahne ILK karede dogru yonde acilir.)
     RenderScriptCams(true, false, 0, true, true)
+
+    -- MLO INTERIOR + SCRIPTED KAMERA: oyun, hangi interior ODASININ render
+    -- edilecegini KAMERANIN konumundan cozer. Studio kamerasi klonun birkac metre
+    -- arkasinda durdugu icin bu cozum magaza gibi dar MLO'larda "disarisi" olarak
+    -- sonuclanabiliyor; o an interior geometrisi ve o odadaki klon PORTAL CULLING
+    -- ile eleniyordu -> arka planda sokak goruntusu, karakter paneli KOMPLE BOS
+    -- (kullanici 2026-08-30 ekran goruntusuyle bildirdi, Sinners Passage magazasi).
+    -- Cozum: oyuncunun GERCEKTEN icinde oldugu odayi viewport icin acikca sabitle.
+    -- Canta kapaninca ClearRoomForGameViewport ile birakilir (bkz DestroyPreview).
+    if realPed and DoesEntityExist(realPed) and GetInteriorFromEntity(realPed) ~= 0 then
+        local ok, roomKey = pcall(GetRoomKeyFromEntity, realPed)
+        if ok and roomKey and roomKey ~= 0 then
+            SetRoomForGameViewportByKey(roomKey)
+            viewportRoomKey = roomKey
+        end
+    end
+
     playIdle()
     mirrorWeapon(true)
 
@@ -783,6 +823,15 @@ local function CreatePreview(showCharacter)
         while active and previewPed and DoesEntityExist(previewPed) do
             mirrorAppearance()
             mirrorWeapon(false)
+            -- Viewport'a sabitlenen MLO odasi motor tarafindan sifirlanirsa geri
+            -- koy. Her karede DEGIL (gereksiz native trafigi = ses artefakti riski);
+            -- 150ms yeterli, ustelik sadece GERCEKTEN degistiyse yazilir.
+            if viewportRoomKey then
+                local ok, cur = pcall(GetRoomKeyForGameViewport)
+                if ok and cur ~= viewportRoomKey then
+                    SetRoomForGameViewportByKey(viewportRoomKey)
+                end
+            end
             Wait(150)
         end
     end)
@@ -793,6 +842,13 @@ local function DestroyPreview()
     active = false -- thread'ler cikar
     -- Sahne yonu bir sonraki acilisa SIZMASIN (yeni yer, yeni tarama).
     studioYaw, studioYawTgt = nil, nil
+
+    -- Viewport'a sabitlenen MLO odasini BIRAK (bkz CreatePreview). Birakilmazsa
+    -- canta kapandiktan sonra da oyun o odayi render etmeye calisir.
+    if viewportRoomKey then
+        pcall(ClearRoomForGameViewport)
+        viewportRoomKey = nil
+    end
 
     -- Kamerayi gameplay'e ANINDA geri ver (sure=0). Smooth (400ms) donus + hemen
     -- ardindan cam/klon/backdrop silme YARIS DURUMU yaratir: kullanici o 400ms
