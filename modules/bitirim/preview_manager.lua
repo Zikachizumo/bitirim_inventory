@@ -150,18 +150,20 @@ local CAM_TEST_FLAGS    = 1     -- SADECE dunya/statik geometri (bina/duvar) —
 -- edildi. Bu yuzden: (1) LEFT_TERRAIN_SAFE_DIST asagida 1.5'e cikarildi (artik
 -- diagnostic'in FIILEN buldugu mesafeyle uyumlu), (2) placeKlon()'un sonuna
 -- AYRICA previewPed'in (yatay duzeltmeden SONRAKI nihai) X/Y'sindeki GERCEK
--- zemin yuksekligini (GetGroundZFor_3dCoord, Round 5 diagnostic'teki AYNI
--- guvenli desen: z+50'den asagi arama + pcall + found kontrolu) previewPed'in
--- mevcut Z'siyle karsilastiran, previewPed'i SADECE zemin daha YUKSEKSE VE
--- SADECE o gercek fark kadar (MAX_TERRAIN_Z_LIFT ile sinirli) YUKARI kaldiran
--- bagimsiz bir dikey kontrol eklendi. Her iki kontrol de HER CAGRIDA (her
+-- zemin yuksekligini (GetGroundZFor_3dCoord + pcall + found kontrolu)
+-- previewPed'in mevcut Z'siyle karsilastiran, previewPed'i SADECE zemin daha
+-- YUKSEKSE VE SADECE o gercek fark kadar YUKARI kaldiran bagimsiz bir dikey
+-- kontrol eklendi. (Arama artik z+50'den DEGIL, klonun hemen ustunden baslar ve
+-- MAX_TERRAIN_Z_LIFT'i asan bulgular kirpilmadan REDDEDILIR -- bkz placeKlon
+-- icindeki "KOPRU/VIYADUK ALTI DUZELTMESI" notu, 2026-08-29.) Her iki kontrol de HER CAGRIDA (her
 -- frame) `pos`'tan (yani taze anchorPos'tan) SIFIRDAN hesaplanir -> ONCEKI
 -- karenin duzeltilmis konumu asla girdi olarak kullanilmaz (kumulatif SURUKLENME
 -- YOK). Duz zeminde/RIGHT tarafta iki kontrol de "duzeltme gerekmiyor" sonucuna
 -- varir -> previewPed'e HICBIR ek SetEntityCoordsNoOffset cagrisi yapilmaz.
 local LEFT_TERRAIN_SAFE_DIST = 1.5   -- previewPed'in SOLUNDA bu mesafeye kadar dunya/statik geometri OLMAMALI -- Round 7-9 diagnostic'in AYNI engeli 1.5m'de bulmus olmasiyla UYUMLU (bkz Round 11 notu)
 local LEFT_TERRAIN_MAX_PUSH  = 0.30  -- previewPed en fazla bu kadar SAGA (camR yonunde) itilebilir -- kadraj/kompozisyon asiri bozulmasin
-local MAX_TERRAIN_Z_LIFT     = 0.60  -- previewPed en fazla bu kadar YUKARI kaldirilabilir -- GetGroundZFor_3dCoord yanlis/asiri deger donerse buyuk Z sicramasina karsi guvenlik ustsiniri (bilinen gercek fark ~0.47m'nin biraz uzerinde)
+local MAX_TERRAIN_Z_LIFT     = 0.60  -- previewPed en fazla bu kadar YUKARI kaldirilabilir -- bunun USTUNDEKI "zemin" bulgusu kirpilmaz, GECERSIZ sayilir (kopru tabliyesi/tavan/ust kat); gercek fark bilindigi kadariyla ~0.47m
+local GROUND_PROBE_MARGIN    = 0.10  -- zemin aramasi klonun (pos.z + MAX_TERRAIN_Z_LIFT) uzerinden bu kadar yukaridan baslar -- ustteki kopru/tavan isin menziline hic girmesin diye KUCUK tutulur (eskiden 50.0 idi, kopru alti hatasinin sebebi)
 
 
 -- Aynalanan ped bilesenleri / proplari (illenium + GTA standart).
@@ -353,11 +355,21 @@ local function placeKlon()
 
     -- 2) DIKEY: previewPed'in nihai (yukaridaki duzeltmeden SONRAKI) X/Y'sindeki
     --    GERCEK zemin previewPed'in Z'sinden yuksekse (ayaklar gomulur), SADECE
-    --    o gercek fark kadar (en fazla MAX_TERRAIN_Z_LIFT) YUKARI kaldir. Zemin
-    --    daha ALCAKSA (duz zemin/RIGHT taraf) HICBIR SEY degismez (asla asagi
-    --    indirmez). Ayni guvenli GetGroundZFor_3dCoord deseni (z+50'den asagi
-    --    arama + pcall + found kontrolu) Round 5 diagnostic thread'inde zaten
-    --    kullaniliyor -- burada BAGIMSIZ bir kopyasi.
+    --    o gercek fark kadar YUKARI kaldir. Zemin daha ALCAKSA (duz zemin/RIGHT
+    --    taraf) HICBIR SEY degismez (asla asagi indirmez).
+    -- KOPRU/VIYADUK ALTI DUZELTMESI (2026-08-29): arama BASLANGIC yuksekligi
+    -- eskiden pos.z + 50.0 idi; GetGroundZFor_3dCoord ASAGI dogru aradigi icin
+    -- bu, oyuncunun USTUNDEKI koprunun/viyadugun TABLIYESINI "zemin" olarak
+    -- buluyordu (Olympic Fwy alti). zDeficit metrelerce cikiyor, math.min ile
+    -- MAX_TERRAIN_Z_LIFT'e kirpiliyor ve klon HER ZAMAN tam 0.60m havaya
+    -- kalkiyordu -> kafa cerceve disinda kaliyordu (kullanici ekran goruntusu).
+    -- IKI KATMANLI KORUMA:
+    --   (a) aramaya klonun sadece PROBE_MARGIN kadar ustunden basla -> ustteki
+    --       tabliye/tavan zaten isin menziline GIRMEZ,
+    --   (b) buna ragmen MAX_TERRAIN_Z_LIFT'ten YUKSEK bir "zemin" bulunursa bu
+    --       bizim zeminimiz DEGILDIR (kopru/tavan/ust kat) -> kirpma YOK, hicbir
+    --       duzeltme uygulanmaz. Gercek "ayak gomulmesi" vakasi (kaldirim/egim)
+    --       her zaman KUCUK bir farktir; buyuk fark = yanlis yuzey.
     -- ICERIDEYSE (bina/interior) bu kontrolu ATLA: GetGroundZFor_3dCoord ic
     -- mekanlarda GUVENILMEZ (ust kattaki tavan/zemin gibi yanlis bir yuzeye
     -- carpip previewPed'i GEREKSIZ YERE havaya kaldirabiliyordu -- 2026-08-27,
@@ -368,13 +380,16 @@ local function placeKlon()
     local isInterior = realPed and DoesEntityExist(realPed) and GetInteriorFromEntity(realPed) ~= 0
     local okGround, foundGround, groundZ = false, false, nil
     if not isInterior then
-        okGround, foundGround, groundZ = pcall(GetGroundZFor_3dCoord, safeX, safeY, pos.z + 50.0, false)
+        okGround, foundGround, groundZ = pcall(GetGroundZFor_3dCoord, safeX, safeY,
+            pos.z + MAX_TERRAIN_Z_LIFT + GROUND_PROBE_MARGIN, false)
     end
     local zDeficit = nil
     if okGround and foundGround and groundZ then
         zDeficit = groundZ - pos.z
-        if zDeficit > 0.0 then
-            safeZ = pos.z + math.min(zDeficit, MAX_TERRAIN_Z_LIFT)
+        -- Sadece KUCUK ve POZITIF fark gercek bir zemin duzeltmesidir. Ust sinirin
+        -- USTUNDEKI degerler kirpilmaz, KOMPLE REDDEDILIR (bkz kopru alti notu).
+        if zDeficit > 0.0 and zDeficit <= MAX_TERRAIN_Z_LIFT then
+            safeZ = pos.z + zDeficit
             moved = true
         end
     end
