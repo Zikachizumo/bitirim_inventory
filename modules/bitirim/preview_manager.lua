@@ -191,7 +191,6 @@ local curWeapon    = nil
 local camF         = nil    -- kamera ileri vektoru (studioYaw'dan turetilir)
 local camR         = nil    -- kamera sag vektoru (studioYaw'dan turetilir; camSide bu eksende kaydirir)
 local diagRenderTicks = 0   -- GECICI TESHIS: render thread kac kare dondu (bkz GECICI TESHIS blogu)
-local viewportRoomKey = nil -- MLO interior odasi viewport icin sabitlendiyse anahtari (bkz CreatePreview/DestroyPreview)
 local chestOffsetZ = nil    -- klonun gogus yuksekliginin ankora gore ofseti; BIR KEZ olculur (bkz chestZ) -> kamera Z nefes animasyonuyla titremez
 local studioCamDist = nil   -- canta acilisinda BIR KEZ belirlenen kamera mesafesi (secilen yonun olculen boslugundan); canta kapanana kadar SABIT -> kamera hic oynamaz
 local studioYaw    = nil    -- sahnenin O ANKI yonu (yumusak sekilde studioYawTarget'a yaklasir)
@@ -796,6 +795,9 @@ local function CreatePreview(showCharacter)
         if interior ~= 0 then
             local ok, roomKey = pcall(GetRoomKeyFromEntity, realPed)
             if ok and roomKey and roomKey ~= 0 then
+                -- pcall: bu iki native FiveM Lua tarafinda ISIMLE bulunmayabilir
+                -- (SetRoomForGameViewportByKey ornegi, bkz asagisi) -- o durumda
+                -- sessizce atlanir, ASLA hata firlatmaz.
                 pcall(ForceRoomForEntity, previewPed, interior, roomKey)
             end
         end
@@ -826,21 +828,16 @@ local function CreatePreview(showCharacter)
     -- his korunur; buna karsilik sahne ILK karede dogru yonde acilir.)
     RenderScriptCams(true, false, 0, true, true)
 
-    -- MLO INTERIOR + SCRIPTED KAMERA: oyun, hangi interior ODASININ render
-    -- edilecegini KAMERANIN konumundan cozer. Studio kamerasi klonun birkac metre
-    -- arkasinda durdugu icin bu cozum magaza gibi dar MLO'larda "disarisi" olarak
-    -- sonuclanabiliyor; o an interior geometrisi ve o odadaki klon PORTAL CULLING
-    -- ile eleniyordu -> arka planda sokak goruntusu, karakter paneli KOMPLE BOS
-    -- (kullanici 2026-08-30 ekran goruntusuyle bildirdi, Sinners Passage magazasi).
-    -- Cozum: oyuncunun GERCEKTEN icinde oldugu odayi viewport icin acikca sabitle.
-    -- Canta kapaninca ClearRoomForGameViewport ile birakilir (bkz DestroyPreview).
-    if realPed and DoesEntityExist(realPed) and GetInteriorFromEntity(realPed) ~= 0 then
-        local ok, roomKey = pcall(GetRoomKeyFromEntity, realPed)
-        if ok and roomKey and roomKey ~= 0 then
-            SetRoomForGameViewportByKey(roomKey)
-            viewportRoomKey = roomKey
-        end
-    end
+    -- NOT (2026-08-30): burada bir sure "oyuncunun odasini viewport icin sabitle"
+    -- denemesi vardi (SetRoomForGameViewportByKey). O native FiveM Lua tarafinda
+    -- BU ISIMLE YOK -> cagri hata firlatiyor ve CreatePreview render thread
+    -- BASLAMADAN cokuyordu: klon olusuyor, kamera kuruluyor, ama gercek beden hic
+    -- gizlenmiyor -> oyuncu KENDI sirtini ve donmus bir kamera goruyordu. Teshis
+    -- ciktisi bunu kanitladi (renderTur=0). Ustelik GEREKSIZDI: ayni ciktida
+    -- interiorKlon == interiorGercek (137217) -- klon zaten dogru interior'da
+    -- kayitli. Oda kaydini yapan sey, kurulum penceresinde konumu ACIKCA yazan
+    -- duzeltme (yukarida). Bu blok TAMAMEN kaldirildi; interior render sorunu
+    -- tekrar ederse cozum isimle degil hash ile (Citizen.InvokeNative) aranmali.
 
     playIdle()
     mirrorWeapon(true)
@@ -884,15 +881,6 @@ local function CreatePreview(showCharacter)
         while active and previewPed and DoesEntityExist(previewPed) do
             mirrorAppearance()
             mirrorWeapon(false)
-            -- Viewport'a sabitlenen MLO odasi motor tarafindan sifirlanirsa geri
-            -- koy. Her karede DEGIL (gereksiz native trafigi = ses artefakti riski);
-            -- 150ms yeterli, ustelik sadece GERCEKTEN degistiyse yazilir.
-            if viewportRoomKey then
-                local ok, cur = pcall(GetRoomKeyForGameViewport)
-                if ok and cur ~= viewportRoomKey then
-                    SetRoomForGameViewportByKey(viewportRoomKey)
-                end
-            end
             Wait(150)
         end
     end)
@@ -903,13 +891,6 @@ local function DestroyPreview()
     active = false -- thread'ler cikar
     -- Sahne yonu bir sonraki acilisa SIZMASIN (yeni yer, yeni tarama).
     studioYaw, studioYawTgt = nil, nil
-
-    -- Viewport'a sabitlenen MLO odasini BIRAK (bkz CreatePreview). Birakilmazsa
-    -- canta kapandiktan sonra da oyun o odayi render etmeye calisir.
-    if viewportRoomKey then
-        pcall(ClearRoomForGameViewport)
-        viewportRoomKey = nil
-    end
 
     -- Kamerayi gameplay'e ANINDA geri ver (sure=0). Smooth (400ms) donus + hemen
     -- ardindan cam/klon/backdrop silme YARIS DURUMU yaratir: kullanici o 400ms
