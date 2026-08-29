@@ -62,11 +62,11 @@
     EXPORT API (exports.ox_inventory:<fn>):
         CreatePreview() DestroyPreview() IsPreviewActive()
         UpdateComponent(c,d,t,p) UpdateProp(p,d,t) UpdateWeapon(hash)
-        UpdateOutfit() SyncFromPlayer() RotatePreview(mode,val) SetCamera(cfg) TuneScene(action)
+        UpdateOutfit() SyncFromPlayer() RotatePreview(mode,val) SetCamera(cfg)
 ]]
 
 ------------------------------------------------------------------------------
--- YAPILANDIRMA (studio kamerasi + backdrop; /cam VEYA ok tuslari+Numpad1/2 ile dial edilir)
+-- YAPILANDIRMA (studio kamerasi + backdrop; SABIT degerler — canli dial YOK, /cam ile degisir)
 ------------------------------------------------------------------------------
 local cfg = {
     -- ARTIK BIR YUKSEKLIK OFSETI YOK: previewPed oyuncunun Z'siyle AYNI kalir
@@ -94,10 +94,10 @@ local cfg = {
     -- uzaktan cek, genis lensle yakinlasma" kuralinin AYNISI -- persfektifi
     -- DUZLESTIRIR, distorsiyonu koklu sekilde azaltir.
     camDist   = 2.55,  -- kamera klonun ONUNDE kac metre (SABIT HEDEF; /cam ile degisir, shape-test ile kisilabilir)
-    camSide   = 0.0,   -- KLONUN KADRAJDAKI yatay yeri. Klonu DEGIL, kamerayi DONDURUR (bkz computeCameraBasis "SADECE DONDURULUR") -> klon gercek dunya konumunda kalir VE her zaman tam cepheden gorunur. 0 = kadrajin ortasi. Ok tuslari (sol/sag) ile dial edilir.
-    camHeight = 0.05,  -- KLONUN KADRAJDAKI dikey yeri — camSide ile ayni mantik: kamera yerinden oynamaz, bakis hedefi kaydirilir. Ok tuslari (yukari/asagi) ile dial edilir.
+    camSide   = -1.10, -- KLONUN KADRAJDAKI yatay yeri. Klonu DEGIL, kamerayi DONDURUR (bkz computeCameraBasis "SADECE DONDURULUR") -> klon gercek dunya konumunda kalir VE her zaman tam cepheden gorunur. KALICI DEGER (2026-08-30, kullanici oyun icinde dial edip onayladi).
+    camHeight = 0.15,  -- KLONUN KADRAJDAKI dikey yeri — camSide ile ayni mantik: kamera yerinden oynamaz, bakis hedefi kaydirilir. KALICI DEGER (2026-08-30).
     lookDown  = 0.30,  -- bakis hedefi: ust gogusun kac metre ALTI (govde ortasi)
-    fov       = 45.0,  -- gorus acisi (dar=yakin/buyuk gorunur) — 2026-08-27: 64'ten 45'e DARALTILDI (camDist buyumesiyle AYNI dikey kapsamayi korur, bkz ustteki not) — genis-aci distorsiyonunu azaltmak icin
+    fov       = 65.0,  -- gorus acisi (dar=yakin/buyuk gorunur). KALICI DEGER (2026-08-30, kullanici dial edip onayladi). NOT: 2.55m mesafede 65 derece GENIS bir aci; kamera artik klonun TAM KARSISINDA durdugu icin yan-bakis yok, ama kadraj kenarina dogru genis-aci gerilmesi artar. Ayni kadraji daha "duz" istersen camDist=3.92 + fov=45 ayni dikey kapsamayi verir (kapsama = 2*dist*tan(fov/2)).
     backDist  = 2.40,  -- backdrop klonun kac metre ARKASINDA
     backZ     = 0.0,   -- backdrop dikey ince ayar
     -- TEK NOKTA: butun panellerin (karakter/envanter/depo/bagaj/torpido) arka plan
@@ -943,8 +943,9 @@ local function RotatePreview(mode, value)
 end
 
 --- Studio kadraj ince ayari (chat /cam icin — tum degerleri kabul eder, kamera TABANINI
---- yeniden hesaplar). Ok tuslari/Numpad1-2 (TuneScene) BUNU KULLANMAZ (kamera dial
---- sirasinda sabit kalsin diye placeKlon/SetCamFov'u dogrudan cagirir).
+--- yeniden hesaplar). Canli klavye dial (ok tuslari + Numpad1/2) 2026-08-30'da
+--- KALDIRILDI: kullanici begendigi kadraji buldu, artik cfg icindeki SABIT
+--- degerler kullaniliyor. Fare ile cevirme (RotatePreview) DURUYOR.
 local function SetCamera(cfgIn)
     if type(cfgIn) ~= 'table' then return end
     if cfgIn.dist     then cfg.camDist   = cfgIn.dist + 0.0 end
@@ -955,43 +956,6 @@ local function SetCamera(cfgIn)
     if cfgIn.look     then cfg.lookDown  = cfgIn.look + 0.0 end
     if cfgIn.backdist then cfg.backDist  = cfgIn.backdist + 0.0 end
     setupStudio()
-end
-
---- Klavye ayar (index.tsx -> NUI 'bitirim:charTune' -> buraya). 2 EKSEN + zoom:
----   Ok tuslari up/down    = KLONUN KADRAJDAKI dikey yeri (camHeight)
----   Ok tuslari left/right = KLONUN KADRAJDAKI yatay yeri (camSide)
----   Numpad 1/2 zoomin/zoomout = ZOOM (fov; kucuk fov=yakin/buyuk gorunur)
---- 2026-08-29'dan beri bu iki eksen KLONU DEGIL KAMERAYI oteler (lens kaydirma,
---- bkz computeCameraBasis) -> klon oyuncunun GERCEK konumunda kalir. Isaret
---- computeCameraBasis'te terslendigi icin basilan tusun yonu ile klonun ekranda
---- kaydigi yon HALA AYNI (ters paralaks YOK).
---- Begenilen degerleri F8'de gorup soyle -> kalici yaparim.
-local function TuneScene(action)
-    if not active then return end
-    local POS, FOVSTEP = 0.10, 2.0  -- tek tusa basinca ACIKCA gorunur adim
-    if action == 'up' then
-        cfg.camHeight = cfg.camHeight + POS
-        setupStudio()
-    elseif action == 'down' then
-        cfg.camHeight = cfg.camHeight - POS
-        setupStudio()
-    elseif action == 'left' then
-        cfg.camSide = cfg.camSide - POS
-        setupStudio()
-    elseif action == 'right' then
-        cfg.camSide = cfg.camSide + POS
-        setupStudio()
-    elseif action == 'zoomin' then
-        cfg.fov = math.max(10.0, cfg.fov - FOVSTEP)
-        if studioCam then SetCamFov(studioCam, cfg.fov) end
-    elseif action == 'zoomout' then
-        cfg.fov = math.min(80.0, cfg.fov + FOVSTEP)
-        if studioCam then SetCamFov(studioCam, cfg.fov) end
-    else
-        return
-    end
-    print(('^3[bitirim] studio camSide=%.2f camHeight=%.2f fov=%.1f^7')
-        :format(cfg.camSide, cfg.camHeight, cfg.fov))
 end
 
 local function IsPreviewActive() return active end
@@ -1008,7 +972,6 @@ exports('UpdateWeapon',    UpdateWeapon)
 exports('UpdateOutfit',    UpdateOutfit)
 exports('SyncFromPlayer',  SyncFromPlayer)
 exports('RotatePreview',   RotatePreview)
-exports('TuneScene',       TuneScene)
 exports('SetCamera',       SetCamera)
 
 -- Emniyet: kaynak durursa temizle.
