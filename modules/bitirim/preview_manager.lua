@@ -190,6 +190,7 @@ local compCache    = {}     -- aynalama diff onbellegi
 local curWeapon    = nil
 local camF         = nil    -- kamera ileri vektoru (studioYaw'dan turetilir)
 local camR         = nil    -- kamera sag vektoru (studioYaw'dan turetilir; camSide bu eksende kaydirir)
+local diagRenderTicks = 0   -- GECICI TESHIS: render thread kac kare dondu (bkz GECICI TESHIS blogu)
 local viewportRoomKey = nil -- MLO interior odasi viewport icin sabitlendiyse anahtari (bkz CreatePreview/DestroyPreview)
 local chestOffsetZ = nil    -- klonun gogus yuksekliginin ankora gore ofseti; BIR KEZ olculur (bkz chestZ) -> kamera Z nefes animasyonuyla titremez
 local studioCamDist = nil   -- canta acilisinda BIR KEZ belirlenen kamera mesafesi (secilen yonun olculen boslugundan); canta kapanana kadar SABIT -> kamera hic oynamaz
@@ -615,6 +616,48 @@ end
 --- gogus bonuna gore hesaplanir) ama GORUNMEZ yapilir -> backdrop panel gorunur,
 --- karakter gorunmez. Torpido/bagaj/motel/otel gibi kap gorunumlerinde kullanilir
 --- (kullanici istegi: arka plan HER YERDE ama karakter SADECE karakter panelinde).
+
+------------------------------------------------------------------------------
+-- GECICI TESHIS (2026-08-30) -- BINA ICINDE ONIZLEME BASLAMIYOR
+------------------------------------------------------------------------------
+-- Belirti: magaza/MLO icinde canta acilinca studio kamerasi devreye girmiyor,
+-- gercek beden gizlenmiyor, klon yok -> oyuncu normal 3. sahis kamerasini ve
+-- KENDI sirtini goruyor (kamera dar mekanda mobilyaya giriyor -- bu oyunun
+-- kendi kamerasinin normal davranisi, bizim kameramiz DEGIL).
+-- Kurulum penceresi (klon olusturuldu ama henuz freeze edilmedi) birkac kare
+-- surdugu icin bu pencerede previewPed'in silinmesi/active'in dusmesi tum
+-- kurulumu yarida kesiyor olabilir. Asagidaki iki teshis bunu KESIN olarak
+-- ayirt eder. SORUN COZULUNCE BU BLOK TAMAMEN SILINECEK.
+local DIAG = true
+
+local function diagAbort(where)
+    if not DIAG then return end
+    print(('^1[bitirim-teshis] KURULUM YARIDA KESILDI @%s -> active=%s previewPed=%s exists=%s^7')
+        :format(where, tostring(active), tostring(previewPed),
+                (previewPed and tostring(DoesEntityExist(previewPed))) or 'nil'))
+end
+
+--- Acilistan sonra 0.5/1.5/3.0 sn'de sahnenin GERCEK durumunu yazar.
+local function diagWatch()
+    if not DIAG then return end
+    CreateThread(function()
+        for _, delay in ipairs({ 500, 1000, 1500 }) do
+            Wait(delay)
+            local rp = realPed
+            local pp = previewPed
+            print(('^3[bitirim-teshis] t=%dms active=%s klon=%s klonVar=%s kamera=%s camAktif=%s renderTur=%d interiorGercek=%s interiorKlon=%s^7')
+                :format(GetGameTimer() % 100000,
+                        tostring(active),
+                        tostring(pp),
+                        (pp and tostring(DoesEntityExist(pp))) or 'nil',
+                        tostring(studioCam),
+                        (studioCam and tostring(IsCamActive(studioCam))) or 'nil',
+                        diagRenderTicks,
+                        (rp and DoesEntityExist(rp) and tostring(GetInteriorFromEntity(rp))) or 'nil',
+                        (pp and DoesEntityExist(pp) and tostring(GetInteriorFromEntity(pp))) or 'nil'))
+        end
+    end)
+end
 local function CreatePreview(showCharacter)
     if showCharacter == nil then showCharacter = true end
     if active then return end
@@ -703,6 +746,8 @@ local function CreatePreview(showCharacter)
     spawnBackdrop()
 
     active = true
+    diagRenderTicks = 0
+    diagWatch()   -- GECICI TESHIS
     compCache = {}
     curWeapon = nil
     setupStudio()               -- klon+kamera+backdrop studio konumuna (previewPed HALA collision'li/frozen degil)
@@ -740,7 +785,7 @@ local function CreatePreview(showCharacter)
         -- Collision bu pencerede ACIK oldugu icin devralinan hiz klonu kaydirabilir.
         SetEntityVelocity(previewPed, 0.0, 0.0, 0.0)
         Wait(0)
-        if not active or not previewPed or not DoesEntityExist(previewPed) then return end
+        if not active or not previewPed or not DoesEntityExist(previewPed) then diagAbort("oda-kaydi-dongusu"); return end
     end
 
     -- Ustelik oda kaydini SANSA birakmiyoruz: oyuncu bir MLO icindeyse klonu
@@ -767,7 +812,7 @@ local function CreatePreview(showCharacter)
     -- DestroyPreview() calisirsa) previewPed COKTAN silinmis olabilir. Boyle bir durumda
     -- silinmis/gecersiz entity uzerinde native cagirmamak icin burada durup cikariz
     -- (DestroyPreview zaten her seyi temizledi, tekrar dokunmuyoruz).
-    if not active or not previewPed or not DoesEntityExist(previewPed) then return end
+    if not active or not previewPed or not DoesEntityExist(previewPed) then diagAbort("tarama-sonrasi"); return end
 
     setupStudio()   -- taramanin sectigi yonle kamerayi/klonu yeniden otur
 
@@ -821,6 +866,7 @@ local function CreatePreview(showCharacter)
             -- oyuncular ASLA gormez; showCharacter=false ise (kap gorunumu) biz de
             -- gormeyiz (mevcut niyetle ayni).
             if showCharacter then SetEntityLocallyVisible(previewPed) end
+            diagRenderTicks = diagRenderTicks + 1   -- GECICI TESHIS
             updateAnchor()
             setupStudio()
             -- Odak SABIT bir noktaya kurulur (canli kemik degil) -> streaming/ses
