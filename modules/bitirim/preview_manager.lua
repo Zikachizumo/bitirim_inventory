@@ -140,15 +140,19 @@ local MAX_COMPENSATED_FOV = 75.0
 -- bir BONUSLA her zaman ilk adaydir -> ACIK ALANDA DAVRANIS HIC DEGISMEZ, sadece
 -- sikisik yerlerde sahne ferah yone doner. Klon kameraya bakmaya devam ettigi
 -- icin (heading = studioYaw + 180) kullanicinin gordugu TEK fark ARKA PLANDIR.
+-- TARAMA CANTA ACILIRKEN BIR KEZ yapilir, secilen yon canta kapanana kadar
+-- DEGISMEZ. Ilk surumde 500ms'de bir tazeleniyordu; olcum sonuclarinin bir kismi
+-- her turda farkli karede yetistigi icin secilen yon durmadan degisiyor ve sahne
+-- oynuyordu (kullanici: "ekranda saniyede bir sicrama"). Tek seferlik tarama hem
+-- bu sorunu kokten kaldirir hem de yeterlidir: canta acikken oyuncu yerinde durur.
 local YAW_STEPS        = 8      -- 360/8 = 45 derecelik adimlarla aday yon
 local YAW_BATCH        = 2      -- ayni karede baslatilan aday yon sayisi (2 yon x 3 yukseklik x 2 taraf = 12 es zamanli shape test) -> tarama 4 karede biter
 local YAW_PROBE_H      = { 0.35, 1.00, 1.60 }  -- ayak / govde / bas hizasi (tek yukseklik ince tezgah/korkulugu KACIRIR)
 local YAW_BACK_CLEAR   = 2.20   -- klonun ARKASINDA (arka plan) aranan bosluk (metre) — bundan fazlasi puanlamada AYNI sayilir
 local YAW_BACK_WEIGHT  = 0.60   -- arka plan IKINCIL (kadraji kamera tarafi belirler) ama ONEMSIZ DEGIL: kolon/raf dibinde sikayetin ASIL kaynagi arka plandi
 local YAW_NATURAL_BONUS = 0.45  -- oyuncunun kendi bakis yonune verilen avantaj -> acik alanda ASLA gereksiz yere donmez (ama tek tarafi kapali bir yeri de "idare eder" diye SECMEZ)
-local YAW_HYSTERESIS   = 0.45   -- yeni aday, mevcut yondan bu kadar IYI olmadikca DEGISILMEZ (kare-kare savrulma olmasin)
-local YAW_SCAN_PERIOD  = 500    -- ms — tarama bu araliktan daha sik yapilmaz
-local YAW_LERP         = 0.12   -- yon degisimi bu hizla YUMUSAK uygulanir (ani donme/sicrama YOK)
+local PROBE_MAX_WAIT   = 8      -- bir grubun shape-test sonuclari icin beklenecek EN FAZLA kare; gelmezse o grup PUANLANMAZ (yarim olcumle karar vermek "saniyede bir sicrama" hatasinin sebebiydi)
+local SCAN_MAX_FRAMES  = 14     -- TUM taramanin toplam kare butcesi -- sonuclar gecikse bile canta acilisi bu suredan (~230ms) fazla beklemez, kalan yonler puanlanmadan gecilir
 
 ------------------------------------------------------------------------------
 -- TERRAIN-SAFE YERLESIM: KALDIRILDI (2026-08-29)
@@ -213,13 +217,6 @@ local function rightOf(h)
     return vector3(math.cos(r), math.sin(r), 0.0)  -- heading h'nin sagi
 end
 
---- a acisindan b acisina EN KISA yoldan (yani 350->10 arasi 20 derece, 340 DEGIL)
---- t oraninda ilerle. 0/360 sinirinda tam tur atmayi onler.
-local function lerpAngle(a, b, t)
-    local d = (b - a + 540.0) % 360.0 - 180.0
-    return (a + d * t) % 360.0
-end
-
 --- Sahnenin O ANDA gecerli yonu. Tarama henuz sonuc uretmediyse (ilk kare)
 --- oyuncunun kendi heading'ine duser -> eski davranisla BIREBIR ayni baslangic.
 local function currentYaw()
@@ -246,19 +243,24 @@ end
 ------------------------------------------------------------------------------
 -- STUDIO YONU TARAMASI (bkz yukaridaki "DAR/KAPALI/ENGELLI ALAN COZUMU" notu)
 ------------------------------------------------------------------------------
---- (cx,cy,cz)'den (dx,dy) yonunde maxDist metreye kadar SERBEST mesafeyi olcer.
---- Engel yoksa maxDist doner. Shape test ASENKRON oldugu icin bu fonksiyon SADECE
---- testi BASLATIR ve handle dondurur; sonuc bir sonraki karede okunur (bkz
---- scanStudioYaw). Ayni karede baslatip okumak PENDING sonuc verir -> her yonu
---- "acik" sanar, tarama sessizce ise yaramazdi.
+--- (cx,cy,cz)'den (dx,dy) yonunde maxDist metreye kadar bakan bir shape test
+--- BASLATIR ve handle dondurur. Sonuc AYNI KAREDE hazir olmaz -> bkz tryReadProbe.
 local function startFreeProbe(cx, cy, cz, dx, dy, maxDist)
     return StartShapeTestCapsule(cx, cy, cz,
         cx + dx * maxDist, cy + dy * maxDist, cz,
         CAM_TEST_RADIUS, CAM_TEST_FLAGS, 0, 7)
 end
 
-local function readFreeProbe(handle, cx, cy, maxDist)
-    local _, hit, endCoords = GetShapeTestResult(handle)
+--- Sonuc HAZIRSA serbest mesafeyi, hazir DEGILSE nil doner.
+--- KRITIK (2026-08-29, kullanici "ekranda saniyede bir sicrama" olarak bildirdi):
+--- GetShapeTestResult'in ILK donus degeri DURUMDUR (2 = hazir, 1 = hesaplaniyor).
+--- Bu durum eskiden yok sayiliyordu; hesaplanmakta olan bir isin "carpma yok"
+--- gibi okunmasi o yonu "tamamen acik" gosteriyordu. Hangi isinin hangi karede
+--- yetisecegi degisken oldugu icin her taramada BASKA bir yon kazaniyor, sahne
+--- surekli oraya savriliyordu. Artik hazir olmayan sonuc OKUNMAZ, beklenir.
+local function tryReadProbe(handle, cx, cy, maxDist)
+    local state, hit, endCoords = GetShapeTestResult(handle)
+    if state ~= 2 then return nil end
     if hit == 1 or hit == true then
         local d = #(vector3(endCoords.x - cx, endCoords.y - cy, 0.0))
         if d < maxDist then return d end
@@ -266,25 +268,49 @@ local function readFreeProbe(handle, cx, cy, maxDist)
     return maxDist
 end
 
+--- Bir grubun butun isinlarini sonuclanana kadar (en fazla PROBE_MAX_WAIT kare)
+--- toplar. Hepsi geldiyse true, gelmediyse false doner -> eksik olcumle karar
+--- VERILMEZ, o grup atlanir.
+local function collectProbes(batch, ox, oy, budget)
+    local pending = #batch * #YAW_PROBE_H * 2
+    local tries = 0
+    while pending > 0 and tries < PROBE_MAX_WAIT and budget.frames < SCAN_MAX_FRAMES do
+        Wait(0)
+        tries = tries + 1
+        budget.frames = budget.frames + 1
+        if not active then return false end
+        for _, c in ipairs(batch) do
+            for k = 1, #YAW_PROBE_H do
+                if c.camD[k] == nil then
+                    local d = tryReadProbe(c.camH[k], ox, oy, cfg.camDist)
+                    if d then c.camD[k] = d; pending = pending - 1 end
+                end
+                if c.backD[k] == nil then
+                    local d = tryReadProbe(c.backH[k], ox, oy, YAW_BACK_CLEAR)
+                    if d then c.backD[k] = d; pending = pending - 1 end
+                end
+            end
+        end
+    end
+    return pending == 0
+end
+
 --- Klonun etrafindaki YAW_STEPS yonu tarar, en ferah olani studioYawTgt'ye yazar.
---- Kendi thread'inde calisir (Wait(0) ile test sonuclarini bir sonraki karede
---- okuyabilmek icin) -> render thread'i HIC bloklamaz.
+--- SADECE canta acilirken (kamera aktiflesmeden once) BIR KEZ calisir — periyodik
+--- tekrar YOK (bkz CreatePreview'daki not). Kendi Wait(0)'lari oldugu icin bir
+--- coroutine icinden cagrilmalidir.
 local function scanStudioYaw()
     if not active or not anchorPos then return end
     local origin, natural = anchorPos, anchorHead
-    local best, bestScore = natural, -1.0
-    -- Mevcut hedef yona EN YAKIN adayin puani: histerezis karsilastirmasi icin
-    -- (adaylar `natural`e gore uretildigi ve oyuncu bu arada donmus olabilecegi
-    -- icin mevcut yon izgaraya tam oturmayabilir -> en yakin aday kullanilir).
-    local curScore, curBestDelta = nil, 999.0
+    local best, bestScore = nil, -1.0
+    local budget = { frames = 0 }   -- tum taramanin ortak kare butcesi (bkz SCAN_MAX_FRAMES)
 
-    -- Adaylar YAW_BATCH'lik gruplar halinde islenir: bir grubun BUTUN isinlari ayni
-    -- karede baslatilir, bir kare beklenip hepsi okunur. Grup boyutu KUCUK tutulur
-    -- cunku motorun es zamanli bekleyebilecegi shape-test sayisi SINIRLI (8 yonun
-    -- 6'sar isini tek karede baslatmak sessizce sonucsuz kalmaya acik olurdu);
-    -- ama tek tek de ilerlenmez, yoksa tarama canta acilisini gereksiz geciktirir.
+    -- Adaylar YAW_BATCH'lik gruplar halinde islenir: motorun ayni anda
+    -- hesaplayabilecegi shape-test sayisi sinirli oldugu icin 8 yonun 6'sar isini
+    -- TEK karede baslatmak sonuclari geciktirir; tek tek ilerlemek ise acilisi
+    -- gereksiz uzatir.
     local i = 0
-    while i < YAW_STEPS do
+    while i < YAW_STEPS and budget.frames < SCAN_MAX_FRAMES do
         if not active or not anchorPos then return end
         local batch = {}
         for _ = 1, YAW_BATCH do
@@ -297,43 +323,34 @@ local function scanStudioYaw()
                 camH[k]  = startFreeProbe(origin.x, origin.y, z, -f.x, -f.y, cfg.camDist)
                 backH[k] = startFreeProbe(origin.x, origin.y, z,  f.x,  f.y, YAW_BACK_CLEAR)
             end
-            batch[#batch + 1] = { idx = i, yaw = yaw, camH = camH, backH = backH }
+            batch[#batch + 1] = { idx = i, yaw = yaw, camH = camH, backH = backH, camD = {}, backD = {} }
             i = i + 1
         end
 
-        Wait(0)
-        if not active then return end
+        -- Olcumler EKSIKSE bu grup PUANLANMAZ (yarim veriyle karar verilmez),
+        -- diger gruplarla devam edilir.
+        if collectProbes(batch, origin.x, origin.y, budget) then
+            for _, c in ipairs(batch) do
+                -- Bir yonun puani EN DAR yuksekligiyle belirlenir: gogus hizasi bos
+                -- olsa bile diz hizasindaki tezgah kadraji bozar (magaza gorseli).
+                local camClear, backClear = cfg.camDist, YAW_BACK_CLEAR
+                for k = 1, #YAW_PROBE_H do
+                    if c.camD[k] < camClear then camClear = c.camD[k] end
+                    if c.backD[k] < backClear then backClear = c.backD[k] end
+                end
 
-        for _, c in ipairs(batch) do
-            -- Bir yonun puani EN DAR yuksekligiyle belirlenir: gogus hizasi bos olsa
-            -- bile diz hizasindaki tezgah kadraji bozar (magaza ekran goruntusu).
-            local camClear, backClear = cfg.camDist, YAW_BACK_CLEAR
-            for k = 1, #YAW_PROBE_H do
-                local cd = readFreeProbe(c.camH[k], origin.x, origin.y, cfg.camDist)
-                if cd < camClear then camClear = cd end
-                local bd = readFreeProbe(c.backH[k], origin.x, origin.y, YAW_BACK_CLEAR)
-                if bd < backClear then backClear = bd end
+                local score = camClear + backClear * YAW_BACK_WEIGHT
+                if c.idx == 0 then score = score + YAW_NATURAL_BONUS end  -- oyuncunun kendi bakis yonu
+                if score > bestScore then bestScore, best = score, c.yaw end
             end
-
-            local score = camClear + backClear * YAW_BACK_WEIGHT
-            if c.idx == 0 then score = score + YAW_NATURAL_BONUS end  -- oyuncunun kendi bakis yonu
-            if score > bestScore then bestScore, best = score, c.yaw end
-
-            if studioYawTgt then
-                local delta = math.abs((c.yaw - studioYawTgt + 540.0) % 360.0 - 180.0)
-                if delta < curBestDelta then curBestDelta, curScore = delta, score end
-            end
+        elseif not active then
+            return
         end
     end
 
-    -- Oyuncu tarama sirasinda tasindiysa (arac/tp) sonuc artik baska bir yere ait.
-    if not active or not anchorPos or #(anchorPos - origin) > 2.0 then return end
-
-    -- HISTEREZIS: yeni aday MEVCUT yondan belirgin sekilde iyi degilse yerinde KAL
-    -- -> iki yonun puani birbirine yakinken sahne ileri-geri savrulmaz.
-    if not studioYawTgt or not curScore or bestScore > curScore + YAW_HYSTERESIS then
-        studioYawTgt = best
-    end
+    -- Hicbir yon olculemediyse (butun isinlar zaman asimina ugradi) sahneyi
+    -- oyuncunun kendi bakis yonunde birak — eski davranisin AYNISI.
+    studioYawTgt = best or natural
 end
 
 --- KAMERA TABANINI hesaplar (SADECE kamera; klona DOKUNMAZ). previewPed'i GECICI
@@ -396,21 +413,14 @@ end
 local function computeCameraBasis()
     if not previewPed or not DoesEntityExist(previewPed) or not studioCam or not anchorPos then return end
 
-    -- Sahnenin yonu:
-    --   * tarama henuz sonuc uretmediyse -> oyuncunun kendi heading'i (eski davranis),
-    --   * ILK sonucta -> ANINDA otur (canta acilir acilmaz gozle gorulur bir donme
-    --     olmasin; ilk tarama zaten kamera aktiflesmeden ONCE bitiyor, bkz CreatePreview),
-    --   * sonraki degisimlerde -> YUMUSAK gecis (ani sicrama YOK).
-    local yaw
-    if studioYawTgt == nil then
-        yaw = anchorHead
-    elseif studioYaw == nil then
-        studioYaw = studioYawTgt
-        yaw = studioYaw
-    else
-        studioYaw = lerpAngle(studioYaw, studioYawTgt, YAW_LERP)
-        yaw = studioYaw
-    end
+    -- Sahnenin yonu: tarama canta acilirken BIR KEZ karar verir ve o yon canta
+    -- kapanana kadar SABIT kalir (studioYaw). Tarama sonuc uretmediyse oyuncunun
+    -- kendi heading'ine duser -> eski davranisin AYNISI.
+    -- SABIT OLMASI KASITLI (2026-08-29): yon canta acikken tekrar hesaplansaydi
+    -- her tazelemede kucuk olcum farklari sahneyi oynatirdi; kullanici bunu
+    -- "ekranda saniyede bir sicrama" olarak bildirdi.
+    local yaw = studioYaw or studioYawTgt or anchorHead
+    studioYaw = yaw
     local fwd = forwardOf(yaw)
     local right = rightOf(yaw)
     SetEntityCoordsNoOffset(previewPed, anchorPos.x, anchorPos.y, anchorPos.z, false, false, false)
@@ -699,9 +709,9 @@ local function CreatePreview(showCharacter)
 
     -- ILK YON TARAMASI kamera AKTIFLESMEDEN ONCE calisir -> sahne daha ILK karede
     -- dogru (ferah) yonde acilir, acildiktan sonra gozle gorulur bir donme OLMAZ
-    -- (bkz computeCameraBasis'teki "ILK sonucta ANINDA otur" dali). Tarama grup
-    -- basina bir kare bekler (8 yon / YAW_BATCH = 4 kare, ~65ms) — acilis
-    -- gecikmesi goz ile fark edilmeyecek kadar kisa tutulmasinin sebebi budur.
+    -- Secilen yon canta kapanana kadar SABIT kalir (periyodik tazeleme YOK).
+    -- Tarama grup basina sonuclar gelene kadar bekler (tipik 8 yon / YAW_BATCH =
+    -- 4 kare, ~65ms; sonuclar gecikirse grup basina en fazla PROBE_MAX_WAIT kare).
     scanStudioYaw()
 
     -- GUVENLIK: yukaridaki Wait(0)'lar CreatePreview'i ARTIK kesilebilir (preemptible)
@@ -753,19 +763,6 @@ local function CreatePreview(showCharacter)
             mirrorAppearance()
             mirrorWeapon(false)
             Wait(150)
-        end
-    end)
-
-    -- STUDIO YONU thread: dar/kapali/engelli alanda sahneyi en ferah yone cevirir
-    -- (bkz "DAR/KAPALI/ENGELLI ALAN COZUMU" notu). Kendi thread'inde calisir cunku
-    -- shape test sonuclari ancak BIR SONRAKI karede okunabilir -> render thread'i
-    -- bloklamamasi icin ayri. ILK tarama yukarida (kamera aktiflesmeden once) zaten
-    -- yapildi; bu thread SADECE tazeleme yapar (oyuncu araba/tekneyle yer degistirse
-    -- veya cevre degisse bile sahne ferah kalsin).
-    CreateThread(function()
-        while active and previewPed and DoesEntityExist(previewPed) do
-            Wait(YAW_SCAN_PERIOD)
-            scanStudioYaw()
         end
     end)
 end
