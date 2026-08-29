@@ -94,8 +94,8 @@ local cfg = {
     -- uzaktan cek, genis lensle yakinlasma" kuralinin AYNISI -- persfektifi
     -- DUZLESTIRIR, distorsiyonu koklu sekilde azaltir.
     camDist   = 2.55,  -- kamera klonun ONUNDE kac metre (SABIT HEDEF; /cam ile degisir, shape-test ile kisilabilir)
-    camSide   = 0.0,   -- KLONUN KADRAJDAKI yatay yeri (kamera-sag ekseni). 2026-08-29'dan beri KLONU DEGIL KAMERAYI kaydirir (bkz computeCameraBasis "LENS KAYDIRMA") -> klon her zaman oyuncunun GERCEK dunya konumunda kalir. 0 = klon kadrajin ortasinda. Ok tuslari (sol/sag) ile canli dial edilir.
-    camHeight = 0.05,  -- KLONUN KADRAJDAKI dikey yeri — camSide gibi KAMERAYI kaydirir (klonun dunyadaki Z'sine DOKUNMAZ). Ok tuslari (yukari/asagi) ile dial edilir.
+    camSide   = 0.0,   -- KLONUN KADRAJDAKI yatay yeri. Klonu DEGIL, kamerayi DONDURUR (bkz computeCameraBasis "SADECE DONDURULUR") -> klon gercek dunya konumunda kalir VE her zaman tam cepheden gorunur. 0 = kadrajin ortasi. Ok tuslari (sol/sag) ile dial edilir.
+    camHeight = 0.05,  -- KLONUN KADRAJDAKI dikey yeri — camSide ile ayni mantik: kamera yerinden oynamaz, bakis hedefi kaydirilir. Ok tuslari (yukari/asagi) ile dial edilir.
     lookDown  = 0.30,  -- bakis hedefi: ust gogusun kac metre ALTI (govde ortasi)
     fov       = 45.0,  -- gorus acisi (dar=yakin/buyuk gorunur) — 2026-08-27: 64'ten 45'e DARALTILDI (camDist buyumesiyle AYNI dikey kapsamayi korur, bkz ustteki not) — genis-aci distorsiyonunu azaltmak icin
     backDist  = 2.40,  -- backdrop klonun kac metre ARKASINDA
@@ -165,7 +165,7 @@ local SCAN_MAX_FRAMES  = 14     -- TUM taramanin toplam kare butcesi -- sonuclar
 -- (kopru tabliyesini "zemin" sanip klonu 0.60m havaya kaldirmasi, ic mekanda ust
 -- kat zeminine carpmasi).
 -- Klon ARTIK HIC KAYDIRILMIYOR (kadraj yerlesimi kamerayla yapiliyor, bkz
--- computeCameraBasis "LENS KAYDIRMA") -> klon her zaman oyuncunun GERCEK ayak
+-- computeCameraBasis "SADECE DONDURULUR") -> klon her zaman oyuncunun GERCEK ayak
 -- bastigi noktada. Oyuncunun kendisi kayaya gomulu/havada olamayacagi icin bu
 -- duzeltmelere ARTIK GEREK YOK; ikisi de (ve LEFT_TERRAIN_*/MAX_TERRAIN_Z_LIFT/
 -- GROUND_PROBE_MARGIN sabitleri) tamamen kaldirildi.
@@ -470,28 +470,32 @@ local function computeCameraBasis()
     camF = fwd
     camR = right
 
-    -- LENS KAYDIRMA (2026-08-29, KULLANICI BILDIRDI): klonun kadrajdaki yeri
-    -- (sol taraftaki KARAKTER panelinin ortasi) ESKIDEN KLONU dunyada yana/yukari
-    -- kaydirarak ayarlaniyordu -> klon oyuncunun GERCEK durdugu noktadan gozle
-    -- gorulur sekilde KAYIK duruyordu ("oyun ici karakter beyaz+sari cizginin
-    -- kesistigi noktada, canli ped biraz solunda"). ARTIK KLON HIC KAYDIRILMAZ
-    -- (bkz placeKlon); ayni yerlesimi KAMERA ile yapariz: kamera VE bakis hedefi
-    -- AYNI miktarda yana (sx) / yukari (sz) otelenir -> sahne kadrajda ayni yere
-    -- oturur ama klon oyuncunun GERCEK dunya konumunda kalir.
-    -- ISARET: kadraji SAGA otelemek klonu ekranda SOLA goturur; ok tuslarinin
+    -- KADRAJ YERLESIMI: KAMERA KAYDIRILMAZ, SADECE DONDURULUR (2026-08-30).
+    -- Once klonu dunyada kaydiriyorduk (klon gercek konumundan kayiyordu), sonra
+    -- kamerayi yana otelemeye gectik. Ikincisi de yanlisti: yana otelenmis bir
+    -- kamera klona ZORUNLU olarak ACIYLA bakar (0.90m yanda, 2.55m mesafede
+    -- ~19 derece) -> kullanici bunu "istedigim yerde ama karakter hafif yandan
+    -- gorunuyor" diye bildirdi; camSide=-0.20'de duz karsidan ama yeri yanlis,
+    -- camSide=-0.90'da yeri dogru ama yandan. Ikisi birbirini disliyordu.
+    -- DOGRUSU: kamera HER ZAMAN klonun TAM KARSISINDA durur (yanal/dikey oteleme
+    -- YOK) -> kameradan klona giden isin tam cepheden gelir, karakter %100 onden
+    -- gorunur. Klonun KADRAJDAKI yeri ise SADECE BAKIS HEDEFI kaydirilarak, yani
+    -- kamera DONDURULEREK ayarlanir. Ekrandaki konum ayni aciyla (atan(s/dist))
+    -- belirlendigi icin mevcut camSide/camHeight degerleri AYNEN gecerli kalir --
+    -- yeniden ayar yapmak gerekmez, sadece yan-bakis kaybolur.
+    -- (Dikey eksen zaten boyle calisiyordu: kamera gogus hizasinda durup lookDown
+    --  kadar ASAGI bakiyor. camHeight artik ayni kurala uyuyor.)
+    -- ISARET: hedefi SAGA kaydirmak klonu ekranda SOLA goturur; ok tuslarinin
     -- yonu degismesin diye camSide/camHeight'in TERSI alinir.
     local sx, sz = -cfg.camSide, -cfg.camHeight
-    local aimX = anchorPos.x + right.x * sx
-    local aimY = anchorPos.y + right.y * sx
-    local aimZ = cz + sz
 
     -- Tarama sirasinda bir kez belirlenen SABIT mesafe (bkz yukaridaki not).
     local dist = math.min(cfg.camDist, studioCamDist or cfg.camDist)
 
     SetCamCoord(studioCam,
-        aimX - fwd.x * dist,
-        aimY - fwd.y * dist,
-        aimZ)
+        anchorPos.x - fwd.x * dist,
+        anchorPos.y - fwd.y * dist,
+        cz)
 
     -- FOV TELAFISI: kamera bir engel yuzunden hedef mesafesine cikamadiysa
     -- (dar/kapali alan) SABIT bir FOV klonu KIRPARDI (kadraj daralir, kafa/ayak
@@ -506,17 +510,22 @@ local function computeCameraBasis()
         fov = math.max(cfg.fov, math.min(MAX_COMPENSATED_FOV, math.deg(2.0 * math.atan(halfCoverage / dist))))
     end
     SetCamFov(studioCam, fov)
-    -- Kamera ARKADA (-fwd), buraya (anchorPos, klonun konumu) bakar -> bakis yonu
-    -- otomatik +fwd olur (klonla AYNI yon) — pozisyon flip'i yeterli, ayrica bir
-    -- "ileriye bak" hedefi gerekmez.
-    PointCamAtCoord(studioCam, aimX, aimY, aimZ - cfg.lookDown)
+    -- Kamera ARKADA (-fwd) durur ve klonla AYNI yone (+fwd) bakar -> arka planda
+    -- oyuncunun gercekten baktigi manzara gorunur. Hedef noktasi klonun konumundan
+    -- sx (yanal) / sz (dikey) kadar KAYDIRILIR: kamera boylece o kadar DONER ve
+    -- klon kadrajda istenen yere oturur -- kamera yerinden OYNAMADIGI icin klona
+    -- bakis acisi TAM CEPHE kalir (bkz yukaridaki "SADECE DONDURULUR" notu).
+    PointCamAtCoord(studioCam,
+        anchorPos.x + right.x * sx,
+        anchorPos.y + right.y * sx,
+        cz + sz - cfg.lookDown)
 end
 
 --- Klonu yerlestirir. ARTIK HICBIR OFSET UYGULAMAZ: klon oyuncunun GERCEK dunya
 --- konumunda (anchorPos) ve gercek noktasinda durur -- oyun icinde karakter yol
 --- cizgilerinin kesistigi noktadaysa, cantada da TAM O NOKTADA durur.
 --- KLONUN KADRAJ ICINDEKI yeri (camSide/camHeight) KAMERAYI kaydirarak ayarlanir
---- (bkz computeCameraBasis "LENS KAYDIRMA") -> gorunum ayni, konum GERCEK.
+--- (bkz computeCameraBasis "SADECE DONDURULUR") -> gorunum ayni, konum GERCEK.
 local function placeKlon()
     if not previewPed or not DoesEntityExist(previewPed) or not camR or not anchorPos then return end
     setKlonPose(anchorPos.x, anchorPos.y, anchorPos.z, (currentYaw() + 180.0 + dragYaw) % 360.0)
