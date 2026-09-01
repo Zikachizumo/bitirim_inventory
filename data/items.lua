@@ -242,6 +242,55 @@ return {
 		weight = 160,
 	},
 
+	-- BITIRIM: Ev soygunu itemleri
+['stolen_watch'] = {
+        label = 'Stolen Watch',
+        weight = 200,
+        stack = true,
+        close = true,
+        description = 'Only good at the black market.'
+},
+
+['stolen_jewelry'] = {
+        label = 'Stolen Jewelry',
+        weight = 150,
+        stack = true,
+        close = true,
+        description = 'A bundle of stolen jewelry.'
+},
+
+['stolen_electronics'] = {
+        label = 'Stolen Electronics',
+        weight = 2500,
+        stack = true,
+        close = true,
+        description = 'Bulky luxury electronics.'
+},
+
+['stolen_antique'] = {
+        label = 'Stolen Antique',
+        weight = 1200,
+        stack = true,
+        close = true,
+        description = 'A valuable stolen antique.'
+},
+
+['stolen_metal'] = {
+        label = 'Precious Metal',
+        weight = 800,
+        stack = true,
+        close = true,
+        description = 'Stolen precious metal.'
+},
+
+['drill'] = {
+        label = 'Drill',
+        weight = 2500,
+        stack = false,
+        close = true,
+        description = 'For cracking safes.'
+},
+
 	-- BITIRIM: Telefon ENVANTER ITEM'i DEGIL (GrandRP mantigi). npwd 'PhoneAsItem=false'
 	-- ile calisir (M tusu telefonu acar, item aramaz). Item tanimi sadece eski/kalan
 	-- kayitlar bozulmasin diye duruyor; yuklemede envanterden temizlenir (slot bosalir).
