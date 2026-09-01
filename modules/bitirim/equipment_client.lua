@@ -68,16 +68,41 @@ end
 local ARMS_COMPONENT = 3
 local TOPS_COMPONENT = 11
 
-local function forcedArmsFor(model, topDrawable)
-    if clothing.autoMatchArms == false then return nil end
-    if not GetNumForcedComponents or not GetForcedComponent then return nil end
+--[[
+    Oyunun kendi "zorunlu bilesen" verisinden dogru kolu bul.
 
-    local ok, count = pcall(GetNumForcedComponents, model, TOPS_COMPONENT, topDrawable, 0)
-    if not ok or type(count) ~= 'number' or count <= 0 then return nil end
+    DIKKAT — 2026-09-01'de duzeltildi. Onceki surum GetNumForcedComponents'a
+    PED MODEL hash'ini veriyordu; native model degil, GetHashNameForComponent'
+    ten gelen APPAREL COMPONENT hash'ini bekliyor. Model verilince hata
+    VERMIYOR, sessizce 0 donuyor -- bu yuzden bu fonksiyon bugune kadar
+    HER ZAMAN nil donmus, kol her seferinde defaultArms'a dusmus olmali.
+
+    Olculen kanit (bitirim_clothing /kiyafetprob, mp_m_freemode_01, b3788):
+        GetNumForcedComponents(model)       -> 0
+        GetNumForcedComponents(apparelHash) -> 2
+        GetForcedComponent(apparelHash, 0)  -> 1849449579, 5, 3
+                                               nameHash, enumValue, componentType(3=ARMS)
+
+    NOT: GetVariantComponent de uc deger dondurur ama BASKA veridir
+    (componentType 8/9/11 = undershirt/yelek/ust) -- kol vermez.
+]]
+local function forcedArmsFor(ped, topDrawable, topTexture)
+    if clothing.autoMatchArms == false then return nil end
+    if not GetHashNameForComponent or not GetNumForcedComponents or not GetForcedComponent then
+        return nil
+    end
+
+    -- Hash texture'a da baglidir: ayni drawable'in farkli renginin zorunlu
+    -- kolu farkli olabilir.
+    local okH, hash = pcall(GetHashNameForComponent, ped, TOPS_COMPONENT, topDrawable, topTexture or 0)
+    if not okH or not hash or hash == 0 then return nil end
+
+    local okC, count = pcall(GetNumForcedComponents, hash)
+    if not okC or type(count) ~= 'number' or count <= 0 then return nil end
 
     for i = 0, count - 1 do
         -- Native uc deger dondurur: nameHash, enumValue (drawable), componentType
-        local ok2, _, enumValue, componentType = pcall(GetForcedComponent, model, TOPS_COMPONENT, topDrawable, i)
+        local ok2, _, enumValue, componentType = pcall(GetForcedComponent, hash, i)
         if ok2 and componentType == ARMS_COMPONENT and type(enumValue) == 'number' and enumValue >= 0 then
             return enumValue
         end
@@ -222,9 +247,9 @@ local function applyEquip()
         end
 
         if not armsDrawable and wear then
-            local topDrawable = resolveWear(wear, isFemale)
+            local topDrawable, topTexture = resolveWear(wear, isFemale)
             if topDrawable then
-                armsDrawable = forcedArmsFor(model, topDrawable)
+                armsDrawable = forcedArmsFor(ped, topDrawable, topTexture)
                 armsTexture  = 0
                 Utils.log(('applyGlovesSlot: forcedArmsFor(%d) -> %d'):format(topDrawable, armsDrawable or -1))
             end
