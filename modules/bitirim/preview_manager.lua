@@ -190,6 +190,9 @@ local compCache    = {}     -- aynalama diff onbellegi
 local curWeapon    = nil
 local camF         = nil    -- kamera ileri vektoru (studioYaw'dan turetilir)
 local camR         = nil    -- kamera sag vektoru (studioYaw'dan turetilir; camSide bu eksende kaydirir)
+local vehAnchor    = nil    -- oyuncu aractaysa o arac; sahne aracin ARKASINDAN cerceveler (bkz updateAnchor)
+local vehCamDist   = nil    -- arac icin kamera mesafesi (arac boyuna gore olceklenir)
+local klonFrozen   = false  -- klon FreezeEntityPosition ile dondurulduysa true (yon yazarken gecici olarak cozmek icin)
 local klonHeading  = 0.0    -- klonun O ANKI yonu; kameranin gercek konumundan turetilir (bkz computeCameraBasis)
 local clonePedShape = nil   -- bu oyun yapisinda calisan ClonePed imzasi ('legacy' | 'modern'); ilk basarili denemede onbellege alinir
 local diagRenderTicks = 0   -- GECICI TESHIS: render thread kac kare dondu (bkz GECICI TESHIS blogu)
@@ -277,13 +280,18 @@ local function setKlonPose(x, y, z, heading)
     end
     local h = GetEntityHeading(previewPed)
     if math.abs((h - heading + 540.0) % 360.0 - 180.0) > POSE_HEAD_EPS then
+        -- BAZI OYUN YAPILARINDA (Enhanced) DONDURULMUS bir entity'nin yonu
+        -- DEGISTIRILEMIYOR: ne SetEntityHeading ne SetEntityRotation tutuyor.
+        -- Belirti ikili geliyor -- klon kameraya donmuyor (sirti donuk kaliyor) VE
+        -- fareyle cevirme calismiyor; ikisi de AYNI yazmaya dayaniyor, kullanici
+        -- ikisini de bildirdi. Cozum: yaziyi DONDURMAYI GECICI OLARAK KALDIRIP
+        -- yapmak. Yon nadiren degistigi icin (sahne kurulumu + fare surukleme)
+        -- bunun maliyeti ihmal edilebilir.
+        local wasFrozen = klonFrozen
+        if wasFrozen then FreezeEntityPosition(previewPed, false) end
         SetEntityHeading(previewPed, heading)
-        -- BAZI OYUN YAPILARINDA (Enhanced) DONMUS bir entity'de SetEntityHeading
-        -- TEK BASINA TUTMUYOR: klon kameraya donmuyor (sirti donuk kaliyor) VE
-        -- fareyle cevirme calismiyor -- kullanici ikisini de bildirdi, ikisi de
-        -- AYNI yazmaya dayaniyor. SetEntityRotation ayni acyi Z ekseninden yazar;
-        -- ikisini birlikte cagirmak her iki yapida da sonuc verir.
         optNative('SetEntityRotation', previewPed, 0.0, 0.0, heading, 2, true)
+        if wasFrozen then FreezeEntityPosition(previewPed, true) end
     end
 end
 
@@ -362,6 +370,12 @@ end
 --- tek karede cok sayida pahali prob atmamak icin bolunur (dogruluk icin DEGIL).
 local function scanStudioYaw()
     if not active or not anchorPos then return end
+    -- ARAC ICINDE tarama YAPILMAZ: sahnenin yonu aracin yonudur, mesafeyi de arac
+    -- boyu belirler (bkz updateAnchor). Ferah yon aramak burada anlamsiz olurdu.
+    if vehAnchor then
+        studioYawTgt, studioCamDist = anchorHead, nil
+        return
+    end
     -- Olcum native'i bu oyun yapisinda yoksa tarama ATLANIR: sahne oyuncunun kendi
     -- bakis yonunde, istenen mesafede acilir (eski/temel davranis). Onizlemenin
     -- KENDISI calismaya devam eder -- tarama bir konfor ozelligi, on kosul degil.
@@ -501,7 +515,9 @@ local function computeCameraBasis()
     local sx, sz = -cfg.camSide, -cfg.camHeight
 
     -- Tarama sirasinda bir kez belirlenen SABIT mesafe (bkz yukaridaki not).
-    local dist = math.min(cfg.camDist, studioCamDist or cfg.camDist)
+    -- ARAC ICINDE: mesafe aracin boyuna gore belirlenir (yon taramasi devre disi;
+    -- amac karakteri cerceveler gibi kadraja oturtmak degil, araci arkadan gostermek).
+    local dist = vehCamDist or math.min(cfg.camDist, studioCamDist or cfg.camDist)
 
     local camX = anchorPos.x - fwd.x * dist
     local camY = anchorPos.y - fwd.y * dist
@@ -587,18 +603,26 @@ local function updateAnchor()
     -- kullanilabilir bir onizleme URETMIYOR.
     local veh = GetVehiclePedIsIn(realPed, false)
     if veh and veh ~= 0 and DoesEntityExist(veh) then
+        -- Ankor ARACIN MERKEZI, yon ARACIN yonu. Kamera formulu kamerayi ankorun
+        -- ARKASINA koydugu icin (anchor - ileri * mesafe) sonuc dogrudan "arabanin
+        -- arkasindan bakan" normal 3. sahis kadraji olur -- kullanicinin referans
+        -- ekran goruntusundeki gorunum.
+        -- Mesafe arac BOYUNA gore olceklenir: kucuk arabada burnu, otobuste tamami
+        -- kadraja girsin. Kamera ayrica tavan hizasinin biraz ustune cikarilir.
+        vehAnchor = veh
         local okDim, minD, maxD = pcall(GetModelDimensions, GetEntityModel(veh))
-        local side = 2.0
-        local baseZ = 0.0
+        local len, topZ = 5.0, 1.0
         if okDim and minD and maxD then
-            side  = (maxD.x - minD.x) * 0.5 + 1.0   -- yarim genislik + yurume payi
-            baseZ = minD.z                          -- govdenin ALTI ~ zemin hizasi
+            len  = maxD.y - minD.y
+            topZ = maxD.z
         end
-        local p = GetOffsetFromEntityInWorldCoords(veh, -side, 0.0, baseZ)
-        anchorPos  = vector3(p.x, p.y, p.z)
+        vehCamDist = len * 0.5 + 4.0
+        local c = GetEntityCoords(veh)
+        anchorPos  = vector3(c.x, c.y, c.z + topZ * 0.5)
         anchorHead = GetEntityHeading(veh)
         return
     end
+    vehAnchor, vehCamDist = nil, nil
 
     anchorPos  = GetEntityCoords(realPed)
     anchorHead = GetEntityHeading(realPed)
@@ -730,6 +754,12 @@ local function diagWatch()
             Wait(delay)
             local rp = realPed
             local pp = previewPed
+            -- HEDEF vs GERCEK yon: esit degilse yon YAZILAMIYOR demektir (klon
+            -- sirti donuk kalir + fareyle cevirme calismaz, ikisi ayni sebep).
+            print(('^3[bitirim-teshis] yonHedef=%.1f yonGercek=%s dragYaw=%.1f donmus=%s^7')
+                :format(klonHeading,
+                        (pp and DoesEntityExist(pp) and ('%.1f'):format(GetEntityHeading(pp))) or 'nil',
+                        dragYaw, tostring(klonFrozen)))
             print(('^3[bitirim-teshis] t=%dms active=%s klon=%s klonVar=%s kamera=%s camAktif=%s renderTur=%d interiorGercek=%s interiorKlon=%s^7')
                 :format(GetGameTimer() % 100000,
                         tostring(active),
@@ -772,6 +802,7 @@ local function CreatePreview(showCharacter)
     -- acilisinda yanlis imza tekrar denenip konsola "Script error in Native
     -- ClonePed" satiri basardi (islev bozulmaz ama gereksiz gurultu).
     previewPed = nil
+    klonFrozen = false
     local shapes = clonePedShape and { clonePedShape } or { 'legacy', 'modern' }
     for _, shape in ipairs(shapes) do
         local ok, ent
@@ -938,6 +969,7 @@ local function CreatePreview(showCharacter)
     setupStudio()   -- taramanin sectigi yonle kamerayi/klonu yeniden otur
 
     FreezeEntityPosition(previewPed, true)  -- KLON statik (ARTIK oda kaydi olustuktan SONRA)
+    klonFrozen = true
     SetEntityCollision(previewPed, false, false)
 
     SetCamActive(studioCam, true)
@@ -1045,6 +1077,7 @@ local function DestroyPreview()
         DeletePed(previewPed)
     end
     previewPed = nil
+    klonFrozen = false
 
     -- Gercek bedeni kesin geri goster (LocallyInvisible zaten kendini sifirlar; emniyet).
     if realPed and DoesEntityExist(realPed) then
