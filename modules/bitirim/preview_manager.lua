@@ -190,6 +190,7 @@ local compCache    = {}     -- aynalama diff onbellegi
 local curWeapon    = nil
 local camF         = nil    -- kamera ileri vektoru (studioYaw'dan turetilir)
 local camR         = nil    -- kamera sag vektoru (studioYaw'dan turetilir; camSide bu eksende kaydirir)
+local clonePedShape = nil   -- bu oyun yapisinda calisan ClonePed imzasi ('legacy' | 'modern'); ilk basarili denemede onbellege alinir
 local diagRenderTicks = 0   -- GECICI TESHIS: render thread kac kare dondu (bkz GECICI TESHIS blogu)
 local chestOffsetZ = nil    -- klonun gogus yuksekliginin ankora gore ofseti; BIR KEZ olculur (bkz chestZ) -> kamera Z nefes animasyonuyla titremez
 local studioCamDist = nil   -- canta acilisinda BIR KEZ belirlenen kamera mesafesi (secilen yonun olculen boslugundan); canta kapanana kadar SABIT -> kamera hic oynamaz
@@ -714,9 +715,42 @@ local function CreatePreview(showCharacter)
     -- NetworkGetEntityIsNetworked(previewPed) ClonePed'in HEMEN ARDINDAN (bizim
     -- hicbir kodumuz calismadan) bile true donuyordu (F8 ile dogrulandi, birden
     -- fazla adimda bisect edildi). Yani "yerel kal" garantisine GUVENILEMEZ.
-    previewPed = ClonePed(ped, GetEntityHeading(ped), false, false)
+    -- CLONEPED IMZASI OYUN YAPISINA GORE DEGISIYOR (2026-09-08, FiveM Enhanced'de
+    -- kullanici bildirdi: "Script error in Native ClonePed: arg[1]: Could not cast
+    -- unknown type"):
+    --   Legacy : ClonePed(ped, heading(FLOAT), isNetwork, bScriptHostPed)
+    --   Yeni   : ClonePed(ped, isNetwork, bScriptHostPed, copyHeadBlendFlag)
+    -- yani ikinci parametre birinde float, digerinde bool. Yanlis imza cagrilinca
+    -- native tip donusturemiyor ve HATA firlatiyor -> CreatePreview komple cokuyor,
+    -- klon hic olusmuyordu. Belirti "kamera bina icine giriyor / karakter arkadan
+    -- gorunuyor" seklinde ortaya cikiyordu, cunku onizleme hic baslamayinca oyuncu
+    -- kendi bedenini ve oyunun normal kamerasini goruyor.
+    -- COZUM: iki imzayi da SIRAYLA dene, ilk GECERLI entity donduren kazanir.
+    -- Baslangic heading'i ONEMSIZ (setKlonPose zaten her karede dogru yonu yazar),
+    -- bu yuzden bool/float farki gorsel bir sonuc dogurmaz.
+    -- Calisan imza ILK basarili denemede onbellege alinir: aksi halde her canta
+    -- acilisinda yanlis imza tekrar denenip konsola "Script error in Native
+    -- ClonePed" satiri basardi (islev bozulmaz ama gereksiz gurultu).
+    previewPed = nil
+    local shapes = clonePedShape and { clonePedShape } or { 'legacy', 'modern' }
+    for _, shape in ipairs(shapes) do
+        local ok, ent
+        if shape == 'legacy' then
+            ok, ent = pcall(ClonePed, ped, GetEntityHeading(ped) + 0.0, false, false)
+        else
+            ok, ent = pcall(ClonePed, ped, false, false, false)
+        end
+        if ok and ent and ent ~= 0 and DoesEntityExist(ent) then
+            previewPed = ent
+            if clonePedShape == nil then
+                clonePedShape = shape
+                print(('^3[bitirim] ClonePed imzasi: %s (bu oyun yapisi icin secildi)^7'):format(shape))
+            end
+            break
+        end
+    end
     if not previewPed or previewPed == 0 or not DoesEntityExist(previewPed) then
-        print('^1[bitirim] PreviewManager: ClonePed BASARISIZ^7')
+        print('^1[bitirim] PreviewManager: ClonePed BASARISIZ (her iki imza da sonuc vermedi)^7')
         previewPed = nil
         return
     end
