@@ -190,6 +190,7 @@ local compCache    = {}     -- aynalama diff onbellegi
 local curWeapon    = nil
 local camF         = nil    -- kamera ileri vektoru (studioYaw'dan turetilir)
 local camR         = nil    -- kamera sag vektoru (studioYaw'dan turetilir; camSide bu eksende kaydirir)
+local klonHeading  = 0.0    -- klonun O ANKI yonu; kameranin gercek konumundan turetilir (bkz computeCameraBasis)
 local clonePedShape = nil   -- bu oyun yapisinda calisan ClonePed imzasi ('legacy' | 'modern'); ilk basarili denemede onbellege alinir
 local diagRenderTicks = 0   -- GECICI TESHIS: render thread kac kare dondu (bkz GECICI TESHIS blogu)
 local chestOffsetZ = nil    -- klonun gogus yuksekliginin ankora gore ofseti; BIR KEZ olculur (bkz chestZ) -> kamera Z nefes animasyonuyla titremez
@@ -277,6 +278,12 @@ local function setKlonPose(x, y, z, heading)
     local h = GetEntityHeading(previewPed)
     if math.abs((h - heading + 540.0) % 360.0 - 180.0) > POSE_HEAD_EPS then
         SetEntityHeading(previewPed, heading)
+        -- BAZI OYUN YAPILARINDA (Enhanced) DONMUS bir entity'de SetEntityHeading
+        -- TEK BASINA TUTMUYOR: klon kameraya donmuyor (sirti donuk kaliyor) VE
+        -- fareyle cevirme calismiyor -- kullanici ikisini de bildirdi, ikisi de
+        -- AYNI yazmaya dayaniyor. SetEntityRotation ayni acyi Z ekseninden yazar;
+        -- ikisini birlikte cagirmak her iki yapida da sonuc verir.
+        optNative('SetEntityRotation', previewPed, 0.0, 0.0, heading, 2, true)
     end
 end
 
@@ -468,7 +475,7 @@ local function computeCameraBasis()
     -- eskiden bu satir dragYaw'siz, placeKlon ise dragYaw'li yaziyordu -> klon
     -- her karede IKI FARKLI heading arasinda gidip geliyordu (kullanici mouse ile
     -- cevirdiginde). Ikisi artik AYNI degeri kullanir.
-    setKlonPose(anchorPos.x, anchorPos.y, anchorPos.z, (yaw + 180.0 + dragYaw) % 360.0)
+    setKlonPose(anchorPos.x, anchorPos.y, anchorPos.z, klonHeading)
     local cz = chestZ()
     if not cz then return end
     camF = fwd
@@ -496,10 +503,17 @@ local function computeCameraBasis()
     -- Tarama sirasinda bir kez belirlenen SABIT mesafe (bkz yukaridaki not).
     local dist = math.min(cfg.camDist, studioCamDist or cfg.camDist)
 
-    SetCamCoord(studioCam,
-        anchorPos.x - fwd.x * dist,
-        anchorPos.y - fwd.y * dist,
-        cz)
+    local camX = anchorPos.x - fwd.x * dist
+    local camY = anchorPos.y - fwd.y * dist
+    SetCamCoord(studioCam, camX, camY, cz)
+
+    -- KLONUN YONU ARTIK FORMULLE DEGIL, KAMERANIN GERCEK KONUMUNDAN TURETILIR.
+    -- Eskiden "yaw + 180" yaziliyordu; matematik dogru olsa bile herhangi bir
+    -- isaret/konvansiyon farkinda klon sirti donuk kaliyordu (kullanici Enhanced'de
+    -- bildirdi). Kameraya BAKAN aciyi dogrudan hesaplamak bu hata sinifini KOKTEN
+    -- kaldirir: kamera nereye konursa konsun klon ona doner.
+    -- GTA heading h icin ileri vektor (-sin h, cos h) oldugundan h = atan2(-dx, dy).
+    klonHeading = (math.deg(math.atan(-(camX - anchorPos.x), camY - anchorPos.y)) + dragYaw) % 360.0
 
     -- FOV TELAFISI: kamera bir engel yuzunden hedef mesafesine cikamadiysa
     -- (dar/kapali alan) SABIT bir FOV klonu KIRPARDI (kadraj daralir, kafa/ayak
@@ -540,7 +554,7 @@ end
 --- (bkz computeCameraBasis "SADECE DONDURULUR") -> gorunum ayni, konum GERCEK.
 local function placeKlon()
     if not previewPed or not DoesEntityExist(previewPed) or not camR or not anchorPos then return end
-    setKlonPose(anchorPos.x, anchorPos.y, anchorPos.z, (currentYaw() + 180.0 + dragYaw) % 360.0)
+    setKlonPose(anchorPos.x, anchorPos.y, anchorPos.z, klonHeading)
     positionBackdrop(camF, anchorPos.x, anchorPos.y, chestZ() or anchorPos.z)
 end
 
@@ -560,6 +574,32 @@ end
 --- disina (baska interior/routing/gokyuzu/sehir ustu) TASINMAZ.
 local function updateAnchor()
     if not realPed or not DoesEntityExist(realPed) then return end
+
+    -- ARAC ICINDE SAHNE ARACIN YANINA CIKAR (2026-09-08, kullanici bildirdi):
+    -- klon oyuncunun KOLTUK koordinatinda durursa arac govdesinin ICINDE kalir --
+    -- klon bir koltuga oturmaz, o noktada AYAKTA durur. Sonuc: kadraji plaka/ic
+    -- doseme dolduruyordu. Kamera 2.55m geride oldugu icin o da govdenin icinde
+    -- veya disinda rastgele bir yerde kaliyordu.
+    -- Cozum: arac icindeyken ankor, aracin SURUCU tarafinda, govdenin disinda bir
+    -- noktaya tasinir; klon orada ayakta durur, kamera da onun onune gecer -> kadraj
+    -- yayan haliyle BIREBIR ayni olur. "Klon her zaman oyuncunun gercek noktasinda
+    -- durur" kurali yayan icin gecerliligini korur; aractayken o nokta zaten
+    -- kullanilabilir bir onizleme URETMIYOR.
+    local veh = GetVehiclePedIsIn(realPed, false)
+    if veh and veh ~= 0 and DoesEntityExist(veh) then
+        local okDim, minD, maxD = pcall(GetModelDimensions, GetEntityModel(veh))
+        local side = 2.0
+        local baseZ = 0.0
+        if okDim and minD and maxD then
+            side  = (maxD.x - minD.x) * 0.5 + 1.0   -- yarim genislik + yurume payi
+            baseZ = minD.z                          -- govdenin ALTI ~ zemin hizasi
+        end
+        local p = GetOffsetFromEntityInWorldCoords(veh, -side, 0.0, baseZ)
+        anchorPos  = vector3(p.x, p.y, p.z)
+        anchorHead = GetEntityHeading(veh)
+        return
+    end
+
     anchorPos  = GetEntityCoords(realPed)
     anchorHead = GetEntityHeading(realPed)
 end
@@ -1090,7 +1130,7 @@ local function RotatePreview(mode, value)
     elseif mode == 'reset' then
         dragYaw = 0.0
     end
-    SetEntityHeading(previewPed, (currentYaw() + 180.0 + dragYaw) % 360.0)
+    setKlonPose(GetEntityCoords(previewPed).x, GetEntityCoords(previewPed).y, GetEntityCoords(previewPed).z, klonHeading)
 end
 
 --- Studio kadraj ince ayari (chat /cam icin — tum degerleri kabul eder, kamera TABANINI
