@@ -206,6 +206,43 @@ local studioYawTgt = nil    -- taramanin sectigi HEDEF yon (bkz "STUDIO YONUNUN 
 -- yone gidiyormus hissi, kullanici kadraji ayarlayamadi. Klon hareket ederken kamera
 -- sabitse, klon basilan tusun yonune DOGRUDAN (ters donmeden) kayar. Zoom (Numpad1/2)
 -- kameranin FOV'unu degistirir (kamera pozisyonuna hic dokunmaz) -> zoom de sabit.
+
+------------------------------------------------------------------------------
+-- FARKLI OYUN YAPILARINA KARSI DAYANIKLILIK (FiveM "Enhanced" vb.)
+------------------------------------------------------------------------------
+-- Bazi native'ler farkli oyun yapilarinda Lua tarafinda BULUNMAYABILIR. Boyle bir
+-- cagri hata firlatirsa CreatePreview YARIDA kalir: klon olusur, kamera kurulur,
+-- ama render thread hic baslamaz -> gercek beden gizlenmez, oyuncu kendi sirtini
+-- ve donmus bir kamerayi gorur. 2026-08-30'da tam olarak bu yasandi
+-- (SetRoomForGameViewportByKey yoktu) ve belirtiyi "kamera bina icine giriyor"
+-- diye tarif etmek COK kolaydi -- oysa sebep tamamen baskaydi.
+-- Bu yuzden ZORUNLU OLMAYAN her native buradan gecer: yoksa veya hata verirse
+-- SADECE BIR KEZ uyari yazilir ve kurulum DEVAM EDER.
+local warnedNatives = {}
+local function optNative(name, ...)
+    local fn = rawget(_G, name)
+    if type(fn) ~= 'function' then
+        if not warnedNatives[name] then
+            warnedNatives[name] = true
+            print(('^3[bitirim] native BULUNAMADI, atlandi: %s (oyun yapisi farkli olabilir)^7'):format(name))
+        end
+        return nil
+    end
+    local ok, a, b, c = pcall(fn, ...)
+    if not ok then
+        if not warnedNatives[name] then
+            warnedNatives[name] = true
+            print(('^3[bitirim] native HATA verdi, atlandi: %s -> %s^7'):format(name, tostring(a)))
+        end
+        return nil
+    end
+    return a, b, c
+end
+
+--- Native Lua tarafinda var mi (cagirmadan).
+local function hasNative(name)
+    return type(rawget(_G, name)) == 'function'
+end
 local function forwardOf(h)
     local r = math.rad(h)
     return vector3(-math.sin(r), math.cos(r), 0.0)  -- heading h'de ileri yon
@@ -297,11 +334,12 @@ end
 --- asimi, havuz tikanmasi, "yarim olcum" diye bir sey KALMAZ. Pahali bir native
 --- ama tarama canta acilisinda SADECE BIR KEZ calisiyor.
 local function freeDistance(cx, cy, cz, dx, dy, maxDist)
-    local handle = StartExpensiveSynchronousShapeTestLosProbe(
+    local handle = optNative('StartExpensiveSynchronousShapeTestLosProbe',
         cx, cy, cz,
         cx + dx * maxDist, cy + dy * maxDist, cz,
         CAM_TEST_FLAGS, 0, 7)
-    local _, hit, endCoords = GetShapeTestResult(handle)
+    if not handle then return maxDist end
+    local _, hit, endCoords = optNative('GetShapeTestResult', handle)
     if hit == 1 or hit == true then
         local d = #(vector3(endCoords.x - cx, endCoords.y - cy, 0.0))
         if d < maxDist then return d end
@@ -316,6 +354,13 @@ end
 --- tek karede cok sayida pahali prob atmamak icin bolunur (dogruluk icin DEGIL).
 local function scanStudioYaw()
     if not active or not anchorPos then return end
+    -- Olcum native'i bu oyun yapisinda yoksa tarama ATLANIR: sahne oyuncunun kendi
+    -- bakis yonunde, istenen mesafede acilir (eski/temel davranis). Onizlemenin
+    -- KENDISI calismaya devam eder -- tarama bir konfor ozelligi, on kosul degil.
+    if not hasNative('StartExpensiveSynchronousShapeTestLosProbe') or not hasNative('GetShapeTestResult') then
+        studioYawTgt, studioCamDist = anchorHead, cfg.camDist
+        return
+    end
     local origin, natural = anchorPos, anchorHead
     local best, bestScore, bestClear = natural, -1.0, nil
 
@@ -688,7 +733,7 @@ local function CreatePreview(showCharacter)
     -- sadece bizim DestroyPreview()'imiz onu silebilir.
     SetEntityAsMissionEntity(previewPed, true, true)
     SetEntityInvincible(previewPed, true)
-    SetBlockingOfNonTemporaryEvents(previewPed, true)
+    optNative('SetBlockingOfNonTemporaryEvents', previewPed, true)
     -- TaskStandStill'in KENDI temel duruşu simetriktir, AMA GTA ped'leri bunun
     -- ustune periyodik olarak rastgele "ambient idle" varyasyonlari (etrafa
     -- bakinma, agirlik degistirme, vb.) oynatmaya devam eder -- bu, SetBlockingOf-
@@ -698,7 +743,7 @@ local function CreatePreview(showCharacter)
     -- kullanici bildirdi). SetPedCanPlayAmbientAnims(false) bu varyasyon katmanini
     -- tamamen kapatir -> previewPed HER ZAMAN TaskStandStill'in duz/simetrik
     -- temel pozunda kalir.
-    SetPedCanPlayAmbientAnims(previewPed, false)
+    optNative('SetPedCanPlayAmbientAnims', previewPed, false)
 
     -- YURUMEYI HEMEN KES (2026-08-30, kullanici bina icinde bildirdi): ClonePed
     -- klonu oyuncunun O ANKI gorev/animasyon durumuyla birlikte kopyalar. Oyuncu
@@ -778,7 +823,7 @@ local function CreatePreview(showCharacter)
     -- yazma bile olmayabiliyordu -> klon magaza/MLO icinde portal testine takilip
     -- GORUNMEZ kaliyordu (kullanici: karakter paneli komple bos). Burada guard'i
     -- BILEREK atlayip her karede acikca yaziyoruz.
-    RequestCollisionAtCoord(anchorPos.x, anchorPos.y, anchorPos.z)
+    optNative('RequestCollisionAtCoord', anchorPos.x, anchorPos.y, anchorPos.z)
     for _ = 1, 3 do
         SetEntityCoordsNoOffset(previewPed, anchorPos.x, anchorPos.y, anchorPos.z, false, false, false)
         -- Collision bu pencerede ACIK oldugu icin devralinan hiz klonu kaydirabilir.
@@ -848,30 +893,40 @@ local function CreatePreview(showCharacter)
     -- oyunun frontend/pause ses sahnesine bagli oldugu icin her kare yeniden
     -- tetiklemek sessiz ortamda duyulabilen bir ses artefakti birakabiliyor
     -- (kullanici kulaklikla bildirdi, 2026-08-29). Tek sefer yeterli.
-    if IsScreenblurFadeRunning() then DisableScreenblurFade() end
-    TriggerScreenblurFadeOut(0.0)
+    if optNative('IsScreenblurFadeRunning') then optNative('DisableScreenblurFade') end
+    optNative('TriggerScreenblurFadeOut', 0.0)
 
     -- RENDER thread (Wait 0): gercek bedeni yerel gizle + HER KAREDE ankoru guncelle
     -- (araç/uçak/helikopterle hareket ederken sahne akici sekilde takip eder) + kadraji
     -- oturt + odak klona.
+    -- Bu iki native (gercek bedeni YEREL gizle / klonu YEREL goster) onizlemenin
+    -- KALBIDIR ama yine de BIR KEZ cozulup null kontrolunden geciriliyor: yoksa
+    -- render thread her karede hata firlatip OLURDU ve belirti yine "kamera
+    -- bozuldu" gibi gorunurdu. Yoksa uyari yazilir, dongu calismaya devam eder.
+    local hideReal = rawget(_G, 'SetEntityLocallyInvisible')
+    local showKlon = rawget(_G, 'SetEntityLocallyVisible')
+    if not hideReal or not showKlon then
+        print('^3[bitirim] UYARI: SetEntityLocallyInvisible/Visible bulunamadi -- gercek beden gizlenemeyebilir^7')
+    end
+
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
-            if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
+            if hideReal and realPed and DoesEntityExist(realPed) then hideReal(realPed) end
             -- Klon agda GENEL OLARAK gorunmez (yukaridaki not) -> SADECE showCharacter
             -- ise, SADECE bu client'ta HER KARE uzerine yazip gorunur yapariz (native
             -- kendini sifirlar, SetEntityLocallyInvisible ile ayni desen). Baska
             -- oyuncular ASLA gormez; showCharacter=false ise (kap gorunumu) biz de
             -- gormeyiz (mevcut niyetle ayni).
-            if showCharacter then SetEntityLocallyVisible(previewPed) end
+            if showCharacter and showKlon then showKlon(previewPed) end
             diagRenderTicks = diagRenderTicks + 1   -- GECICI TESHIS
             updateAnchor()
             setupStudio()
             -- Odak SABIT bir noktaya kurulur (canli kemik degil) -> streaming/ses
             -- sistemi her karede yeniden hedeflenmez (bkz chestZ notu).
-            SetFocusPosAndVel(anchorPos.x, anchorPos.y, chestZ() or anchorPos.z, 0.0, 0.0, 0.0)
+            optNative('SetFocusPosAndVel', anchorPos.x, anchorPos.y, chestZ() or anchorPos.z, 0.0, 0.0, 0.0)
             -- Blur SADECE gercekten calisiyorsa kesilir; her karede yeniden
             -- TETIKLENMEZ (bkz yukaridaki ses artefakti notu).
-            if IsScreenblurFadeRunning() then DisableScreenblurFade() end
+            if optNative('IsScreenblurFadeRunning') then optNative('DisableScreenblurFade') end
             Wait(0)
         end
     end)
