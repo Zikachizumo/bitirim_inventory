@@ -773,6 +773,73 @@ local function diagWatch()
         end
     end)
 end
+
+------------------------------------------------------------------------------
+-- GORUNURLUK KATMANI (klonu goster / gercek bedeni gizle)
+------------------------------------------------------------------------------
+-- TERCIH EDILEN YOL ("local"): klon agda HERKESE gorunmez yapilir, sonra HER KARE
+-- SADECE BIZDE locally-visible edilir; gercek beden de SADECE BIZDE
+-- locally-invisible edilir. Boylece diger oyuncular hicbir sey fark etmez.
+-- ANCAK bu iki native FiveM Enhanced'de Lua tarafinda ISIMLE YOK (2026-09-08,
+-- kullanici F8 ciktisi: "SetEntityLocallyInvisible/Visible bulunamadi"). Sonucu
+-- agirdi: gercek beden gizlenmiyor, klon gorunmez kaliyor -> oyuncu EKRANDA KENDI
+-- BEDENINI goruyor. Yon/donme duzeltmeleri calisiyor ama GORUNMEYEN bir seyde
+-- calisiyordu; "karakter sirti donuk" ve "fareyle cevirme calismiyor"
+-- sikayetlerinin gercek sebebi buydu.
+-- Sirayla denenir:
+--   1) "local" : isimle bulunan native'ler (Legacy)
+--   2) "hash"  : ayni native'ler HASH ile (isim baglamasi farkliysa)
+--   3) "global": duz SetEntityVisible -- klon HERKESE gorunur, gercek beden
+--                HERKESE gizlenir. Tek oyunculu test icin sorunsuz; canli
+--                sunucuda digerleri sizi klon olarak gorur (ayni yerde, ayni
+--                kiyafette) -- ideal degil ama CALISIR ve son caredir.
+local LOCAL_VIS_HASH   = 0x241E289B5C059EDC  -- SET_ENTITY_LOCALLY_VISIBLE
+local LOCAL_INVIS_HASH = 0xE135A9FF3F5D05D8  -- SET_ENTITY_LOCALLY_INVISIBLE
+local visMode = nil
+
+local function resolveVisMode()
+    if visMode then return visMode end
+    if type(rawget(_G, 'SetEntityLocallyVisible')) == 'function'
+        and type(rawget(_G, 'SetEntityLocallyInvisible')) == 'function' then
+        visMode = 'local'
+    elseif pcall(Citizen.InvokeNative, LOCAL_INVIS_HASH, PlayerPedId()) then
+        visMode = 'hash'
+    else
+        visMode = 'global'
+    end
+    print(('^3[bitirim] gorunurluk yontemi: %s^7'):format(visMode))
+    return visMode
+end
+
+--- Her karede cagrilir ("local"/"hash" modlarinda native kendini sifirlar).
+local function applyVisibility(showCharacter)
+    local mode = resolveVisMode()
+    if mode == 'local' then
+        if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
+        if showCharacter and previewPed and DoesEntityExist(previewPed) then
+            SetEntityLocallyVisible(previewPed)
+        end
+    elseif mode == 'hash' then
+        if realPed and DoesEntityExist(realPed) then
+            pcall(Citizen.InvokeNative, LOCAL_INVIS_HASH, realPed)
+        end
+        if showCharacter and previewPed and DoesEntityExist(previewPed) then
+            pcall(Citizen.InvokeNative, LOCAL_VIS_HASH, previewPed)
+        end
+    end
+    -- "global" modda her kare bir sey yapilmaz; gorunurluk acilista BIR KEZ
+    -- ayarlanir ve kapanista GERI ALINIR (bkz beginVisibility + DestroyPreview'daki geri gosterme).
+end
+
+--- Acilista bir kez: "global" modda gercek bedeni gizle, klonu gorunur yap.
+local function beginVisibility(showCharacter)
+    if resolveVisMode() ~= 'global' then return end
+    if realPed and DoesEntityExist(realPed) then SetEntityVisible(realPed, false, false) end
+    if previewPed and DoesEntityExist(previewPed) then
+        SetEntityVisible(previewPed, showCharacter and true or false, false)
+    end
+end
+
 local function CreatePreview(showCharacter)
     if showCharacter == nil then showCharacter = true end
     if active then return end
@@ -1009,21 +1076,14 @@ local function CreatePreview(showCharacter)
     -- KALBIDIR ama yine de BIR KEZ cozulup null kontrolunden geciriliyor: yoksa
     -- render thread her karede hata firlatip OLURDU ve belirti yine "kamera
     -- bozuldu" gibi gorunurdu. Yoksa uyari yazilir, dongu calismaya devam eder.
-    local hideReal = rawget(_G, 'SetEntityLocallyInvisible')
-    local showKlon = rawget(_G, 'SetEntityLocallyVisible')
-    if not hideReal or not showKlon then
-        print('^3[bitirim] UYARI: SetEntityLocallyInvisible/Visible bulunamadi -- gercek beden gizlenemeyebilir^7')
-    end
+    -- Gorunurluk: hangi yontemin kullanilacagini GORUNURLUK KATMANI secer
+    -- ("local" / "hash" / "global" -- bkz yukaridaki blok). "global" modda acilista
+    -- bir kez ayarlanir, digerlerinde her kare tazelenir.
+    beginVisibility(showCharacter)
 
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
-            if hideReal and realPed and DoesEntityExist(realPed) then hideReal(realPed) end
-            -- Klon agda GENEL OLARAK gorunmez (yukaridaki not) -> SADECE showCharacter
-            -- ise, SADECE bu client'ta HER KARE uzerine yazip gorunur yapariz (native
-            -- kendini sifirlar, SetEntityLocallyInvisible ile ayni desen). Baska
-            -- oyuncular ASLA gormez; showCharacter=false ise (kap gorunumu) biz de
-            -- gormeyiz (mevcut niyetle ayni).
-            if showCharacter and showKlon then showKlon(previewPed) end
+            applyVisibility(showCharacter)
             diagRenderTicks = diagRenderTicks + 1   -- GECICI TESHIS
             updateAnchor()
             setupStudio()
@@ -1079,7 +1139,9 @@ local function DestroyPreview()
     previewPed = nil
     klonFrozen = false
 
-    -- Gercek bedeni kesin geri goster (LocallyInvisible zaten kendini sifirlar; emniyet).
+    -- Gercek bedeni kesin geri goster. "global" gorunurluk modunda bu SART:
+    -- orada gercek beden SetEntityVisible ile HERKESE gizlenmisti, kendiliginden
+    -- geri gelmez (locally-invisible gibi her kare sifirlanan bir sey degil).
     if realPed and DoesEntityExist(realPed) then
         SetEntityVisible(realPed, true, false)
         ResetEntityAlpha(realPed)
