@@ -191,6 +191,9 @@ local curWeapon    = nil
 local camF         = nil    -- kamera ileri vektoru (studioYaw'dan turetilir)
 local camR         = nil    -- kamera sag vektoru (studioYaw'dan turetilir; camSide bu eksende kaydirir)
 local vehAnchor    = nil    -- oyuncu aractaysa o arac; sahne aracin ARKASINDAN cerceveler (bkz updateAnchor)
+local VEH_CAM_UP      = 1.60  -- arac kamerasi arac merkezinin kac metre USTUNDE
+local VEH_CAM_LOOK_UP = 0.40  -- bakis hedefi arac merkezinin kac metre ustu (hafif asagi bakis)
+local VEH_CAM_FOV     = 50.0  -- arac kadraji icin gorus acisi (karakter FOV'undan BAGIMSIZ)
 local vehCamDist   = nil    -- arac icin kamera mesafesi (arac boyuna gore olceklenir)
 local klonFrozen   = false  -- klon FreezeEntityPosition ile dondurulduysa true (yon yazarken gecici olarak cozmek icin)
 local klonHeading  = 0.0    -- klonun O ANKI yonu; kameranin gercek konumundan turetilir (bkz computeCameraBasis)
@@ -490,10 +493,32 @@ local function computeCameraBasis()
     -- her karede IKI FARKLI heading arasinda gidip geliyordu (kullanici mouse ile
     -- cevirdiginde). Ikisi artik AYNI degeri kullanir.
     setKlonPose(anchorPos.x, anchorPos.y, anchorPos.z, klonHeading)
-    local cz = chestZ()
-    if not cz then return end
     camF = fwd
     camR = right
+
+    -- ARAC MODU: KARAKTER KADRAJI MAKINESI TAMAMEN DEVRE DISI (2026-09-08).
+    -- Ilk denemede arac modu da lens kaydirma / lookDown / FOV telafisi yolundan
+    -- geciyordu ve iki sey bozuluyordu:
+    --   1) yanal kadraj ofseti (camSide) MESAFEYLE OLCEKLENIYOR; arac mesafesi
+    --      ~6.5m oldugu icin carpan ~2.5 cikiyor ve kamera araci kadrajin cok
+    --      disina itiyordu,
+    --   2) kamera yuksekligi klonun GOGUS ofsetinden turetiliyordu -- arac
+    --      merkezine gore bu deger anlamsiz.
+    -- Arac icin dogru sey basit: kamera aracin TAM ARKASINDA, bir miktar yukarida,
+    -- aracin merkezine bakar. Oyunun kendi 3. sahis arac kamerasiyla ayni his.
+    if vehAnchor then
+        local dist = vehCamDist or 6.0
+        SetCamCoord(studioCam,
+            anchorPos.x - fwd.x * dist,
+            anchorPos.y - fwd.y * dist,
+            anchorPos.z + VEH_CAM_UP)
+        SetCamFov(studioCam, VEH_CAM_FOV)
+        PointCamAtCoord(studioCam, anchorPos.x, anchorPos.y, anchorPos.z + VEH_CAM_LOOK_UP)
+        return
+    end
+
+    local cz = chestZ()
+    if not cz then return end
 
     -- KADRAJ YERLESIMI: KAMERA KAYDIRILMAZ, SADECE DONDURULUR (2026-08-30).
     -- Once klonu dunyada kaydiriyorduk (klon gercek konumundan kayiyordu), sonra
@@ -608,17 +633,17 @@ local function updateAnchor()
         -- arkasindan bakan" normal 3. sahis kadraji olur -- kullanicinin referans
         -- ekran goruntusundeki gorunum.
         -- Mesafe arac BOYUNA gore olceklenir: kucuk arabada burnu, otobuste tamami
-        -- kadraja girsin. Kamera ayrica tavan hizasinin biraz ustune cikarilir.
+        -- kadraja girsin. Kamera yuksekligi/FOV'u arac icin AYRI sabitlerdedir.
         vehAnchor = veh
         local okDim, minD, maxD = pcall(GetModelDimensions, GetEntityModel(veh))
-        local len, topZ = 5.0, 1.0
+        local len = 5.0
         if okDim and minD and maxD then
             len  = maxD.y - minD.y
-            topZ = maxD.z
         end
-        vehCamDist = len * 0.5 + 4.0
-        local c = GetEntityCoords(veh)
-        anchorPos  = vector3(c.x, c.y, c.z + topZ * 0.5)
+        vehCamDist = len * 0.5 + 4.5
+        -- Ankor DUZ arac merkezi; yukseklik ayari kamera tarafinda (VEH_CAM_UP)
+        -- yapilir -> tek yerde, okunabilir.
+        anchorPos  = GetEntityCoords(veh)
         anchorHead = GetEntityHeading(veh)
         return
     end
@@ -796,6 +821,7 @@ end
 --                kiyafette) -- ideal degil ama GARANTI calisir.
 --                Kapanista gercek beden MUTLAKA geri gosterilir (DestroyPreview).
 local visMode = nil
+local klonShown = nil   -- "global" modda klonun O ANKI gorunurlugu (sadece degisince yazilir)
 
 local function resolveVisMode()
     if visMode then return visMode end
@@ -818,23 +844,33 @@ end
 --- Her karede cagrilir ("local" modda native kendini sifirlar, o yuzden tazelenir).
 local function applyVisibility(showCharacter)
     local mode = resolveVisMode()
+    -- ARAC ICINDE KLON GIZLENIR: sahne araci cerceveliyor, klon ise aracin
+    -- MERKEZINDE AYAKTA duruyor (klon koltuga oturmaz). Yeni gorunurluk
+    -- yonteminde klon herkese gorunur oldugu icin camlardan "arabanin icinde
+    -- ayakta duran adam" gorunurdu -- kadraji da, digerlerinin gordugunu de bozar.
+    local wantKlon = showCharacter and not vehAnchor
     if mode == 'local' then
         if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
-        if showCharacter and previewPed and DoesEntityExist(previewPed) then
+        if wantKlon and previewPed and DoesEntityExist(previewPed) then
             SetEntityLocallyVisible(previewPed)
         end
+    elseif klonShown ~= wantKlon and previewPed and DoesEntityExist(previewPed) then
+        -- "global" modda gorunurluk kendini SIFIRLAMAZ -> sadece DEGISTIGINDE yaz
+        -- (her kare native cagirmak gereksiz trafik).
+        klonShown = wantKlon
+        SetEntityVisible(previewPed, wantKlon, false)
     end
     -- "global" modda her kare bir sey yapilmaz; gorunurluk acilista BIR KEZ
     -- ayarlanir ve kapanista GERI ALINIR (bkz beginVisibility + DestroyPreview'daki geri gosterme).
 end
 
---- Acilista bir kez: "global" modda gercek bedeni gizle, klonu gorunur yap.
-local function beginVisibility(showCharacter)
+--- Acilista bir kez: "global" modda GERCEK BEDENI gizle. Klonun gorunurlugu
+--- applyVisibility'nin isi (arac durumuna gore degisebiliyor) -- tek sahip olsun
+--- diye buradan cikarildi.
+local function beginVisibility()
+    klonShown = nil
     if resolveVisMode() ~= 'global' then return end
     if realPed and DoesEntityExist(realPed) then SetEntityVisible(realPed, false, false) end
-    if previewPed and DoesEntityExist(previewPed) then
-        SetEntityVisible(previewPed, showCharacter and true or false, false)
-    end
 end
 
 local function CreatePreview(showCharacter)
@@ -1076,7 +1112,7 @@ local function CreatePreview(showCharacter)
     -- Gorunurluk: hangi yontemin kullanilacagini GORUNURLUK KATMANI secer
     -- ("local" / "hash" / "global" -- bkz yukaridaki blok). "global" modda acilista
     -- bir kez ayarlanir, digerlerinde her kare tazelenir.
-    beginVisibility(showCharacter)
+    beginVisibility()
 
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
