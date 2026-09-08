@@ -786,15 +786,15 @@ end
 -- BEDENINI goruyor. Yon/donme duzeltmeleri calisiyor ama GORUNMEYEN bir seyde
 -- calisiyordu; "karakter sirti donuk" ve "fareyle cevirme calismiyor"
 -- sikayetlerinin gercek sebebi buydu.
--- Sirayla denenir:
---   1) "local" : isimle bulunan native'ler (Legacy)
---   2) "hash"  : ayni native'ler HASH ile (isim baglamasi farkliysa)
---   3) "global": duz SetEntityVisible -- klon HERKESE gorunur, gercek beden
---                HERKESE gizlenir. Tek oyunculu test icin sorunsuz; canli
---                sunucuda digerleri sizi klon olarak gorur (ayni yerde, ayni
---                kiyafette) -- ideal degil ama CALISIR ve son caredir.
-local LOCAL_VIS_HASH   = 0x241E289B5C059EDC  -- SET_ENTITY_LOCALLY_VISIBLE
-local LOCAL_INVIS_HASH = 0xE135A9FF3F5D05D8  -- SET_ENTITY_LOCALLY_INVISIBLE
+-- IKI YOL VAR (arada "hash ile dene" diye bir kademe DENENDI ve KALDIRILDI, bkz
+-- resolveVisMode):
+--   1) "local" : isimle bulunan native'ler (Legacy) -- diger oyuncular hicbir sey
+--                fark etmez, TERCIH EDILEN yol.
+--   2) "global": duz SetEntityVisible -- klon HERKESE gorunur, gercek beden
+--                HERKESE gizlenir. Tek oyunculu test sunucusunda fark etmez; canli
+--                sunucuda digerleri sizi klon olarak gorur (AYNI yerde, AYNI
+--                kiyafette) -- ideal degil ama GARANTI calisir.
+--                Kapanista gercek beden MUTLAKA geri gosterilir (DestroyPreview).
 local visMode = nil
 
 local function resolveVisMode()
@@ -802,29 +802,26 @@ local function resolveVisMode()
     if type(rawget(_G, 'SetEntityLocallyVisible')) == 'function'
         and type(rawget(_G, 'SetEntityLocallyInvisible')) == 'function' then
         visMode = 'local'
-    elseif pcall(Citizen.InvokeNative, LOCAL_INVIS_HASH, PlayerPedId()) then
-        visMode = 'hash'
     else
+        -- HASH ile cagirma DENENMIYOR (2026-09-08'de denendi ve GERILEMEYE yol acti):
+        -- Citizen.InvokeNative var olmayan/karsiligi degismis bir native icin de
+        -- HATASIZ donebiliyor, yani "tuttu mu" DOGRULANAMIYOR. Pratikte cagrilardan
+        -- biri tutup digeri tutmadi -> gercek beden gizlendi ama klon acilmadi,
+        -- karakter paneli KOMPLE BOS kaldi (kullanici bildirdi).
+        -- Dogrulanamayan bir yol yerine GARANTI calisan duz SetEntityVisible.
         visMode = 'global'
     end
     print(('^3[bitirim] gorunurluk yontemi: %s^7'):format(visMode))
     return visMode
 end
 
---- Her karede cagrilir ("local"/"hash" modlarinda native kendini sifirlar).
+--- Her karede cagrilir ("local" modda native kendini sifirlar, o yuzden tazelenir).
 local function applyVisibility(showCharacter)
     local mode = resolveVisMode()
     if mode == 'local' then
         if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
         if showCharacter and previewPed and DoesEntityExist(previewPed) then
             SetEntityLocallyVisible(previewPed)
-        end
-    elseif mode == 'hash' then
-        if realPed and DoesEntityExist(realPed) then
-            pcall(Citizen.InvokeNative, LOCAL_INVIS_HASH, realPed)
-        end
-        if showCharacter and previewPed and DoesEntityExist(previewPed) then
-            pcall(Citizen.InvokeNative, LOCAL_VIS_HASH, previewPed)
         end
     end
     -- "global" modda her kare bir sey yapilmaz; gorunurluk acilista BIR KEZ
