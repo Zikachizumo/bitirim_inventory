@@ -644,7 +644,15 @@ local function updateAnchor()
         -- Ankor DUZ arac merkezi; yukseklik ayari kamera tarafinda (VEH_CAM_UP)
         -- yapilir -> tek yerde, okunabilir.
         anchorPos  = GetEntityCoords(veh)
-        anchorHead = GetEntityHeading(veh)
+        -- BAKIS ACISI = CANTA ACILDIGI ANDAKI OYUN KAMERASININ YONU (2026-09-08,
+        -- kullanici istegi): 3. sahiste fareyle yana/geriye bakarken canta acilirsa
+        -- sahne O ACIYLA acilir. Duz ileri bakiyorken kamera yonu zaten aracin
+        -- yonune esittir -> varsayilan "arabanin tam arkasindan" kadraj DEGISMEZ.
+        -- Deger BIR KEZ (tarama sirasinda) okunur ve studioYaw'a donusup canta
+        -- kapanana kadar SABIT kalir; kamera acikken oynamaz.
+        -- Native yoksa aracin kendi yonune duser (eski davranis).
+        local camRot = optNative('GetGameplayCamRot', 2)
+        anchorHead = (camRot and camRot.z) or GetEntityHeading(veh)
         return
     end
     vehAnchor, vehCamDist = nil, nil
