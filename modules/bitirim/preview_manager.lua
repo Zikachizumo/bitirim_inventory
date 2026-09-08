@@ -201,7 +201,6 @@ local vehCamDist   = nil    -- arac icin kamera mesafesi (arac boyuna gore olcek
 local klonFrozen   = false  -- klon FreezeEntityPosition ile dondurulduysa true (yon yazarken gecici olarak cozmek icin)
 local klonHeading  = 0.0    -- klonun O ANKI yonu; kameranin gercek konumundan turetilir (bkz computeCameraBasis)
 local clonePedShape = nil   -- bu oyun yapisinda calisan ClonePed imzasi ('legacy' | 'modern'); ilk basarili denemede onbellege alinir
-local diagRenderTicks = 0   -- GECICI TESHIS: render thread kac kare dondu (bkz GECICI TESHIS blogu)
 local chestOffsetZ = nil    -- klonun gogus yuksekliginin ankora gore ofseti; BIR KEZ olculur (bkz chestZ) -> kamera Z nefes animasyonuyla titremez
 local studioCamDist = nil   -- canta acilisinda BIR KEZ belirlenen kamera mesafesi (secilen yonun olculen boslugundan); canta kapanana kadar SABIT -> kamera hic oynamaz
 local studioYaw    = nil    -- sahnenin O ANKI yonu (yumusak sekilde studioYawTarget'a yaklasir)
@@ -662,10 +661,12 @@ local function gameplayCamRot(fallbackYaw)
     if pitch < VEH_CAM_PITCH_MIN then pitch = VEH_CAM_PITCH_MIN end
     if pitch > VEH_CAM_PITCH_MAX then pitch = VEH_CAM_PITCH_MAX end
 
+    -- Hangi yolun tuttugu OTURUMDA BIR KEZ yazilir (her canta acilisinda degil):
+    -- "fallback" gorursen kamera acisi okunamiyor demektir ve sahne aracin kendi
+    -- yonunde/varsayilan egimde acilir.
     if not camYawLogged then
         camYawLogged = true
-        print(('^3[bitirim] arac bakis acisi: %s (yon=%s egim=%.1f aracYon=%.1f)^7')
-            :format(how, yaw and ('%.1f'):format(yaw) or 'yok', pitch, fallbackYaw))
+        print(('^3[bitirim] arac bakis acisi kaynagi: %s^7'):format(how))
     end
     return pitch, yaw or fallbackYaw
 end
@@ -813,55 +814,6 @@ end
 --- gogus bonuna gore hesaplanir) ama GORUNMEZ yapilir -> backdrop panel gorunur,
 --- karakter gorunmez. Torpido/bagaj/motel/otel gibi kap gorunumlerinde kullanilir
 --- (kullanici istegi: arka plan HER YERDE ama karakter SADECE karakter panelinde).
-
-------------------------------------------------------------------------------
--- GECICI TESHIS (2026-08-30) -- BINA ICINDE ONIZLEME BASLAMIYOR
-------------------------------------------------------------------------------
--- Belirti: magaza/MLO icinde canta acilinca studio kamerasi devreye girmiyor,
--- gercek beden gizlenmiyor, klon yok -> oyuncu normal 3. sahis kamerasini ve
--- KENDI sirtini goruyor (kamera dar mekanda mobilyaya giriyor -- bu oyunun
--- kendi kamerasinin normal davranisi, bizim kameramiz DEGIL).
--- Kurulum penceresi (klon olusturuldu ama henuz freeze edilmedi) birkac kare
--- surdugu icin bu pencerede previewPed'in silinmesi/active'in dusmesi tum
--- kurulumu yarida kesiyor olabilir. Asagidaki iki teshis bunu KESIN olarak
--- ayirt eder. SORUN COZULUNCE BU BLOK TAMAMEN SILINECEK.
-local DIAG = true
-
-local function diagAbort(where)
-    if not DIAG then return end
-    print(('^1[bitirim-teshis] KURULUM YARIDA KESILDI @%s -> active=%s previewPed=%s exists=%s^7')
-        :format(where, tostring(active), tostring(previewPed),
-                (previewPed and tostring(DoesEntityExist(previewPed))) or 'nil'))
-end
-
---- Acilistan sonra 0.5/1.5/3.0 sn'de sahnenin GERCEK durumunu yazar.
-local function diagWatch()
-    if not DIAG then return end
-    CreateThread(function()
-        for _, delay in ipairs({ 500, 1000, 1500 }) do
-            Wait(delay)
-            local rp = realPed
-            local pp = previewPed
-            -- HEDEF vs GERCEK yon: esit degilse yon YAZILAMIYOR demektir (klon
-            -- sirti donuk kalir + fareyle cevirme calismaz, ikisi ayni sebep).
-            print(('^3[bitirim-teshis] yonHedef=%.1f yonGercek=%s dragYaw=%.1f donmus=%s^7')
-                :format(klonHeading,
-                        (pp and DoesEntityExist(pp) and ('%.1f'):format(GetEntityHeading(pp))) or 'nil',
-                        dragYaw, tostring(klonFrozen)))
-            print(('^3[bitirim-teshis] t=%dms active=%s klon=%s klonVar=%s kamera=%s camAktif=%s renderTur=%d interiorGercek=%s interiorKlon=%s^7')
-                :format(GetGameTimer() % 100000,
-                        tostring(active),
-                        tostring(pp),
-                        (pp and tostring(DoesEntityExist(pp))) or 'nil',
-                        tostring(studioCam),
-                        (studioCam and tostring(IsCamActive(studioCam))) or 'nil',
-                        diagRenderTicks,
-                        (rp and DoesEntityExist(rp) and tostring(GetInteriorFromEntity(rp))) or 'nil',
-                        (pp and DoesEntityExist(pp) and tostring(GetInteriorFromEntity(pp))) or 'nil'))
-        end
-    end)
-end
-
 ------------------------------------------------------------------------------
 -- GORUNURLUK KATMANI (klonu goster / gercek bedeni gizle)
 ------------------------------------------------------------------------------
@@ -1064,9 +1016,6 @@ local function CreatePreview(showCharacter)
     spawnBackdrop()
 
     active = true
-    diagRenderTicks = 0
-    camYawLogged = false
-    diagWatch()   -- GECICI TESHIS
     compCache = {}
     curWeapon = nil
     setupStudio()               -- klon+kamera+backdrop studio konumuna (previewPed HALA collision'li/frozen degil)
@@ -1117,7 +1066,7 @@ local function CreatePreview(showCharacter)
             -- Collision bu pencerede ACIK oldugu icin devralinan hiz klonu kaydirabilir.
             SetEntityVelocity(previewPed, 0.0, 0.0, 0.0)
             Wait(0)
-            if not active or not previewPed or not DoesEntityExist(previewPed) then diagAbort("oda-kaydi-dongusu"); return end
+            if not active or not previewPed or not DoesEntityExist(previewPed) then return end
         end
     end
 
@@ -1148,7 +1097,7 @@ local function CreatePreview(showCharacter)
     -- DestroyPreview() calisirsa) previewPed COKTAN silinmis olabilir. Boyle bir durumda
     -- silinmis/gecersiz entity uzerinde native cagirmamak icin burada durup cikariz
     -- (DestroyPreview zaten her seyi temizledi, tekrar dokunmuyoruz).
-    if not active or not previewPed or not DoesEntityExist(previewPed) then diagAbort("tarama-sonrasi"); return end
+    if not active or not previewPed or not DoesEntityExist(previewPed) then return end
 
     setupStudio()   -- taramanin sectigi yonle kamerayi/klonu yeniden otur
 
@@ -1201,7 +1150,6 @@ local function CreatePreview(showCharacter)
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
             applyVisibility(showCharacter)
-            diagRenderTicks = diagRenderTicks + 1   -- GECICI TESHIS
             updateAnchor()
             setupStudio()
             -- Odak SABIT bir noktaya kurulur (canli kemik degil) -> streaming/ses
