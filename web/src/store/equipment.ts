@@ -54,6 +54,9 @@ interface EquipmentState {
   equippedWeapon: EquippedWeapon | null;
   equipment: EquipmentMap;
   clothingMap: ClothingMap;
+  // Envanterde giyilebilir bir item'e tiklaninca (tooltip acilinca) o item'in HEDEF
+  // karakter slotu -> panelde parlar ("bu item buraya giyilir" ipucu). null = yok.
+  highlightSlot: string | null;
 }
 
 const initialState: EquipmentState = {
@@ -61,6 +64,7 @@ const initialState: EquipmentState = {
   equippedWeapon: null,
   equipment: {},
   clothingMap: {},
+  highlightSlot: null,
 };
 
 export const equipmentSlice = createSlice({
@@ -79,12 +83,17 @@ export const equipmentSlice = createSlice({
     setClothingMap: (state, action: PayloadAction<ClothingMap | null | undefined>) => {
       state.clothingMap = action.payload ?? {};
     },
+    setHighlightSlot: (state, action: PayloadAction<string | null | undefined>) => {
+      state.highlightSlot = action.payload ?? null;
+    },
   },
 });
 
-export const { setEquippedSlot, setEquippedWeapon, setEquipment, setClothingMap } = equipmentSlice.actions;
+export const { setEquippedSlot, setEquippedWeapon, setEquipment, setClothingMap, setHighlightSlot } =
+  equipmentSlice.actions;
 export const selectEquippedSlot = (state: RootState) => state.equipment.equippedSlot;
 export const selectEquippedWeapon = (state: RootState) => state.equipment.equippedWeapon;
 export const selectEquipment = (state: RootState) => state.equipment.equipment;
 export const selectClothingMap = (state: RootState) => state.equipment.clothingMap;
+export const selectHighlightSlot = (state: RootState) => state.equipment.highlightSlot;
 export default equipmentSlice.reducer;
