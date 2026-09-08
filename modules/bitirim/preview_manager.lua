@@ -190,9 +190,17 @@ local compCache    = {}     -- aynalama diff onbellegi
 local curWeapon    = nil
 local camF         = nil    -- kamera ileri vektoru (studioYaw'dan turetilir)
 local camR         = nil    -- kamera sag vektoru (studioYaw'dan turetilir; camSide bu eksende kaydirir)
+local vehAnchor    = nil    -- oyuncu aractaysa o arac; sahne aracin ARKASINDAN cerceveler (bkz updateAnchor)
+local VEH_PIVOT_UP        = 1.00  -- kameranin etrafinda dondugu nokta arac merkezinin kac metre ustunde (oyunun kendi arac kamerasi da merkezin biraz ustunu yorunge merkezi alir)
+local VEH_CAM_PITCH_DEFAULT = -10.0 -- kamera egimi okunamazsa kullanilacak deger (hafif asagi bakis)
+local VEH_CAM_PITCH_MIN     = -80.0 -- tam tepeden bakisin siniri
+local VEH_CAM_PITCH_MAX     =  25.0 -- alttan bakisin siniri
+local VEH_CAM_FOV     = 50.0  -- arac kadraji icin gorus acisi (karakter FOV'undan BAGIMSIZ)
+local vehCamPitch  = nil    -- arac icin kamera egimi (canta acilirken oyun kamerasindan okunur)
+local vehCamDist   = nil    -- arac icin kamera mesafesi (arac boyuna gore olceklenir)
+local klonFrozen   = false  -- klon FreezeEntityPosition ile dondurulduysa true (yon yazarken gecici olarak cozmek icin)
 local klonHeading  = 0.0    -- klonun O ANKI yonu; kameranin gercek konumundan turetilir (bkz computeCameraBasis)
 local clonePedShape = nil   -- bu oyun yapisinda calisan ClonePed imzasi ('legacy' | 'modern'); ilk basarili denemede onbellege alinir
-local diagRenderTicks = 0   -- GECICI TESHIS: render thread kac kare dondu (bkz GECICI TESHIS blogu)
 local chestOffsetZ = nil    -- klonun gogus yuksekliginin ankora gore ofseti; BIR KEZ olculur (bkz chestZ) -> kamera Z nefes animasyonuyla titremez
 local studioCamDist = nil   -- canta acilisinda BIR KEZ belirlenen kamera mesafesi (secilen yonun olculen boslugundan); canta kapanana kadar SABIT -> kamera hic oynamaz
 local studioYaw    = nil    -- sahnenin O ANKI yonu (yumusak sekilde studioYawTarget'a yaklasir)
@@ -277,13 +285,18 @@ local function setKlonPose(x, y, z, heading)
     end
     local h = GetEntityHeading(previewPed)
     if math.abs((h - heading + 540.0) % 360.0 - 180.0) > POSE_HEAD_EPS then
+        -- BAZI OYUN YAPILARINDA (Enhanced) DONDURULMUS bir entity'nin yonu
+        -- DEGISTIRILEMIYOR: ne SetEntityHeading ne SetEntityRotation tutuyor.
+        -- Belirti ikili geliyor -- klon kameraya donmuyor (sirti donuk kaliyor) VE
+        -- fareyle cevirme calismiyor; ikisi de AYNI yazmaya dayaniyor, kullanici
+        -- ikisini de bildirdi. Cozum: yaziyi DONDURMAYI GECICI OLARAK KALDIRIP
+        -- yapmak. Yon nadiren degistigi icin (sahne kurulumu + fare surukleme)
+        -- bunun maliyeti ihmal edilebilir.
+        local wasFrozen = klonFrozen
+        if wasFrozen then FreezeEntityPosition(previewPed, false) end
         SetEntityHeading(previewPed, heading)
-        -- BAZI OYUN YAPILARINDA (Enhanced) DONMUS bir entity'de SetEntityHeading
-        -- TEK BASINA TUTMUYOR: klon kameraya donmuyor (sirti donuk kaliyor) VE
-        -- fareyle cevirme calismiyor -- kullanici ikisini de bildirdi, ikisi de
-        -- AYNI yazmaya dayaniyor. SetEntityRotation ayni acyi Z ekseninden yazar;
-        -- ikisini birlikte cagirmak her iki yapida da sonuc verir.
         optNative('SetEntityRotation', previewPed, 0.0, 0.0, heading, 2, true)
+        if wasFrozen then FreezeEntityPosition(previewPed, true) end
     end
 end
 
@@ -362,6 +375,12 @@ end
 --- tek karede cok sayida pahali prob atmamak icin bolunur (dogruluk icin DEGIL).
 local function scanStudioYaw()
     if not active or not anchorPos then return end
+    -- ARAC ICINDE tarama YAPILMAZ: sahnenin yonu aracin yonudur, mesafeyi de arac
+    -- boyu belirler (bkz updateAnchor). Ferah yon aramak burada anlamsiz olurdu.
+    if vehAnchor then
+        studioYawTgt, studioCamDist = anchorHead, nil
+        return
+    end
     -- Olcum native'i bu oyun yapisinda yoksa tarama ATLANIR: sahne oyuncunun kendi
     -- bakis yonunde, istenen mesafede acilir (eski/temel davranis). Onizlemenin
     -- KENDISI calismaya devam eder -- tarama bir konfor ozelligi, on kosul degil.
@@ -476,10 +495,37 @@ local function computeCameraBasis()
     -- her karede IKI FARKLI heading arasinda gidip geliyordu (kullanici mouse ile
     -- cevirdiginde). Ikisi artik AYNI degeri kullanir.
     setKlonPose(anchorPos.x, anchorPos.y, anchorPos.z, klonHeading)
-    local cz = chestZ()
-    if not cz then return end
     camF = fwd
     camR = right
+
+    -- ARAC MODU: KARAKTER KADRAJI MAKINESI TAMAMEN DEVRE DISI (2026-09-08).
+    -- Ilk denemede arac modu da lens kaydirma / lookDown / FOV telafisi yolundan
+    -- geciyordu ve iki sey bozuluyordu:
+    --   1) yanal kadraj ofseti (camSide) MESAFEYLE OLCEKLENIYOR; arac mesafesi
+    --      ~6.5m oldugu icin carpan ~2.5 cikiyor ve kamera araci kadrajin cok
+    --      disina itiyordu,
+    --   2) kamera yuksekligi klonun GOGUS ofsetinden turetiliyordu -- arac
+    --      merkezine gore bu deger anlamsiz.
+    -- Arac icin dogru sey basit: kamera aracin TAM ARKASINDA, bir miktar yukarida,
+    -- aracin merkezine bakar. Oyunun kendi 3. sahis arac kamerasiyla ayni his.
+    if vehAnchor then
+        local dist = vehCamDist or 6.0
+        -- Kamera, YORUNGE MERKEZININ (arac merkezi + VEH_PIVOT_UP) etrafinda,
+        -- oyun kamerasindan okunan YATAY (yaw -> fwd) ve DIKEY (pitch) aciyla
+        -- konumlanir. Yukseklik artik sabit bir sayidan DEGIL, egimden gelir:
+        -- tepeden bakiyorken kamera yukari cikar, yerden bakiyorken asagi iner.
+        local pr = math.rad(vehCamPitch or VEH_CAM_PITCH_DEFAULT)
+        local cp = math.cos(pr)
+        local dx, dy, dz = fwd.x * cp, fwd.y * cp, math.sin(pr)
+        local px, py, pz = anchorPos.x, anchorPos.y, anchorPos.z + VEH_PIVOT_UP
+        SetCamCoord(studioCam, px - dx * dist, py - dy * dist, pz - dz * dist)
+        SetCamFov(studioCam, VEH_CAM_FOV)
+        PointCamAtCoord(studioCam, px, py, pz)
+        return
+    end
+
+    local cz = chestZ()
+    if not cz then return end
 
     -- KADRAJ YERLESIMI: KAMERA KAYDIRILMAZ, SADECE DONDURULUR (2026-08-30).
     -- Once klonu dunyada kaydiriyorduk (klon gercek konumundan kayiyordu), sonra
@@ -501,7 +547,9 @@ local function computeCameraBasis()
     local sx, sz = -cfg.camSide, -cfg.camHeight
 
     -- Tarama sirasinda bir kez belirlenen SABIT mesafe (bkz yukaridaki not).
-    local dist = math.min(cfg.camDist, studioCamDist or cfg.camDist)
+    -- ARAC ICINDE: mesafe aracin boyuna gore belirlenir (yon taramasi devre disi;
+    -- amac karakteri cerceveler gibi kadraja oturtmak degil, araci arkadan gostermek).
+    local dist = vehCamDist or math.min(cfg.camDist, studioCamDist or cfg.camDist)
 
     local camX = anchorPos.x - fwd.x * dist
     local camY = anchorPos.y - fwd.y * dist
@@ -572,6 +620,56 @@ end
 --- takip eder — ARTIK ne +Z offseti ne de interior icin ayri bir fallback VAR
 --- (bkz dosya basi mimari notu): previewPed asla oyuncunun bulundugu yerin
 --- disina (baska interior/routing/gokyuzu/sehir ustu) TASINMAZ.
+
+--- Oyun kamerasinin O ANKI yatay yonu (heading). Uc yol SIRAYLA denenir, cunku
+--- isim baglamalari oyun yapisina gore degisiyor (Enhanced'de bircok native Lua
+--- tarafinda ISIMLE yok -- bkz optNative):
+---   1) GetGameplayCamRot(2).z                     -- dogrudan isimle
+---   2) ayni native HASH ile (vector sonuc)
+---   3) referans yon + GetGameplayCamRelativeHeading()
+--- Hicbiri sonuc vermezse fallback (aracin kendi yonu) dondurulur = eski davranis.
+--- Hangi yolun tuttugu canta acilisinda BIR KEZ yazilir -> calismadiginda tahmin
+--- yurutmeye gerek kalmaz.
+--- Oyun kamerasinin O ANKI yonu: YATAY (yaw) *ve* DIKEY (pitch).
+--- Once sadece yaw okunuyordu; kamera yuksekligi sabit bir degerden geliyordu, bu
+--- yuzden aracin TEPESINDEN veya YERDEN bakiyorken canta acilinca sahne hep ayni
+--- yukseklige atliyordu (kullanici bildirdi, 2026-09-08). Pitch de okununca acinin
+--- TAMAMI korunur.
+local camYawLogged = false
+local function gameplayCamRot(fallbackYaw)
+    local pitch, yaw, how = nil, nil, 'fallback'
+
+    local rot = optNative('GetGameplayCamRot', 2)
+    if rot and rot.z then
+        pitch, yaw, how = rot.x, rot.z, 'isim'
+    else
+        local ok, v = pcall(Citizen.InvokeNative, 0x837765A25378F0BB, 2, Citizen.ResultAsVector())
+        if ok and v and v.z then
+            pitch, yaw, how = v.x, v.z, 'hash'
+        else
+            local rel = optNative('GetGameplayCamRelativeHeading')
+            if rel then
+                yaw, how = (fallbackYaw + rel) % 360.0, 'goreli'
+                pitch = optNative('GetGameplayCamRelativePitch')
+            end
+        end
+    end
+
+    pitch = pitch or VEH_CAM_PITCH_DEFAULT
+    -- Uc degerleri kirp: tam tepeden/tam alttan bakisla kamera dejenere konuma
+    -- (aracin tam icine ya da zeminin altina) dusmesin.
+    if pitch < VEH_CAM_PITCH_MIN then pitch = VEH_CAM_PITCH_MIN end
+    if pitch > VEH_CAM_PITCH_MAX then pitch = VEH_CAM_PITCH_MAX end
+
+    -- Hangi yolun tuttugu OTURUMDA BIR KEZ yazilir (her canta acilisinda degil):
+    -- "fallback" gorursen kamera acisi okunamiyor demektir ve sahne aracin kendi
+    -- yonunde/varsayilan egimde acilir.
+    if not camYawLogged then
+        camYawLogged = true
+        print(('^3[bitirim] arac bakis acisi kaynagi: %s^7'):format(how))
+    end
+    return pitch, yaw or fallbackYaw
+end
 local function updateAnchor()
     if not realPed or not DoesEntityExist(realPed) then return end
 
@@ -587,18 +685,33 @@ local function updateAnchor()
     -- kullanilabilir bir onizleme URETMIYOR.
     local veh = GetVehiclePedIsIn(realPed, false)
     if veh and veh ~= 0 and DoesEntityExist(veh) then
+        -- Ankor ARACIN MERKEZI, yon ARACIN yonu. Kamera formulu kamerayi ankorun
+        -- ARKASINA koydugu icin (anchor - ileri * mesafe) sonuc dogrudan "arabanin
+        -- arkasindan bakan" normal 3. sahis kadraji olur -- kullanicinin referans
+        -- ekran goruntusundeki gorunum.
+        -- Mesafe arac BOYUNA gore olceklenir: kucuk arabada burnu, otobuste tamami
+        -- kadraja girsin. Kamera yuksekligi/FOV'u arac icin AYRI sabitlerdedir.
+        vehAnchor = veh
         local okDim, minD, maxD = pcall(GetModelDimensions, GetEntityModel(veh))
-        local side = 2.0
-        local baseZ = 0.0
+        local len = 5.0
         if okDim and minD and maxD then
-            side  = (maxD.x - minD.x) * 0.5 + 1.0   -- yarim genislik + yurume payi
-            baseZ = minD.z                          -- govdenin ALTI ~ zemin hizasi
+            len  = maxD.y - minD.y
         end
-        local p = GetOffsetFromEntityInWorldCoords(veh, -side, 0.0, baseZ)
-        anchorPos  = vector3(p.x, p.y, p.z)
-        anchorHead = GetEntityHeading(veh)
+        vehCamDist = len * 0.5 + 4.5
+        -- Ankor DUZ arac merkezi; yukseklik/egim ayari kamera tarafinda yapilir
+        -- (VEH_PIVOT_UP + oyun kamerasindan okunan egim) -> tek yerde, okunabilir.
+        anchorPos  = GetEntityCoords(veh)
+        -- BAKIS ACISI = CANTA ACILDIGI ANDAKI OYUN KAMERASININ YONU (2026-09-08,
+        -- kullanici istegi): 3. sahiste fareyle yana/geriye bakarken canta acilirsa
+        -- sahne O ACIYLA acilir. Duz ileri bakiyorken kamera yonu zaten aracin
+        -- yonune esittir -> varsayilan "arabanin tam arkasindan" kadraj DEGISMEZ.
+        -- Deger BIR KEZ (tarama sirasinda) okunur ve studioYaw'a donusup canta
+        -- kapanana kadar SABIT kalir; kamera acikken oynamaz.
+        -- Native yoksa aracin kendi yonune duser (eski davranis).
+        vehCamPitch, anchorHead = gameplayCamRot(GetEntityHeading(veh))
         return
     end
+    vehAnchor, vehCamDist, vehCamPitch = nil, nil, nil
 
     anchorPos  = GetEntityCoords(realPed)
     anchorHead = GetEntityHeading(realPed)
@@ -701,48 +814,80 @@ end
 --- gogus bonuna gore hesaplanir) ama GORUNMEZ yapilir -> backdrop panel gorunur,
 --- karakter gorunmez. Torpido/bagaj/motel/otel gibi kap gorunumlerinde kullanilir
 --- (kullanici istegi: arka plan HER YERDE ama karakter SADECE karakter panelinde).
-
 ------------------------------------------------------------------------------
--- GECICI TESHIS (2026-08-30) -- BINA ICINDE ONIZLEME BASLAMIYOR
+-- GORUNURLUK KATMANI (klonu goster / gercek bedeni gizle)
 ------------------------------------------------------------------------------
--- Belirti: magaza/MLO icinde canta acilinca studio kamerasi devreye girmiyor,
--- gercek beden gizlenmiyor, klon yok -> oyuncu normal 3. sahis kamerasini ve
--- KENDI sirtini goruyor (kamera dar mekanda mobilyaya giriyor -- bu oyunun
--- kendi kamerasinin normal davranisi, bizim kameramiz DEGIL).
--- Kurulum penceresi (klon olusturuldu ama henuz freeze edilmedi) birkac kare
--- surdugu icin bu pencerede previewPed'in silinmesi/active'in dusmesi tum
--- kurulumu yarida kesiyor olabilir. Asagidaki iki teshis bunu KESIN olarak
--- ayirt eder. SORUN COZULUNCE BU BLOK TAMAMEN SILINECEK.
-local DIAG = true
+-- TERCIH EDILEN YOL ("local"): klon agda HERKESE gorunmez yapilir, sonra HER KARE
+-- SADECE BIZDE locally-visible edilir; gercek beden de SADECE BIZDE
+-- locally-invisible edilir. Boylece diger oyuncular hicbir sey fark etmez.
+-- ANCAK bu iki native FiveM Enhanced'de Lua tarafinda ISIMLE YOK (2026-09-08,
+-- kullanici F8 ciktisi: "SetEntityLocallyInvisible/Visible bulunamadi"). Sonucu
+-- agirdi: gercek beden gizlenmiyor, klon gorunmez kaliyor -> oyuncu EKRANDA KENDI
+-- BEDENINI goruyor. Yon/donme duzeltmeleri calisiyor ama GORUNMEYEN bir seyde
+-- calisiyordu; "karakter sirti donuk" ve "fareyle cevirme calismiyor"
+-- sikayetlerinin gercek sebebi buydu.
+-- IKI YOL VAR (arada "hash ile dene" diye bir kademe DENENDI ve KALDIRILDI, bkz
+-- resolveVisMode):
+--   1) "local" : isimle bulunan native'ler (Legacy) -- diger oyuncular hicbir sey
+--                fark etmez, TERCIH EDILEN yol.
+--   2) "global": duz SetEntityVisible -- klon HERKESE gorunur, gercek beden
+--                HERKESE gizlenir. Tek oyunculu test sunucusunda fark etmez; canli
+--                sunucuda digerleri sizi klon olarak gorur (AYNI yerde, AYNI
+--                kiyafette) -- ideal degil ama GARANTI calisir.
+--                Kapanista gercek beden MUTLAKA geri gosterilir (DestroyPreview).
+local visMode = nil
+local klonShown = nil   -- "global" modda klonun O ANKI gorunurlugu (sadece degisince yazilir)
 
-local function diagAbort(where)
-    if not DIAG then return end
-    print(('^1[bitirim-teshis] KURULUM YARIDA KESILDI @%s -> active=%s previewPed=%s exists=%s^7')
-        :format(where, tostring(active), tostring(previewPed),
-                (previewPed and tostring(DoesEntityExist(previewPed))) or 'nil'))
+local function resolveVisMode()
+    if visMode then return visMode end
+    if type(rawget(_G, 'SetEntityLocallyVisible')) == 'function'
+        and type(rawget(_G, 'SetEntityLocallyInvisible')) == 'function' then
+        visMode = 'local'
+    else
+        -- HASH ile cagirma DENENMIYOR (2026-09-08'de denendi ve GERILEMEYE yol acti):
+        -- Citizen.InvokeNative var olmayan/karsiligi degismis bir native icin de
+        -- HATASIZ donebiliyor, yani "tuttu mu" DOGRULANAMIYOR. Pratikte cagrilardan
+        -- biri tutup digeri tutmadi -> gercek beden gizlendi ama klon acilmadi,
+        -- karakter paneli KOMPLE BOS kaldi (kullanici bildirdi).
+        -- Dogrulanamayan bir yol yerine GARANTI calisan duz SetEntityVisible.
+        visMode = 'global'
+    end
+    print(('^3[bitirim] gorunurluk yontemi: %s^7'):format(visMode))
+    return visMode
 end
 
---- Acilistan sonra 0.5/1.5/3.0 sn'de sahnenin GERCEK durumunu yazar.
-local function diagWatch()
-    if not DIAG then return end
-    CreateThread(function()
-        for _, delay in ipairs({ 500, 1000, 1500 }) do
-            Wait(delay)
-            local rp = realPed
-            local pp = previewPed
-            print(('^3[bitirim-teshis] t=%dms active=%s klon=%s klonVar=%s kamera=%s camAktif=%s renderTur=%d interiorGercek=%s interiorKlon=%s^7')
-                :format(GetGameTimer() % 100000,
-                        tostring(active),
-                        tostring(pp),
-                        (pp and tostring(DoesEntityExist(pp))) or 'nil',
-                        tostring(studioCam),
-                        (studioCam and tostring(IsCamActive(studioCam))) or 'nil',
-                        diagRenderTicks,
-                        (rp and DoesEntityExist(rp) and tostring(GetInteriorFromEntity(rp))) or 'nil',
-                        (pp and DoesEntityExist(pp) and tostring(GetInteriorFromEntity(pp))) or 'nil'))
+--- Her karede cagrilir ("local" modda native kendini sifirlar, o yuzden tazelenir).
+local function applyVisibility(showCharacter)
+    local mode = resolveVisMode()
+    -- ARAC ICINDE KLON GIZLENIR: sahne araci cerceveliyor, klon ise aracin
+    -- MERKEZINDE AYAKTA duruyor (klon koltuga oturmaz). Yeni gorunurluk
+    -- yonteminde klon herkese gorunur oldugu icin camlardan "arabanin icinde
+    -- ayakta duran adam" gorunurdu -- kadraji da, digerlerinin gordugunu de bozar.
+    local wantKlon = showCharacter and not vehAnchor
+    if mode == 'local' then
+        if realPed and DoesEntityExist(realPed) then SetEntityLocallyInvisible(realPed) end
+        if wantKlon and previewPed and DoesEntityExist(previewPed) then
+            SetEntityLocallyVisible(previewPed)
         end
-    end)
+    elseif klonShown ~= wantKlon and previewPed and DoesEntityExist(previewPed) then
+        -- "global" modda gorunurluk kendini SIFIRLAMAZ -> sadece DEGISTIGINDE yaz
+        -- (her kare native cagirmak gereksiz trafik).
+        klonShown = wantKlon
+        SetEntityVisible(previewPed, wantKlon, false)
+    end
+    -- "global" modda her kare bir sey yapilmaz; gorunurluk acilista BIR KEZ
+    -- ayarlanir ve kapanista GERI ALINIR (bkz beginVisibility + DestroyPreview'daki geri gosterme).
 end
+
+--- Acilista bir kez: "global" modda GERCEK BEDENI gizle. Klonun gorunurlugu
+--- applyVisibility'nin isi (arac durumuna gore degisebiliyor) -- tek sahip olsun
+--- diye buradan cikarildi.
+local function beginVisibility()
+    klonShown = nil
+    if resolveVisMode() ~= 'global' then return end
+    if realPed and DoesEntityExist(realPed) then SetEntityVisible(realPed, false, false) end
+end
+
 local function CreatePreview(showCharacter)
     if showCharacter == nil then showCharacter = true end
     if active then return end
@@ -772,6 +917,7 @@ local function CreatePreview(showCharacter)
     -- acilisinda yanlis imza tekrar denenip konsola "Script error in Native
     -- ClonePed" satiri basardi (islev bozulmaz ama gereksiz gurultu).
     previewPed = nil
+    klonFrozen = false
     local shapes = clonePedShape and { clonePedShape } or { 'legacy', 'modern' }
     for _, shape in ipairs(shapes) do
         local ok, ent
@@ -795,6 +941,12 @@ local function CreatePreview(showCharacter)
         return
     end
     pcall(ClonePedToTarget, ped, previewPed)
+    -- Klon ile GERCEK beden birbirine ASLA fizik uygulamasin. Kurulum penceresinde
+    -- (oda kaydi icin) klonun carpismasi kisa sure ACIK kaliyor ve ikisi TAM AYNI
+    -- noktada duruyor -- itisme/savrulma riski. Aractaki carpma sorunuyla (bkz
+    -- asagisi) ayni sinif; orada araba klona carpiyordu.
+    pcall(SetEntityNoCollisionEntity, previewPed, ped, false)
+    pcall(SetEntityNoCollisionEntity, ped, previewPed, false)
     -- FIX (2026-08-26): "false" previewPed'i GTA'nin otomatik ambient ped/entity
     -- temizliginden KORUMUYORDU (mission-entity DEGIL) — networked=true oldugu
     -- icin (yukaridaki AG-GORUNURLUGU notu) VE interior'larin acik dunyaya gore
@@ -864,8 +1016,6 @@ local function CreatePreview(showCharacter)
     spawnBackdrop()
 
     active = true
-    diagRenderTicks = 0
-    diagWatch()   -- GECICI TESHIS
     compCache = {}
     curWeapon = nil
     setupStudio()               -- klon+kamera+backdrop studio konumuna (previewPed HALA collision'li/frozen degil)
@@ -897,13 +1047,27 @@ local function CreatePreview(showCharacter)
     -- yazma bile olmayabiliyordu -> klon magaza/MLO icinde portal testine takilip
     -- GORUNMEZ kaliyordu (kullanici: karakter paneli komple bos). Burada guard'i
     -- BILEREK atlayip her karede acikca yaziyoruz.
-    optNative('RequestCollisionAtCoord', anchorPos.x, anchorPos.y, anchorPos.z)
-    for _ = 1, 3 do
-        SetEntityCoordsNoOffset(previewPed, anchorPos.x, anchorPos.y, anchorPos.z, false, false, false)
-        -- Collision bu pencerede ACIK oldugu icin devralinan hiz klonu kaydirabilir.
-        SetEntityVelocity(previewPed, 0.0, 0.0, 0.0)
-        Wait(0)
-        if not active or not previewPed or not DoesEntityExist(previewPed) then diagAbort("oda-kaydi-dongusu"); return end
+    -- ARAC ICINDE BU PENCERE TEHLIKELI (2026-09-08, kullanici bildirdi): klon
+    -- carpismasi ACIK bir ped olarak oyuncunun konumunda -- yani HAREKET EDEN
+    -- ARACIN icinde/onunde -- duruyor. 150 km/h giderken canta acilinca araba
+    -- klona CARPIYOR: aracin onunde kan, carpma sesi ve ciddi hiz kaybi.
+    -- Aractayken oda/portal kaydina zaten IHTIYAC YOK (MLO icinde degiliz ve klon
+    -- arac modunda gizli), o yuzden pencereyi komple atlayip klonu ANINDA
+    -- carpismasiz + donmus yapiyoruz.
+    local inVeh = GetVehiclePedIsIn(realPed, false)
+    if inVeh and inVeh ~= 0 then
+        SetEntityCollision(previewPed, false, false)
+        FreezeEntityPosition(previewPed, true)
+        klonFrozen = true
+    else
+        optNative('RequestCollisionAtCoord', anchorPos.x, anchorPos.y, anchorPos.z)
+        for _ = 1, 3 do
+            SetEntityCoordsNoOffset(previewPed, anchorPos.x, anchorPos.y, anchorPos.z, false, false, false)
+            -- Collision bu pencerede ACIK oldugu icin devralinan hiz klonu kaydirabilir.
+            SetEntityVelocity(previewPed, 0.0, 0.0, 0.0)
+            Wait(0)
+            if not active or not previewPed or not DoesEntityExist(previewPed) then return end
+        end
     end
 
     -- Ustelik oda kaydini SANSA birakmiyoruz: oyuncu bir MLO icindeyse klonu
@@ -933,11 +1097,12 @@ local function CreatePreview(showCharacter)
     -- DestroyPreview() calisirsa) previewPed COKTAN silinmis olabilir. Boyle bir durumda
     -- silinmis/gecersiz entity uzerinde native cagirmamak icin burada durup cikariz
     -- (DestroyPreview zaten her seyi temizledi, tekrar dokunmuyoruz).
-    if not active or not previewPed or not DoesEntityExist(previewPed) then diagAbort("tarama-sonrasi"); return end
+    if not active or not previewPed or not DoesEntityExist(previewPed) then return end
 
     setupStudio()   -- taramanin sectigi yonle kamerayi/klonu yeniden otur
 
     FreezeEntityPosition(previewPed, true)  -- KLON statik (ARTIK oda kaydi olustuktan SONRA)
+    klonFrozen = true
     SetEntityCollision(previewPed, false, false)
 
     SetCamActive(studioCam, true)
@@ -977,22 +1142,14 @@ local function CreatePreview(showCharacter)
     -- KALBIDIR ama yine de BIR KEZ cozulup null kontrolunden geciriliyor: yoksa
     -- render thread her karede hata firlatip OLURDU ve belirti yine "kamera
     -- bozuldu" gibi gorunurdu. Yoksa uyari yazilir, dongu calismaya devam eder.
-    local hideReal = rawget(_G, 'SetEntityLocallyInvisible')
-    local showKlon = rawget(_G, 'SetEntityLocallyVisible')
-    if not hideReal or not showKlon then
-        print('^3[bitirim] UYARI: SetEntityLocallyInvisible/Visible bulunamadi -- gercek beden gizlenemeyebilir^7')
-    end
+    -- Gorunurluk: hangi yontemin kullanilacagini GORUNURLUK KATMANI secer
+    -- ("local" / "hash" / "global" -- bkz yukaridaki blok). "global" modda acilista
+    -- bir kez ayarlanir, digerlerinde her kare tazelenir.
+    beginVisibility()
 
     CreateThread(function()
         while active and previewPed and DoesEntityExist(previewPed) do
-            if hideReal and realPed and DoesEntityExist(realPed) then hideReal(realPed) end
-            -- Klon agda GENEL OLARAK gorunmez (yukaridaki not) -> SADECE showCharacter
-            -- ise, SADECE bu client'ta HER KARE uzerine yazip gorunur yapariz (native
-            -- kendini sifirlar, SetEntityLocallyInvisible ile ayni desen). Baska
-            -- oyuncular ASLA gormez; showCharacter=false ise (kap gorunumu) biz de
-            -- gormeyiz (mevcut niyetle ayni).
-            if showCharacter and showKlon then showKlon(previewPed) end
-            diagRenderTicks = diagRenderTicks + 1   -- GECICI TESHIS
+            applyVisibility(showCharacter)
             updateAnchor()
             setupStudio()
             -- Odak SABIT bir noktaya kurulur (canli kemik degil) -> streaming/ses
@@ -1045,8 +1202,11 @@ local function DestroyPreview()
         DeletePed(previewPed)
     end
     previewPed = nil
+    klonFrozen = false
 
-    -- Gercek bedeni kesin geri goster (LocallyInvisible zaten kendini sifirlar; emniyet).
+    -- Gercek bedeni kesin geri goster. "global" gorunurluk modunda bu SART:
+    -- orada gercek beden SetEntityVisible ile HERKESE gizlenmisti, kendiliginden
+    -- geri gelmez (locally-invisible gibi her kare sifirlanan bir sey degil).
     if realPed and DoesEntityExist(realPed) then
         SetEntityVisible(realPed, true, false)
         ResetEntityAlpha(realPed)
