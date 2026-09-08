@@ -926,6 +926,12 @@ local function CreatePreview(showCharacter)
         return
     end
     pcall(ClonePedToTarget, ped, previewPed)
+    -- Klon ile GERCEK beden birbirine ASLA fizik uygulamasin. Kurulum penceresinde
+    -- (oda kaydi icin) klonun carpismasi kisa sure ACIK kaliyor ve ikisi TAM AYNI
+    -- noktada duruyor -- itisme/savrulma riski. Aractaki carpma sorunuyla (bkz
+    -- asagisi) ayni sinif; orada araba klona carpiyordu.
+    pcall(SetEntityNoCollisionEntity, previewPed, ped, false)
+    pcall(SetEntityNoCollisionEntity, ped, previewPed, false)
     -- FIX (2026-08-26): "false" previewPed'i GTA'nin otomatik ambient ped/entity
     -- temizliginden KORUMUYORDU (mission-entity DEGIL) — networked=true oldugu
     -- icin (yukaridaki AG-GORUNURLUGU notu) VE interior'larin acik dunyaya gore
@@ -1028,13 +1034,27 @@ local function CreatePreview(showCharacter)
     -- yazma bile olmayabiliyordu -> klon magaza/MLO icinde portal testine takilip
     -- GORUNMEZ kaliyordu (kullanici: karakter paneli komple bos). Burada guard'i
     -- BILEREK atlayip her karede acikca yaziyoruz.
-    optNative('RequestCollisionAtCoord', anchorPos.x, anchorPos.y, anchorPos.z)
-    for _ = 1, 3 do
-        SetEntityCoordsNoOffset(previewPed, anchorPos.x, anchorPos.y, anchorPos.z, false, false, false)
-        -- Collision bu pencerede ACIK oldugu icin devralinan hiz klonu kaydirabilir.
-        SetEntityVelocity(previewPed, 0.0, 0.0, 0.0)
-        Wait(0)
-        if not active or not previewPed or not DoesEntityExist(previewPed) then diagAbort("oda-kaydi-dongusu"); return end
+    -- ARAC ICINDE BU PENCERE TEHLIKELI (2026-09-08, kullanici bildirdi): klon
+    -- carpismasi ACIK bir ped olarak oyuncunun konumunda -- yani HAREKET EDEN
+    -- ARACIN icinde/onunde -- duruyor. 150 km/h giderken canta acilinca araba
+    -- klona CARPIYOR: aracin onunde kan, carpma sesi ve ciddi hiz kaybi.
+    -- Aractayken oda/portal kaydina zaten IHTIYAC YOK (MLO icinde degiliz ve klon
+    -- arac modunda gizli), o yuzden pencereyi komple atlayip klonu ANINDA
+    -- carpismasiz + donmus yapiyoruz.
+    local inVeh = GetVehiclePedIsIn(realPed, false)
+    if inVeh and inVeh ~= 0 then
+        SetEntityCollision(previewPed, false, false)
+        FreezeEntityPosition(previewPed, true)
+        klonFrozen = true
+    else
+        optNative('RequestCollisionAtCoord', anchorPos.x, anchorPos.y, anchorPos.z)
+        for _ = 1, 3 do
+            SetEntityCoordsNoOffset(previewPed, anchorPos.x, anchorPos.y, anchorPos.z, false, false, false)
+            -- Collision bu pencerede ACIK oldugu icin devralinan hiz klonu kaydirabilir.
+            SetEntityVelocity(previewPed, 0.0, 0.0, 0.0)
+            Wait(0)
+            if not active or not previewPed or not DoesEntityExist(previewPed) then diagAbort("oda-kaydi-dongusu"); return end
+        end
     end
 
     -- Ustelik oda kaydini SANSA birakmiyoruz: oyuncu bir MLO icindeyse klonu
