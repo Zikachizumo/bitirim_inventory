@@ -613,6 +613,40 @@ end
 --- takip eder — ARTIK ne +Z offseti ne de interior icin ayri bir fallback VAR
 --- (bkz dosya basi mimari notu): previewPed asla oyuncunun bulundugu yerin
 --- disina (baska interior/routing/gokyuzu/sehir ustu) TASINMAZ.
+
+--- Oyun kamerasinin O ANKI yatay yonu (heading). Uc yol SIRAYLA denenir, cunku
+--- isim baglamalari oyun yapisina gore degisiyor (Enhanced'de bircok native Lua
+--- tarafinda ISIMLE yok -- bkz optNative):
+---   1) GetGameplayCamRot(2).z                     -- dogrudan isimle
+---   2) ayni native HASH ile (vector sonuc)
+---   3) referans yon + GetGameplayCamRelativeHeading()
+--- Hicbiri sonuc vermezse fallback (aracin kendi yonu) dondurulur = eski davranis.
+--- Hangi yolun tuttugu canta acilisinda BIR KEZ yazilir -> calismadiginda tahmin
+--- yurutmeye gerek kalmaz.
+local camYawLogged = false
+local function gameplayCamYaw(fallback)
+    local yaw, how = nil, 'fallback'
+
+    local rot = optNative('GetGameplayCamRot', 2)
+    if rot and rot.z then
+        yaw, how = rot.z, 'isim'
+    else
+        local ok, v = pcall(Citizen.InvokeNative, 0x837765A25378F0BB, 2, Citizen.ResultAsVector())
+        if ok and v and v.z then
+            yaw, how = v.z, 'hash'
+        else
+            local rel = optNative('GetGameplayCamRelativeHeading')
+            if rel then yaw, how = (fallback + rel) % 360.0, 'goreli' end
+        end
+    end
+
+    if not camYawLogged then
+        camYawLogged = true
+        print(('^3[bitirim] arac bakis acisi: %s (kameraYon=%s aracYon=%.1f)^7')
+            :format(how, yaw and ('%.1f'):format(yaw) or 'yok', fallback))
+    end
+    return yaw or fallback
+end
 local function updateAnchor()
     if not realPed or not DoesEntityExist(realPed) then return end
 
@@ -651,8 +685,7 @@ local function updateAnchor()
         -- Deger BIR KEZ (tarama sirasinda) okunur ve studioYaw'a donusup canta
         -- kapanana kadar SABIT kalir; kamera acikken oynamaz.
         -- Native yoksa aracin kendi yonune duser (eski davranis).
-        local camRot = optNative('GetGameplayCamRot', 2)
-        anchorHead = (camRot and camRot.z) or GetEntityHeading(veh)
+        anchorHead = gameplayCamYaw(GetEntityHeading(veh))
         return
     end
     vehAnchor, vehCamDist = nil, nil
@@ -1010,6 +1043,7 @@ local function CreatePreview(showCharacter)
 
     active = true
     diagRenderTicks = 0
+    camYawLogged = false
     diagWatch()   -- GECICI TESHIS
     compCache = {}
     curWeapon = nil
