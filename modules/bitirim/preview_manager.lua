@@ -191,9 +191,12 @@ local curWeapon    = nil
 local camF         = nil    -- kamera ileri vektoru (studioYaw'dan turetilir)
 local camR         = nil    -- kamera sag vektoru (studioYaw'dan turetilir; camSide bu eksende kaydirir)
 local vehAnchor    = nil    -- oyuncu aractaysa o arac; sahne aracin ARKASINDAN cerceveler (bkz updateAnchor)
-local VEH_CAM_UP      = 1.60  -- arac kamerasi arac merkezinin kac metre USTUNDE
-local VEH_CAM_LOOK_UP = 0.40  -- bakis hedefi arac merkezinin kac metre ustu (hafif asagi bakis)
+local VEH_PIVOT_UP        = 1.00  -- kameranin etrafinda dondugu nokta arac merkezinin kac metre ustunde (oyunun kendi arac kamerasi da merkezin biraz ustunu yorunge merkezi alir)
+local VEH_CAM_PITCH_DEFAULT = -10.0 -- kamera egimi okunamazsa kullanilacak deger (hafif asagi bakis)
+local VEH_CAM_PITCH_MIN     = -80.0 -- tam tepeden bakisin siniri
+local VEH_CAM_PITCH_MAX     =  25.0 -- alttan bakisin siniri
 local VEH_CAM_FOV     = 50.0  -- arac kadraji icin gorus acisi (karakter FOV'undan BAGIMSIZ)
+local vehCamPitch  = nil    -- arac icin kamera egimi (canta acilirken oyun kamerasindan okunur)
 local vehCamDist   = nil    -- arac icin kamera mesafesi (arac boyuna gore olceklenir)
 local klonFrozen   = false  -- klon FreezeEntityPosition ile dondurulduysa true (yon yazarken gecici olarak cozmek icin)
 local klonHeading  = 0.0    -- klonun O ANKI yonu; kameranin gercek konumundan turetilir (bkz computeCameraBasis)
@@ -508,12 +511,17 @@ local function computeCameraBasis()
     -- aracin merkezine bakar. Oyunun kendi 3. sahis arac kamerasiyla ayni his.
     if vehAnchor then
         local dist = vehCamDist or 6.0
-        SetCamCoord(studioCam,
-            anchorPos.x - fwd.x * dist,
-            anchorPos.y - fwd.y * dist,
-            anchorPos.z + VEH_CAM_UP)
+        -- Kamera, YORUNGE MERKEZININ (arac merkezi + VEH_PIVOT_UP) etrafinda,
+        -- oyun kamerasindan okunan YATAY (yaw -> fwd) ve DIKEY (pitch) aciyla
+        -- konumlanir. Yukseklik artik sabit bir sayidan DEGIL, egimden gelir:
+        -- tepeden bakiyorken kamera yukari cikar, yerden bakiyorken asagi iner.
+        local pr = math.rad(vehCamPitch or VEH_CAM_PITCH_DEFAULT)
+        local cp = math.cos(pr)
+        local dx, dy, dz = fwd.x * cp, fwd.y * cp, math.sin(pr)
+        local px, py, pz = anchorPos.x, anchorPos.y, anchorPos.z + VEH_PIVOT_UP
+        SetCamCoord(studioCam, px - dx * dist, py - dy * dist, pz - dz * dist)
         SetCamFov(studioCam, VEH_CAM_FOV)
-        PointCamAtCoord(studioCam, anchorPos.x, anchorPos.y, anchorPos.z + VEH_CAM_LOOK_UP)
+        PointCamAtCoord(studioCam, px, py, pz)
         return
     end
 
@@ -623,29 +631,43 @@ end
 --- Hicbiri sonuc vermezse fallback (aracin kendi yonu) dondurulur = eski davranis.
 --- Hangi yolun tuttugu canta acilisinda BIR KEZ yazilir -> calismadiginda tahmin
 --- yurutmeye gerek kalmaz.
+--- Oyun kamerasinin O ANKI yonu: YATAY (yaw) *ve* DIKEY (pitch).
+--- Once sadece yaw okunuyordu; kamera yuksekligi sabit bir degerden geliyordu, bu
+--- yuzden aracin TEPESINDEN veya YERDEN bakiyorken canta acilinca sahne hep ayni
+--- yukseklige atliyordu (kullanici bildirdi, 2026-09-08). Pitch de okununca acinin
+--- TAMAMI korunur.
 local camYawLogged = false
-local function gameplayCamYaw(fallback)
-    local yaw, how = nil, 'fallback'
+local function gameplayCamRot(fallbackYaw)
+    local pitch, yaw, how = nil, nil, 'fallback'
 
     local rot = optNative('GetGameplayCamRot', 2)
     if rot and rot.z then
-        yaw, how = rot.z, 'isim'
+        pitch, yaw, how = rot.x, rot.z, 'isim'
     else
         local ok, v = pcall(Citizen.InvokeNative, 0x837765A25378F0BB, 2, Citizen.ResultAsVector())
         if ok and v and v.z then
-            yaw, how = v.z, 'hash'
+            pitch, yaw, how = v.x, v.z, 'hash'
         else
             local rel = optNative('GetGameplayCamRelativeHeading')
-            if rel then yaw, how = (fallback + rel) % 360.0, 'goreli' end
+            if rel then
+                yaw, how = (fallbackYaw + rel) % 360.0, 'goreli'
+                pitch = optNative('GetGameplayCamRelativePitch')
+            end
         end
     end
 
+    pitch = pitch or VEH_CAM_PITCH_DEFAULT
+    -- Uc degerleri kirp: tam tepeden/tam alttan bakisla kamera dejenere konuma
+    -- (aracin tam icine ya da zeminin altina) dusmesin.
+    if pitch < VEH_CAM_PITCH_MIN then pitch = VEH_CAM_PITCH_MIN end
+    if pitch > VEH_CAM_PITCH_MAX then pitch = VEH_CAM_PITCH_MAX end
+
     if not camYawLogged then
         camYawLogged = true
-        print(('^3[bitirim] arac bakis acisi: %s (kameraYon=%s aracYon=%.1f)^7')
-            :format(how, yaw and ('%.1f'):format(yaw) or 'yok', fallback))
+        print(('^3[bitirim] arac bakis acisi: %s (yon=%s egim=%.1f aracYon=%.1f)^7')
+            :format(how, yaw and ('%.1f'):format(yaw) or 'yok', pitch, fallbackYaw))
     end
-    return yaw or fallback
+    return pitch, yaw or fallbackYaw
 end
 local function updateAnchor()
     if not realPed or not DoesEntityExist(realPed) then return end
@@ -675,8 +697,8 @@ local function updateAnchor()
             len  = maxD.y - minD.y
         end
         vehCamDist = len * 0.5 + 4.5
-        -- Ankor DUZ arac merkezi; yukseklik ayari kamera tarafinda (VEH_CAM_UP)
-        -- yapilir -> tek yerde, okunabilir.
+        -- Ankor DUZ arac merkezi; yukseklik/egim ayari kamera tarafinda yapilir
+        -- (VEH_PIVOT_UP + oyun kamerasindan okunan egim) -> tek yerde, okunabilir.
         anchorPos  = GetEntityCoords(veh)
         -- BAKIS ACISI = CANTA ACILDIGI ANDAKI OYUN KAMERASININ YONU (2026-09-08,
         -- kullanici istegi): 3. sahiste fareyle yana/geriye bakarken canta acilirsa
@@ -685,10 +707,10 @@ local function updateAnchor()
         -- Deger BIR KEZ (tarama sirasinda) okunur ve studioYaw'a donusup canta
         -- kapanana kadar SABIT kalir; kamera acikken oynamaz.
         -- Native yoksa aracin kendi yonune duser (eski davranis).
-        anchorHead = gameplayCamYaw(GetEntityHeading(veh))
+        vehCamPitch, anchorHead = gameplayCamRot(GetEntityHeading(veh))
         return
     end
-    vehAnchor, vehCamDist = nil, nil
+    vehAnchor, vehCamDist, vehCamPitch = nil, nil, nil
 
     anchorPos  = GetEntityCoords(realPed)
     anchorHead = GetEntityHeading(realPed)
